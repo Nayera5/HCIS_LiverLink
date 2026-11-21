@@ -2,6 +2,9 @@ from django.contrib import admin
 
 from .models import DonorApplication, MRNSequence, Patient
 
+# Consent is deliberately not registered: Super Admin must not view consent records (they monitor
+# consent actions through the audit log only).
+
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
@@ -35,3 +38,4 @@ class MRNSequenceAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
