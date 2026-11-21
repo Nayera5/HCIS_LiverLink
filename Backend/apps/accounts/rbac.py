@@ -32,7 +32,8 @@ STAFF_CAPABILITIES = {
     'donor_applications.screen': frozenset({T.TRANSPLANT_COORDINATOR}),
     'donor_applications.view': CLINICAL_READERS,
     'consents.record': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
-    'consents.view': CLINICAL_READERS,
+    # Super Admin does not see consent records; consent actions are monitored via the audit log.
+    'consents.view': CLINICAL_READERS - {T.SUPER_ADMIN},
 }
 
 # Self-service capabilities of patient/donor accounts (always limited to their own records).

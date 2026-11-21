@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import donor_views, views
+from . import consent_views, donor_views, views
 
 # Mounted under /api/ in config/urls.py.
 urlpatterns = [
@@ -22,4 +22,10 @@ urlpatterns = [
          name='donor_app_status'),
     path('donor-applications/<int:pk>/withdraw/', donor_views.ApplicationWithdrawView.as_view(),
          name='donor_app_withdraw'),
+
+    # Consents (Stage 6): surgery consents; staff per patient, portal read-only.
+    path('patients/<int:pk>/consents/', consent_views.PatientConsentsView.as_view(), name='patient_consents'),
+    path('consents/mine/', consent_views.MyConsentsView.as_view(), name='consent_mine'),
+    path('consents/witnesses/', consent_views.ConsentWitnessesView.as_view(), name='consent_witnesses'),
+    path('consents/<int:pk>/withdraw/', consent_views.ConsentWithdrawView.as_view(), name='consent_withdraw'),
 ]

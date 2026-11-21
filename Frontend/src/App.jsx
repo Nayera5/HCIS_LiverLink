@@ -15,6 +15,7 @@ import LoginRoute from './pages/Login/LoginRoute'
 import PatientDetailPage from './pages/Patients/PatientDetailPage'
 import PatientRegisterPage from './pages/Patients/PatientRegisterPage'
 import PatientsPage from './pages/Patients/PatientsPage'
+import MyConsentsPage from './pages/Portal/MyConsentsPage'
 import MyDonorApplicationsPage from './pages/Portal/MyDonorApplicationsPage'
 import MyRecordPage from './pages/Portal/MyRecordPage'
 import ProfilePage from './pages/Profile/ProfilePage'
@@ -55,6 +56,9 @@ function App() {
               </Route>
               <Route element={<RequireCapability capability="self.donor_applications" />}>
                 <Route path="my-donor-applications" element={<MyDonorApplicationsPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="self.consents" />}>
+                <Route path="my-consents" element={<MyConsentsPage />} />
               </Route>
 
               <Route element={<RequireCapability capability="donor_applications.view" />}>

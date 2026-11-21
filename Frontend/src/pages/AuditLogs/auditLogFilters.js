@@ -42,6 +42,7 @@ const ENTITY_LABELS = {
   'registry.patient': 'Patient record',
   'accounts.user': 'User account',
   'registry.donorapplication': 'Donor application',
+  'registry.consent': 'Consent',
 }
 
 /** Filters kept in the page URL. `page` is handled separately by the page. */

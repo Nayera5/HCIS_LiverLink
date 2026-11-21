@@ -1,6 +1,6 @@
 // Sidebar navigation. Items are shown only when the user holds `capability` (if given);
 // the backend enforces the same rules. Later stages add their pages here.
-import { ClipboardIcon, GridIcon, HeartPulseIcon, ShieldIcon, UserIcon, UserPlusIcon, UsersIcon } from '../ui/icons'
+import { CheckCircleIcon, ClipboardIcon, GridIcon, HeartPulseIcon, ShieldIcon, UserIcon, UserPlusIcon, UsersIcon } from '../ui/icons'
 
 export const NAV_SECTIONS = [
   {
@@ -20,6 +20,7 @@ export const NAV_SECTIONS = [
       { to: '/my-record', label: 'My health record', icon: HeartPulseIcon, capability: 'self.patient_record' },
       { to: '/my-donor-applications', label: 'My donor applications', icon: UserPlusIcon,
         capability: 'self.donor_applications' },
+      { to: '/my-consents', label: 'My consents', icon: CheckCircleIcon, capability: 'self.consents' },
     ],
   },
   {
