@@ -47,12 +47,26 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Rates for views that opt in with `throttle_scope` (no global throttling).
+    'DEFAULT_THROTTLE_RATES': {
+        'password_reset': '5/hour',
+        'registration': '10/hour',
+    },
 }
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    # Each refresh returns a new refresh token and blacklists the old one (needs token_blacklist).
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    # Record User.last_login on every successful token login (usage reports, user management).
+    'UPDATE_LAST_LOGIN': True,
 }
+
+# Frontend base URL, used to build password-reset links in emails.
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'LiverLink <no-reply@liverlink.local>')
 
 # Application definition
 
@@ -67,6 +81,7 @@ INSTALLED_APPS = [
     # Third-party
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
 
     # Local apps
@@ -134,6 +149,10 @@ if DATABASES['default']['ENGINE'] == 'django.db.backends.postgresql':
     DATABASES['default'].setdefault('OPTIONS', {}).setdefault('sslmode', 'require')
     # Required when using Neon's pooled (PgBouncer) connection string
     DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
+
+
+# Custom user model (maps onto the existing auth_user table)
+AUTH_USER_MODEL = 'accounts.User'
 
 
 # Password validation
