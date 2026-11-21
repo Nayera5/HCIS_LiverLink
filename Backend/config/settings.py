@@ -51,6 +51,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'password_reset': '5/hour',
         'registration': '10/hour',
+        'donor_application': '20/hour',  # submissions only (limits recipient-MRN guessing)
     },
 }
 
