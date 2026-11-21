@@ -12,6 +12,12 @@ import LoginRoute from './pages/Login/LoginRoute'
 import PatientDetailPage from './pages/Patients/PatientDetailPage'
 import PatientRegisterPage from './pages/Patients/PatientRegisterPage'
 import PatientsPage from './pages/Patients/PatientsPage'
+import LabOrderCreatePage from './pages/Labs/LabOrderCreatePage'
+import LabOrderDetailPage from './pages/Labs/LabOrderDetailPage'
+import LabOrdersPage from './pages/Labs/LabOrdersPage'
+import MyLabOrdersPage from './pages/Labs/MyLabOrdersPage'
+import MyLabResultsPage from './pages/Labs/MyLabResultsPage'
+import PendingTestsPage from './pages/Labs/PendingTestsPage'
 import MyRecordPage from './pages/Portal/MyRecordPage'
 import ProfilePage from './pages/Profile/ProfilePage'
 import UserCreatePage from './pages/Users/UserCreatePage'
@@ -48,6 +54,19 @@ function App() {
               </Route>
               <Route element={<RequireCapability capability="self.patient_record" />}>
                 <Route path="my-record" element={<MyRecordPage />} />
+              </Route>
+
+              <Route element={<RequireCapability capability="labs.view" />}>
+                <Route path="lab/orders" element={<LabOrdersPage />} />
+                <Route path="lab/orders/:id" element={<LabOrderDetailPage />} />
+                <Route path="lab/pending" element={<PendingTestsPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="labs.order" />}>
+                <Route path="lab/orders/new" element={<LabOrderCreatePage />} />
+              </Route>
+              <Route element={<RequireCapability capability="self.lab_results" />}>
+                <Route path="my-results" element={<MyLabResultsPage />} />
+                <Route path="my-lab-orders" element={<MyLabOrdersPage />} />
               </Route>
 
               <Route element={<RequireCapability capability="users.manage" />}>

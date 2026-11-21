@@ -13,6 +13,7 @@ import Panel from '../../components/ui/Panel'
 import SelectField from '../../components/ui/SelectField'
 import { useApi } from '../../hooks/useApi'
 import { formatDate, formatDateTime } from '../../utils/format'
+import PatientLabResultsPanel from '../Labs/PatientLabResultsPanel'
 import PatientForm from './PatientForm'
 import { ageSex, CATEGORY_LABELS, CATEGORY_OPTIONS, categoryBadge, patientName } from './patientDisplay'
 import './Patients.css'
@@ -172,6 +173,7 @@ export default function PatientDetailPage() {
             </div>
           </div>
         )}
+        {!editing && can('labs.view') && <PatientLabResultsPanel patientId={patient.id} />}
       </div>
     </>
   )

@@ -33,6 +33,11 @@ STAFF_CAPABILITIES = {
     'donor_applications.view': CLINICAL_READERS,
     'consents.record': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
     'consents.view': CLINICAL_READERS,
+    # Laboratory (Module 5)
+    'labs.view': CLINICAL_READERS,
+    'labs.order': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    'labs.enter_result': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
+    'labs.release': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
 }
 
 # Self-service capabilities of patient/donor accounts (always limited to their own records).
@@ -40,6 +45,7 @@ PATIENT_CAPABILITIES = frozenset({
     'self.patient_record',      # view own record, edit own contact details
     'self.donor_applications',  # submit / view / withdraw own applications
     'self.consents',            # view own consents
+    'self.lab_results',         # view own RELEASED lab results and trends
 })
 
 EVERYONE = frozenset({'self.profile'})  # own account profile + password

@@ -189,3 +189,10 @@ export const HeartPulseIcon = (p) => (
     <path d="M3.5 12h4l2-3 3 5 2-2h5" />
   </Svg>
 )
+
+export const FlaskIcon = (p) => (
+  <Svg {...p}>
+    <path d="M9.5 3.5h5M10.5 3.5v6L5 19a1.6 1.6 0 0 0 1.4 2.4h11.2A1.6 1.6 0 0 0 19 19l-5.5-9.5v-6" />
+    <path d="M7.8 15h8.4" />
+  </Svg>
+)

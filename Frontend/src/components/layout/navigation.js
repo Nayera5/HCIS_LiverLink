@@ -1,6 +1,6 @@
 // Sidebar navigation. Items are shown only when the user holds `capability` (if given);
 // the backend enforces the same rules. Later stages add their pages here.
-import { ClipboardIcon, GridIcon, HeartPulseIcon, ShieldIcon, UserIcon, UsersIcon } from '../ui/icons'
+import { ClipboardIcon, ClockIcon, FlaskIcon, GridIcon, HeartPulseIcon, ShieldIcon, UserIcon, UsersIcon } from '../ui/icons'
 
 export const NAV_SECTIONS = [
   {
@@ -9,11 +9,19 @@ export const NAV_SECTIONS = [
   },
   {
     label: 'Clinical',
-    items: [{ to: '/patients', label: 'Patients', icon: ClipboardIcon, capability: 'patients.view' }],
+    items: [
+      { to: '/patients', label: 'Patients', icon: ClipboardIcon, capability: 'patients.view' },
+      { to: '/lab/orders', label: 'Lab orders', icon: FlaskIcon, capability: 'labs.view' },
+      { to: '/lab/pending', label: 'Pending tests', icon: ClockIcon, capability: 'labs.view' },
+    ],
   },
   {
     label: 'My health',
-    items: [{ to: '/my-record', label: 'My health record', icon: HeartPulseIcon, capability: 'self.patient_record' }],
+    items: [
+      { to: '/my-record', label: 'My health record', icon: HeartPulseIcon, capability: 'self.patient_record' },
+      { to: '/my-lab-orders', label: 'My lab orders', icon: ClockIcon, capability: 'self.lab_results' },
+      { to: '/my-results', label: 'My lab results', icon: FlaskIcon, capability: 'self.lab_results' },
+    ],
   },
   {
     label: 'Administration',

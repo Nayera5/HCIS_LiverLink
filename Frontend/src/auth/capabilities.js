@@ -11,9 +11,14 @@ export const CAPABILITY_DESCRIPTIONS = {
   'donor_applications.view': 'View donor applications',
   'consents.record': 'Record signed consents and withdrawals',
   'consents.view': 'View patients’ consent records',
+  'labs.view': 'View lab orders, pending tests, results and trends',
+  'labs.order': 'Order lab tests and cancel orders',
+  'labs.enter_result': 'Enter results received from the external lab',
+  'labs.release': 'Release lab results to the patient portal',
   'self.patient_record': 'View your own record and update your contact details',
   'self.donor_applications': 'Apply to become a living donor and follow your application',
   'self.consents': 'View the consents you have signed',
+  'self.lab_results': 'View your lab results and how they change over time',
   'self.profile': 'Manage your own account and password',
 }
 
@@ -21,7 +26,8 @@ export const CAPABILITY_DESCRIPTIONS = {
 // added here when their stage is delivered, so dashboards never list unavailable features.
 export const IMPLEMENTED_CAPABILITIES = new Set([
   'users.manage', 'audit.view', 'patients.register', 'patients.view', 'patients.edit', 'patients.change_category',
-  'self.patient_record', 'self.profile',
+  'labs.view', 'labs.order', 'labs.enter_result', 'labs.release',
+  'self.patient_record', 'self.lab_results', 'self.profile',
 ])
 
 export function describeCapabilities(capabilities = []) {
