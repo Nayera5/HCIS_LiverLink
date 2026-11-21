@@ -1,6 +1,6 @@
 // Sidebar navigation. Items are shown only when the user holds `capability` (if given);
 // the backend enforces the same rules. Later stages add their pages here.
-import { ClipboardIcon, GridIcon, HeartPulseIcon, UserIcon, UsersIcon } from '../ui/icons'
+import { ClipboardIcon, GridIcon, HeartPulseIcon, ShieldIcon, UserIcon, UsersIcon } from '../ui/icons'
 
 export const NAV_SECTIONS = [
   {
@@ -17,7 +17,10 @@ export const NAV_SECTIONS = [
   },
   {
     label: 'Administration',
-    items: [{ to: '/admin/users', label: 'Users & access', icon: UsersIcon, capability: 'users.manage' }],
+    items: [
+      { to: '/admin/users', label: 'Users & access', icon: UsersIcon, capability: 'users.manage' },
+      { to: '/admin/audit-logs', label: 'Audit logs', icon: ShieldIcon, capability: 'audit.view' },
+    ],
   },
   {
     label: 'Account',

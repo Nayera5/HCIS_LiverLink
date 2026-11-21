@@ -186,6 +186,13 @@ class AuditLog(models.Model):
         LOGIN = 'login', 'Login'
         LOGOUT = 'logout', 'Logout'
         EXPORT = 'export', 'Export'
+        PROFILE_VIEW = 'profile_view', 'Profile view'        # opening one patient's profile (a read)
+        CATEGORY_CHANGE = 'category_change', 'Category change'
+        ACTIVATE = 'activate', 'Activate'                    # account re-enabled
+        DEACTIVATE = 'deactivate', 'Deactivate'              # account disabled
+
+    # Actions that only read data; every other action is a write or session event.
+    READ_ACTIONS = frozenset({Action.VIEW, Action.PROFILE_VIEW, Action.EXPORT})
 
     # db_index=False: the composite (user, timestamp) / (patient, timestamp) indexes below
     # already serve lookups by user or patient, so single-column indexes would be redundant.
@@ -202,7 +209,7 @@ class AuditLog(models.Model):
         'registry.Patient', null=True, blank=True, on_delete=models.PROTECT, related_name='audit_logs',
         db_index=False, help_text='Patient whose record was touched (if any).',
     )
-    action = models.CharField(max_length=10, choices=Action.choices)
+    action = models.CharField(max_length=20, choices=Action.choices)
     entity_type = models.CharField(max_length=100, help_text='Table the action was on, e.g. registry.patient.')
     entity_id = models.BigIntegerField(null=True, blank=True, help_text='ID of the row the action was on.')
     ip_address = models.GenericIPAddressField(null=True, blank=True)
@@ -220,7 +227,8 @@ class AuditLog(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=Q(action__in=['view', 'create', 'update', 'delete', 'login', 'logout', 'export']),
+                condition=Q(action__in=['view', 'create', 'update', 'delete', 'login', 'logout', 'export',
+                                        'profile_view', 'category_change', 'activate', 'deactivate']),
                 name='accounts_auditlog_action_valid'),
             # Every entry must say who acted: a linked user, or an actor identifier.
             models.CheckConstraint(

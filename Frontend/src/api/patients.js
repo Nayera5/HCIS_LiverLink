@@ -29,7 +29,7 @@ export function changePatientCategory(id, category) {
   return authRequest(`/patients/${id}/category/`, { method: 'POST', body: { category } })
 }
 
-/** Dashboard data: counts by category + the 5 newest records (one audited list read). */
+/** Dashboard data: counts by category + the 5 newest records (list reads are not audited). */
 export async function loadPatientOverview() {
   const [summary, recent] = await Promise.all([
     getPatientSummary(),

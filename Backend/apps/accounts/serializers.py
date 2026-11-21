@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import Staff, User
+from .models import AuditLog, Staff, User
 from .rbac import capabilities_for, effective_job_title, get_staff_profile
 
 
@@ -331,3 +331,48 @@ class StaffAccountUpdateSerializer(_StaffFieldsMixin):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(_django_errors(exc))
         return user
+
+
+# --------------------------------------------------------------------------- audit log viewer
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    """One audit entry for the Super Admin viewer. Read-only; entries never hold field values."""
+
+    action_label = serializers.CharField(source='get_action_display', read_only=True)
+    is_read = serializers.SerializerMethodField()
+    user_id = serializers.IntegerField(read_only=True)
+    patient = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuditLog
+        fields = ('id', 'timestamp', 'actor', 'user_id', 'action', 'action_label', 'is_read',
+                  'entity_type', 'entity_id', 'patient', 'ip_address')
+        read_only_fields = fields
+
+    def get_is_read(self, entry):
+        return entry.action in AuditLog.READ_ACTIONS
+
+    def get_patient(self, entry):
+        patient = entry.patient
+        if patient is None:
+            return None
+        return {'id': patient.pk, 'mrn': patient.mrn, 'name': f'{patient.first_name} {patient.last_name}'}
+
+
+class AuditLogFilterSerializer(serializers.Serializer):
+    """Validates the viewer's query parameters (all optional)."""
+
+    action = serializers.ChoiceField(choices=AuditLog.Action.choices, required=False)
+    kind = serializers.ChoiceField(choices=('read', 'write'), required=False)
+    user = serializers.IntegerField(min_value=1, required=False)
+    patient = serializers.IntegerField(min_value=1, required=False)
+    entity_type = serializers.CharField(max_length=100, required=False)
+    entity_id = serializers.IntegerField(required=False)
+    date_from = serializers.DateField(required=False)
+    date_to = serializers.DateField(required=False)
+
+    def validate(self, attrs):
+        start, end = attrs.get('date_from'), attrs.get('date_to')
+        if start and end and start > end:
+            raise serializers.ValidationError({'date_to': 'Must be on or after date_from.'})
+        return attrs
