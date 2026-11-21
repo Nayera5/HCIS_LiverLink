@@ -60,7 +60,7 @@ function RecordPaymentPanel({ invoice, onRecorded }) {
         {formError && <Alert variant="error">{formError}</Alert>}
         <div className="form-grid__pair">
           <TextField label="Amount (EGP)" name="amount" type="number" min="0.01" max={remaining.toFixed(2)}
-            step="0.01" value={amount} onChange={change} error={errors.amount}
+            step="100" value={amount} onChange={change} error={errors.amount}
             hint={`Remaining balance: ${formatMoney(remaining)}`} />
           <SelectField label="Method" name="method" value={method} options={PAYMENT_METHOD_OPTIONS}
             onChange={(event) => setMethod(event.target.value)} />
