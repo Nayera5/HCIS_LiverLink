@@ -189,3 +189,18 @@ export const HeartPulseIcon = (p) => (
     <path d="M3.5 12h4l2-3 3 5 2-2h5" />
   </Svg>
 )
+
+export const ReceiptIcon = (p) => (
+  <Svg {...p}>
+    <path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5Z" />
+    <path d="M9 8h6M9 12h6M9 16h4" />
+  </Svg>
+)
+
+export const CreditCardIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="5.5" width="18" height="13" rx="2" />
+    <path d="M3 10h18" />
+    <path d="M7 14.5h4" />
+  </Svg>
+)

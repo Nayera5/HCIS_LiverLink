@@ -6,6 +6,10 @@ import AuditLogsPage from './pages/AuditLogs/AuditLogsPage'
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage'
 import RegisterPage from './pages/Auth/RegisterPage'
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage'
+import InvoiceCreatePage from './pages/Billing/InvoiceCreatePage'
+import InvoiceDetailPage from './pages/Billing/InvoiceDetailPage'
+import InvoicesPage from './pages/Billing/InvoicesPage'
+import ServiceCatalogPage from './pages/Billing/ServiceCatalogPage'
 import DashboardPage from './pages/Dashboard/DashboardPage'
 import DonorApplicationCreatePage from './pages/DonorApplications/DonorApplicationCreatePage'
 import DonorApplicationDetailPage from './pages/DonorApplications/DonorApplicationDetailPage'
@@ -16,6 +20,8 @@ import PatientDetailPage from './pages/Patients/PatientDetailPage'
 import PatientRegisterPage from './pages/Patients/PatientRegisterPage'
 import PatientsPage from './pages/Patients/PatientsPage'
 import MyDonorApplicationsPage from './pages/Portal/MyDonorApplicationsPage'
+import MyInvoiceDetailPage from './pages/Portal/MyInvoiceDetailPage'
+import MyInvoicesPage from './pages/Portal/MyInvoicesPage'
 import MyRecordPage from './pages/Portal/MyRecordPage'
 import ProfilePage from './pages/Profile/ProfilePage'
 import UserCreatePage from './pages/Users/UserCreatePage'
@@ -56,6 +62,10 @@ function App() {
               <Route element={<RequireCapability capability="self.donor_applications" />}>
                 <Route path="my-donor-applications" element={<MyDonorApplicationsPage />} />
               </Route>
+              <Route element={<RequireCapability capability="self.invoices" />}>
+                <Route path="my-invoices" element={<MyInvoicesPage />} />
+                <Route path="my-invoices/:id" element={<MyInvoiceDetailPage />} />
+              </Route>
 
               <Route element={<RequireCapability capability="donor_applications.view" />}>
                 <Route path="donor-applications" element={<DonorApplicationsPage />} />
@@ -63,6 +73,15 @@ function App() {
               </Route>
               <Route element={<RequireCapability capability="donor_applications.submit_on_behalf" />}>
                 <Route path="donor-applications/new" element={<DonorApplicationCreatePage />} />
+              </Route>
+
+              <Route element={<RequireCapability capability="billing.view" />}>
+                <Route path="billing/services" element={<ServiceCatalogPage />} />
+                <Route path="billing/invoices" element={<InvoicesPage />} />
+                <Route path="billing/invoices/:id" element={<InvoiceDetailPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="billing.create_invoice" />}>
+                <Route path="billing/invoices/new" element={<InvoiceCreatePage />} />
               </Route>
 
               <Route element={<RequireCapability capability="users.manage" />}>

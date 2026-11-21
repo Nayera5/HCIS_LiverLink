@@ -33,6 +33,10 @@ STAFF_CAPABILITIES = {
     'donor_applications.view': CLINICAL_READERS,
     'consents.record': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
     'consents.view': CLINICAL_READERS,
+    'billing.manage_services': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
+    'billing.view': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
+    'billing.create_invoice': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
+    'billing.record_payment': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
 }
 
 # Self-service capabilities of patient/donor accounts (always limited to their own records).
@@ -40,6 +44,7 @@ PATIENT_CAPABILITIES = frozenset({
     'self.patient_record',      # view own record, edit own contact details
     'self.donor_applications',  # submit / view / withdraw own applications
     'self.consents',            # view own consents
+    'self.invoices',            # view own invoices, balance & payment history
 })
 
 EVERYONE = frozenset({'self.profile'})  # own account profile + password
