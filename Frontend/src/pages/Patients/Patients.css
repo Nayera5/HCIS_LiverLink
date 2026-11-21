@@ -1,0 +1,111 @@
+.form-grid__pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-alert {
+  margin-bottom: 18px;
+}
+
+.patient-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -10px 0 20px;
+}
+
+.patient-summary__mrn {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.category-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.category-control .field {
+  flex: 1 1 200px;
+}
+
+.section-gap {
+  margin-top: 20px;
+}
+
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Self-registration: wider card for the longer form */
+.register-page .login-main__inner {
+  max-width: 560px;
+}
+
+.choice-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice-group legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.choice {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.choice input {
+  margin-top: 2px;
+  accent-color: var(--color-primary);
+}
+
+.choice strong {
+  display: block;
+  color: var(--color-text-strong);
+}
+
+.choice span {
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 640px) {
+  .choice-group,
+  .form-grid__pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 1101px) {
+  .filter-bar--patients {
+    grid-template-columns: minmax(260px, 2fr) repeat(2, minmax(160px, 1fr)) auto;
+  }
+}

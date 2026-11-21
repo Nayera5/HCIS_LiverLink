@@ -1,0 +1,355 @@
+/* ---------- Layout ---------- */
+.login-page {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100svh;
+}
+
+/* ---------- Brand panel (left) ---------- */
+.brand-panel {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  min-height: 640px;
+  padding: 48px 64px 40px;
+  overflow: hidden;
+  color: #fff;
+  background:
+    radial-gradient(ellipse 60% 45% at 42% 32%, rgba(47, 179, 180, 0.16), transparent 70%),
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.045) 1px, transparent 0) 0 0 / 28px 28px,
+    linear-gradient(170deg, var(--color-navy-800) 0%, var(--color-navy-900) 100%);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand__logo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  color: #fff;
+  background: linear-gradient(145deg, #23a7a8, #11707b);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.brand__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.brand__name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.brand__tagline {
+  margin-top: 2px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  color: #a9bfcc;
+}
+
+.brand-panel__art {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  padding: 24px 0;
+}
+
+.brand-panel__illustration {
+  display: block;
+  width: 100%;
+  max-width: 540px;
+  max-height: 100%;
+}
+
+.brand-panel__headline {
+  max-width: 560px;
+  font-family: var(--font-display);
+  font-size: clamp(30px, 2.8vw, 40px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: #fff;
+}
+
+.brand-panel__lead {
+  max-width: 560px;
+  margin-top: 22px;
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: #b9c9d4;
+}
+
+.brand-panel__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pill {
+  padding: 7px 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #e4eef3;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+
+.brand-panel__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 48px;
+  font-size: 14px;
+  color: #8ea5b4;
+}
+
+/* ---------- Form side (right) ---------- */
+.login-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 48px;
+}
+
+.login-main__inner {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-header__title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--color-text-strong);
+}
+
+.login-header__subtitle {
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+.login-card,
+.register-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.login-card {
+  margin-top: 30px;
+  padding: 28px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.login-form .btn--primary {
+  margin-top: 4px;
+}
+
+.login-link {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.login-link:hover {
+  text-decoration: underline;
+}
+
+.login-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.register-card {
+  margin-top: 28px;
+  padding: 20px 18px 16px;
+}
+
+.register-card__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.register-card__text {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}
+
+.register-card__cta {
+  margin-top: 16px;
+}
+
+.login-footnote {
+  margin-top: 22px;
+  font-size: 13.5px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.login-security {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 26px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.login-security svg {
+  flex: none;
+}
+
+/* ---------- Tablet landscape ---------- */
+@media (max-width: 1199px) {
+  .login-page {
+    grid-template-columns: 5fr 6fr;
+  }
+
+  .brand-panel {
+    padding: 40px 44px 32px;
+  }
+
+  .brand-panel__lead {
+    font-size: 15.5px;
+  }
+
+  .login-main {
+    padding: 56px 40px;
+  }
+}
+
+/* ---------- Tablet portrait: stack the panels ---------- */
+@media (max-width: 899px) {
+  .login-page {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-panel {
+    position: static;
+    height: auto;
+    min-height: 0;
+    padding: 32px 40px 36px;
+  }
+
+  .brand-panel__art,
+  .brand-panel__footer {
+    display: none;
+  }
+
+  .brand-panel__content {
+    margin-top: 32px;
+  }
+
+  .brand-panel__headline {
+    font-size: 30px;
+  }
+
+  .brand-panel__lead {
+    margin-top: 14px;
+  }
+
+  .login-main {
+    align-items: flex-start;
+    padding: 40px 40px 56px;
+  }
+
+  .login-main__inner {
+    max-width: 480px;
+  }
+}
+
+/* ---------- Phone ---------- */
+@media (max-width: 559px) {
+  .brand-panel {
+    padding: 20px 16px 24px;
+  }
+
+  .brand__logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .brand__name {
+    font-size: 20px;
+  }
+
+  .brand__tagline {
+    font-size: 11px;
+  }
+
+  .brand-panel__content {
+    margin-top: 20px;
+  }
+
+  .brand-panel__headline {
+    font-size: 22px;
+  }
+
+  .brand-panel__lead,
+  .brand-panel__pills {
+    display: none;
+  }
+
+  .login-main {
+    padding: 28px 16px 40px;
+  }
+
+  .login-header__title {
+    font-size: 28px;
+  }
+
+  .login-card {
+    margin-top: 24px;
+    padding: 20px 16px;
+  }
+
+  .login-form {
+    gap: 18px;
+  }
+
+  .register-card {
+    margin-top: 20px;
+    padding: 18px 16px 16px;
+  }
+
+  .register-card__cta {
+    width: 100%;
+  }
+}
