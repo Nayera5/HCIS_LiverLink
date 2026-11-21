@@ -280,11 +280,28 @@ class PatientPortalTests(PatientAPITestBase):
     def test_staff_cannot_use_portal_endpoint(self):
         self.as_(self.coord)
         self.assertEqual(self.client.get('/api/patients/me/').status_code, 403)
+        self.assertEqual(self.client.get('/api/patients/me/summary/').status_code, 403)
+
+    def test_dashboard_summary_is_minimal_and_not_audited(self):
+        self.as_(self.pat_user)
+        for _ in range(3):  # repeated dashboard visits
+            r = self.client.get('/api/patients/me/summary/')
+            self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data, {'mrn': self.own.mrn, 'category': 'liver_patient', 'phone': '0111'})
+        self.assertEqual(AuditLog.objects.count(), 0)
+        self.assertEqual(self.client.patch('/api/patients/me/summary/', {'phone': '1'}, format='json').status_code, 405)
+        self.client.get('/api/patients/me/')  # opening My Health Record is still a profile_view
+        self.assertEqual(list(AuditLog.objects.values_list('action', 'patient_id')), [('profile_view', self.own.pk)])
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get('/api/patients/me/summary/').status_code, 401)
 
     def test_patient_account_without_record(self):
         lonely = User.objects.create_user('lonely', '', PW, role='patient')
         self.as_(lonely)
         r = self.client.get('/api/patients/me/')
+        self.assertEqual(r.status_code, 404)
+        self.assertIn('No hospital record', r.data['detail'])
+        r = self.client.get('/api/patients/me/summary/')
         self.assertEqual(r.status_code, 404)
         self.assertIn('No hospital record', r.data['detail'])
 

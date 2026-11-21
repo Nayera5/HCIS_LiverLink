@@ -7,11 +7,15 @@ import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage'
 import RegisterPage from './pages/Auth/RegisterPage'
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage'
 import DashboardPage from './pages/Dashboard/DashboardPage'
+import DonorApplicationCreatePage from './pages/DonorApplications/DonorApplicationCreatePage'
+import DonorApplicationDetailPage from './pages/DonorApplications/DonorApplicationDetailPage'
+import DonorApplicationsPage from './pages/DonorApplications/DonorApplicationsPage'
 import NotFoundPage from './pages/Errors/NotFoundPage'
 import LoginRoute from './pages/Login/LoginRoute'
 import PatientDetailPage from './pages/Patients/PatientDetailPage'
 import PatientRegisterPage from './pages/Patients/PatientRegisterPage'
 import PatientsPage from './pages/Patients/PatientsPage'
+import MyDonorApplicationsPage from './pages/Portal/MyDonorApplicationsPage'
 import MyRecordPage from './pages/Portal/MyRecordPage'
 import ProfilePage from './pages/Profile/ProfilePage'
 import UserCreatePage from './pages/Users/UserCreatePage'
@@ -48,6 +52,17 @@ function App() {
               </Route>
               <Route element={<RequireCapability capability="self.patient_record" />}>
                 <Route path="my-record" element={<MyRecordPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="self.donor_applications" />}>
+                <Route path="my-donor-applications" element={<MyDonorApplicationsPage />} />
+              </Route>
+
+              <Route element={<RequireCapability capability="donor_applications.view" />}>
+                <Route path="donor-applications" element={<DonorApplicationsPage />} />
+                <Route path="donor-applications/:id" element={<DonorApplicationDetailPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="donor_applications.submit_on_behalf" />}>
+                <Route path="donor-applications/new" element={<DonorApplicationCreatePage />} />
               </Route>
 
               <Route element={<RequireCapability capability="users.manage" />}>

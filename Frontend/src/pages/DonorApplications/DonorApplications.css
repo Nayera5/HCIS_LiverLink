@@ -1,0 +1,69 @@
+/* Donor applications (staff pages and donor portal). Builds on ui.css, Users.css and Patients.css. */
+
+.filter-bar--applications {
+  grid-template-columns: minmax(260px, 2fr) minmax(200px, 1fr) auto;
+}
+
+.field__textarea {
+  height: auto;
+  min-height: 96px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.screening-notes {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.screening-notes p {
+  margin: 0 0 6px;
+  white-space: pre-wrap;
+}
+
+.application-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.application-card {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.application-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.application-card .detail-list {
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .filter-bar--applications {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .filter-bar--applications {
+    grid-template-columns: 1fr;
+  }
+}
