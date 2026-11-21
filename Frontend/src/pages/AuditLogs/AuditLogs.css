@@ -1,0 +1,95 @@
+/* Audit log viewer. Shares the table, badge and field styles from components/ui/ui.css. */
+
+.audit-filters {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(150px, 1fr) minmax(0, 4fr) auto;
+  align-items: start;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.audit-filters__typed {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(100px, 1fr)) repeat(2, minmax(140px, 1fr)) auto;
+  align-items: start;
+  gap: 14px;
+}
+
+.audit-filters .field__input {
+  height: 42px;
+  font-size: 14px;
+}
+
+.audit-filters__apply,
+.audit-filters__clear {
+  margin-top: 26px;
+}
+
+.audit-filters__clear {
+  align-self: start;
+  padding-top: 10px;
+}
+
+.audit-table__when,
+.audit-table__ip {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.audit-filter-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.audit-filter-link:hover {
+  color: var(--color-primary);
+}
+
+.audit-filter-link:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (max-width: 1100px) {
+  .audit-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audit-filters__typed {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audit-filters__apply {
+    margin-top: 0;
+    justify-self: start;
+  }
+
+  .audit-filters__clear {
+    margin-top: 0;
+    padding-top: 0;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 560px) {
+  .audit-filters,
+  .audit-filters__typed {
+    grid-template-columns: 1fr;
+  }
+}

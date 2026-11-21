@@ -16,10 +16,11 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import User
+from .audit import audit
+from .models import AuditLog, User
 from .permissions import HasCapability
 from .serializers import (
-    ChangePasswordSerializer, LogoutSerializer, MeSerializer, MeUpdateSerializer,
+    AuditLogFilterSerializer, AuditLogSerializer, ChangePasswordSerializer, LogoutSerializer, MeSerializer, MeUpdateSerializer,
     PasswordResetConfirmSerializer, PasswordResetRequestSerializer, StaffAccountCreateSerializer,
     StaffAccountUpdateSerializer, UserDetailSerializer, UserListSerializer,
 )
@@ -149,6 +150,17 @@ class PasswordResetConfirmView(APIView):
 
 # --------------------------------------------------------------------------- user management
 
+USER_ENTITY = 'accounts.user'
+
+
+def _account_snapshot(user):
+    """Current stored values of an account and its staff profile, used only to detect a change."""
+    user = User.objects.select_related('staff_profile').get(pk=user.pk)
+    rows = [user, getattr(user, 'staff_profile', None)]
+    return [{f.attname: getattr(row, f.attname) for f in row._meta.concrete_fields} if row else None
+            for row in rows]
+
+
 class UserPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = 'page_size'
@@ -191,6 +203,7 @@ class UserListCreateView(generics.ListCreateAPIView):
         serializer = StaffAccountCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        audit(request, AuditLog.Action.CREATE, USER_ENTITY, entity_id=user.pk)
         return Response(UserDetailSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
@@ -209,7 +222,10 @@ class UserDetailView(generics.RetrieveUpdateAPIView):
         serializer = StaffAccountUpdateSerializer(user, data=request.data, partial=True,
                                                   context={'request': request})
         serializer.is_valid(raise_exception=True)
+        before = _account_snapshot(user)
         serializer.save()
+        if _account_snapshot(user) != before:  # a no-op PATCH is not logged
+            audit(request, AuditLog.Action.UPDATE, USER_ENTITY, entity_id=user.pk)
         user = User.objects.select_related('staff_profile').get(pk=user.pk)
         return Response(UserDetailSerializer(user).data)
 
@@ -232,6 +248,8 @@ class _SetActiveView(APIView):
             user.save(update_fields=['is_active'])
             if not self.make_active:
                 revoke_all_refresh_tokens(user)
+            action = AuditLog.Action.ACTIVATE if self.make_active else AuditLog.Action.DEACTIVATE
+            audit(request, action, USER_ENTITY, entity_id=user.pk)
         user = User.objects.select_related('staff_profile').get(pk=user.pk)
         return Response(UserDetailSerializer(user).data)
 
@@ -242,3 +260,51 @@ class UserActivateView(_SetActiveView):
 
 class UserDeactivateView(_SetActiveView):
     make_active = False
+
+
+# --------------------------------------------------------------------------- audit log viewer
+
+class AuditLogPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 200
+
+
+class AuditLogListView(generics.ListAPIView):
+    """
+    GET /api/audit-logs/ (audit.view: Super Admin only). Read-only, newest first, paginated.
+
+    Filters (all optional): action, kind=read|write, user (id), patient (id), entity_type,
+    entity_id, date_from / date_to (YYYY-MM-DD, inclusive, UTC). Invalid filters return 400.
+    Only GET is allowed: entries can never be created, changed or deleted through the API.
+    Viewing the log is itself not logged (list views are outside the audit policy).
+    """
+
+    permission_classes = [IsAuthenticated, HasCapability('audit.view')]
+    serializer_class = AuditLogSerializer
+    pagination_class = AuditLogPagination
+    http_method_names = ['get', 'head', 'options']
+
+    def get_queryset(self):
+        filters = AuditLogFilterSerializer(data=self.request.query_params)
+        filters.is_valid(raise_exception=True)
+        f = filters.validated_data
+        qs = AuditLog.objects.select_related('patient')
+        if 'action' in f:
+            qs = qs.filter(action=f['action'])
+        if 'kind' in f:
+            reads = Q(action__in=AuditLog.READ_ACTIONS)
+            qs = qs.filter(reads if f['kind'] == 'read' else ~reads)
+        if 'user' in f:
+            qs = qs.filter(user_id=f['user'])
+        if 'patient' in f:
+            qs = qs.filter(patient_id=f['patient'])
+        if 'entity_type' in f:
+            qs = qs.filter(entity_type=f['entity_type'].strip())
+        if 'entity_id' in f:
+            qs = qs.filter(entity_id=f['entity_id'])
+        if 'date_from' in f:
+            qs = qs.filter(timestamp__date__gte=f['date_from'])
+        if 'date_to' in f:
+            qs = qs.filter(timestamp__date__lte=f['date_to'])
+        return qs.order_by('-timestamp', '-id')

@@ -429,12 +429,27 @@ class AuditTrailTests(PatientAPITestBase):
         self.client.patch(f'/api/patients/{self.other.pk}/', {'address': 'x'}, format='json')
         self.client.post(f'/api/patients/{self.other.pk}/category/', {'category': 'donor'}, format='json')
         log = self.entries()
-        self.assertEqual([e['action'] for e in log], ['view', 'view', 'create', 'update', 'update'])
-        self.assertEqual([e['patient_id'] for e in log], [None, self.other.pk, created, self.other.pk, self.other.pk])
+        # the list/search request is not logged; profile access is distinct from writes
+        self.assertEqual([e['action'] for e in log], ['profile_view', 'create', 'update', 'category_change'])
+        self.assertEqual([e['patient_id'] for e in log], [self.other.pk, created, self.other.pk, self.other.pk])
         self.assertTrue(all(e['user__username'] == 'coord' and e['actor'] == 'coord' for e in log))
         self.assertTrue(all(e['ip_address'] == '127.0.0.1' for e in log))
         stored = ' '.join(str(v) for e in AuditLog.objects.values() for v in e.values())
         self.assertNotIn('Secret', stored)  # search terms are not stored
+
+    def test_list_search_filter_and_dashboard_reads_are_not_logged(self):
+        self.as_(self.coord)
+        for params in ({}, {'search': 'Secret'}, {'category': 'donor'}, {'sex': 'male'},
+                       {'ordering': '-created_at', 'page_size': 5}):
+            self.assertEqual(self.client.get('/api/patients/', params).status_code, 200)
+        self.assertEqual(self.client.get('/api/patients/summary/').status_code, 200)
+        self.assertEqual(AuditLog.objects.count(), 0)
+
+    def test_profile_view_is_a_read_and_writes_are_not(self):
+        reads = AuditLog.READ_ACTIONS
+        self.assertIn(AuditLog.Action.PROFILE_VIEW, reads)
+        for write in ('create', 'update', 'category_change', 'activate', 'deactivate'):
+            self.assertNotIn(write, reads)
 
     def test_denied_and_invalid_requests_are_not_logged_as_success(self):
         self.as_(self.pat_user)
@@ -460,6 +475,6 @@ class AuditTrailTests(PatientAPITestBase):
         }, format='json')
         log = self.entries()
         self.assertEqual([(e['user__username'], e['action']) for e in log],
-                         [('pat', 'view'), ('pat', 'update'), ('newbie', 'create')])
+                         [('pat', 'profile_view'), ('pat', 'update'), ('newbie', 'create')])
         stored = ' '.join(str(v) for e in AuditLog.objects.values() for v in e.values())
         self.assertNotIn('Portal-Pass', stored)

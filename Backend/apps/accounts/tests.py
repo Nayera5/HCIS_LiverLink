@@ -469,6 +469,51 @@ class UserManagementTests(APITestCase):
         self.assertEqual(self.client.post('/api/users/999999/deactivate/').status_code, 404)
 
 
+class StaffManagementAuditTests(APITestCase):
+    """Staff account create / update / activate / deactivate each write one audit entry."""
+
+    def setUp(self):
+        cache.clear()
+        self.admin = make_staff('boss', T.SUPER_ADMIN)
+        self.coord = make_staff('coord', T.TRANSPLANT_COORDINATOR)
+        self.client.force_authenticate(self.admin)
+
+    def entries(self):
+        return list(AuditLog.objects.order_by('id').values_list('user__username', 'action', 'entity_type',
+                                                                 'entity_id', 'patient_id'))
+
+    def test_create_update_deactivate_activate_are_logged(self):
+        r = self.client.post('/api/users/', {
+            'username': 'Dr.Mona', 'email': 'mona@liverlink.test', 'first_name': 'Mona', 'last_name': 'E',
+            'password': 'Very-Strong-Pass!1', 'job_title': 'hepatologist', 'department': 'Hepatology',
+            'license_no': 'EG-123'}, format='json')
+        self.assertEqual(r.status_code, 201)
+        new_id = r.data['id']
+        self.client.patch(f'/api/users/{self.coord.pk}/', {'department': 'Transplant Unit'}, format='json')
+        self.client.post(f'/api/users/{self.coord.pk}/deactivate/')
+        self.client.post(f'/api/users/{self.coord.pk}/activate/')
+        self.assertEqual(self.entries(), [
+            ('boss', 'create', 'accounts.user', new_id, None),
+            ('boss', 'update', 'accounts.user', self.coord.pk, None),
+            ('boss', 'deactivate', 'accounts.user', self.coord.pk, None),
+            ('boss', 'activate', 'accounts.user', self.coord.pk, None),
+        ])
+        stored = ' '.join(str(v) for e in AuditLog.objects.values() for v in e.values())
+        self.assertNotIn('Very-Strong-Pass', stored)
+        self.assertNotIn('Transplant Unit', stored)  # field values are never stored
+
+    def test_noop_and_failed_requests_are_not_logged(self):
+        self.client.post(f'/api/users/{self.coord.pk}/activate/')               # already active
+        self.client.patch(f'/api/users/{self.coord.pk}/', {}, format='json')    # nothing changed
+        self.client.post(f'/api/users/{self.admin.pk}/deactivate/')              # self: refused
+        self.client.post('/api/users/', {'username': 'x'}, format='json')        # invalid
+        self.client.get('/api/users/', {'search': 'coord'})                      # list/search
+        self.client.get(f'/api/users/{self.coord.pk}/')
+        self.client.force_authenticate(self.coord)                                # no users.manage
+        self.client.post(f'/api/users/{self.admin.pk}/deactivate/')
+        self.assertEqual(AuditLog.objects.count(), 0)
+
+
 class AuditLogModelTests(TestCase):
     """AuditLog is append-only and references users/patients that cannot be deleted."""
 
@@ -512,6 +557,10 @@ class AuditLogModelTests(TestCase):
             AuditLog.objects.all().delete()
         self.assertEqual(AuditLog.objects.get(pk=log.pk).action, 'view')
 
+    def test_new_actions_accepted_by_database(self):
+        for action in ('profile_view', 'category_change', 'activate', 'deactivate'):
+            self.assertEqual(self.entry(action=action).action, action)
+
     def test_action_check_in_database(self):
         from django.db import IntegrityError, transaction
         with self.assertRaises(IntegrityError), transaction.atomic():
@@ -547,3 +596,129 @@ class AuditLogModelTests(TestCase):
         self.assertFalse(model_admin.has_add_permission(None))
         self.assertFalse(model_admin.has_change_permission(None))
         self.assertFalse(model_admin.has_delete_permission(None))
+
+
+class AuditLogViewerAPITests(APITestCase):
+    """GET /api/audit-logs/: Super Admin only, read-only, paginated, filterable."""
+
+    URL = '/api/audit-logs/'
+
+    def setUp(self):
+        import datetime as _dt
+        from django.utils import timezone
+        from apps.registry.models import Patient
+        cache.clear()
+        self.admin = make_staff('boss', T.SUPER_ADMIN)
+        self.root = User.objects.create_superuser('root', '', PW)
+        self.coord = make_staff('coord', T.TRANSPLANT_COORDINATOR)
+        self.patient = Patient.objects.create(
+            first_name='Hoda', last_name='Salem', date_of_birth=_dt.date(1965, 1, 1), sex='female',
+            phone='0100', category='liver_patient')
+
+        def day(d):
+            return timezone.make_aware(_dt.datetime(2026, 3, d, 10, 0))
+
+        def add(action, entity_type, when, user=self.coord, **extra):
+            return AuditLog.objects.create(user=user, actor=user.username, action=action,
+                                           entity_type=entity_type, timestamp=when, **extra)
+
+        P = 'registry.patient'
+        self.e_profile = add('profile_view', P, day(1), entity_id=self.patient.pk, patient=self.patient,
+                             ip_address='10.0.0.5')
+        self.e_category = add('category_change', P, day(2), entity_id=self.patient.pk, patient=self.patient)
+        self.e_staff = add('deactivate', 'accounts.user', day(3), user=self.admin, entity_id=self.coord.pk)
+        self.e_create = add('create', P, day(4), entity_id=self.patient.pk, patient=self.patient)
+
+    def get(self, as_user=None, **params):
+        self.client.force_authenticate(as_user or self.admin)
+        return self.client.get(self.URL, params)
+
+    def ids(self, response):
+        self.assertEqual(response.status_code, 200, response.data)
+        return [row['id'] for row in response.data['results']]
+
+    # ---- permissions
+    def test_only_super_admin_can_view(self):
+        self.assertEqual(self.get(self.admin).status_code, 200)
+        self.assertEqual(self.get(self.root).status_code, 200)  # superuser without profile = super_admin
+        others = [self.coord, make_staff('hep', T.HEPATOLOGIST), make_staff('bill', T.BILLING_ADMIN),
+                  make_staff('rad', T.RADIOLOGIST), make_staff('surg', T.TRANSPLANT_SURGEON),
+                  make_user('nojob', User.Role.CLINICAL_STAFF), make_user('pat', User.Role.PATIENT)]
+        for user in others:
+            with self.subTest(user=user.username):
+                self.assertEqual(self.get(user).status_code, 403)
+        inactive = make_staff('oldboss', T.SUPER_ADMIN, is_active=False)
+        self.assertEqual(self.get(inactive).status_code, 403)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(self.URL).status_code, 401)
+
+    def test_read_only(self):
+        self.client.force_authenticate(self.admin)
+        for method in ('post', 'put', 'patch', 'delete'):
+            with self.subTest(method=method):
+                self.assertEqual(getattr(self.client, method)(self.URL, {}, format='json').status_code, 405)
+            with self.subTest(method=f'{method} detail'):
+                self.assertEqual(getattr(self.client, method)(f'{self.URL}{self.e_create.pk}/', {},
+                                                              format='json').status_code, 404)
+        self.assertEqual(AuditLog.objects.count(), 4)
+
+    def test_viewing_the_log_is_not_logged(self):
+        self.get()
+        self.get(action='create')
+        self.assertEqual(AuditLog.objects.count(), 4)
+
+    # ---- content
+    def test_entry_fields_newest_first(self):
+        r = self.get()
+        self.assertEqual(self.ids(r), [self.e_create.pk, self.e_staff.pk, self.e_category.pk, self.e_profile.pk])
+        rows = {row['id']: row for row in r.data['results']}
+        profile = rows[self.e_profile.pk]
+        self.assertEqual({k: profile[k] for k in ('actor', 'user_id', 'action', 'action_label', 'is_read',
+                                                  'entity_type', 'entity_id', 'ip_address')},
+                         {'actor': 'coord', 'user_id': self.coord.pk, 'action': 'profile_view',
+                          'action_label': 'Profile view', 'is_read': True, 'entity_type': 'registry.patient',
+                          'entity_id': self.patient.pk, 'ip_address': '10.0.0.5'})
+        self.assertEqual(profile['patient'], {'id': self.patient.pk, 'mrn': self.patient.mrn, 'name': 'Hoda Salem'})
+        self.assertTrue(profile['timestamp'].startswith('2026-03-01T10:00'))
+        staff = rows[self.e_staff.pk]
+        self.assertEqual((staff['patient'], staff['is_read'], staff['actor']), (None, False, 'boss'))
+
+    # ---- pagination
+    def test_pagination(self):
+        r = self.get(page_size=3)
+        self.assertEqual((r.data['count'], len(r.data['results'])), (4, 3))
+        self.assertIsNotNone(r.data['next'])
+        r2 = self.get(page_size=3, page=2)
+        self.assertEqual(self.ids(r2), [self.e_profile.pk])
+        self.assertIsNone(r2.data['next'])
+        self.assertEqual(self.get(page=99).status_code, 404)
+        self.assertEqual(len(self.get(page_size=10_000).data['results']), 4)  # capped at max_page_size
+
+    # ---- filters
+    def test_filters(self):
+        cases = {
+            'action': ({'action': 'category_change'}, [self.e_category]),
+            'kind read': ({'kind': 'read'}, [self.e_profile]),
+            'kind write': ({'kind': 'write'}, [self.e_create, self.e_staff, self.e_category]),
+            'user': ({'user': self.admin.pk}, [self.e_staff]),
+            'patient': ({'patient': self.patient.pk}, [self.e_create, self.e_category, self.e_profile]),
+            'entity_type': ({'entity_type': 'accounts.user'}, [self.e_staff]),
+            'entity_id': ({'entity_type': 'accounts.user', 'entity_id': self.coord.pk}, [self.e_staff]),
+            'date_from': ({'date_from': '2026-03-03'}, [self.e_create, self.e_staff]),
+            'date_to': ({'date_to': '2026-03-02'}, [self.e_category, self.e_profile]),
+            'date range': ({'date_from': '2026-03-02', 'date_to': '2026-03-03'},
+                           [self.e_staff, self.e_category]),
+            'single day': ({'date_from': '2026-03-04', 'date_to': '2026-03-04'}, [self.e_create]),
+            'combined': ({'patient': self.patient.pk, 'kind': 'write', 'date_to': '2026-03-03'},
+                         [self.e_category]),
+            'no match': ({'user': 999999}, []),
+        }
+        for name, (params, expected) in cases.items():
+            with self.subTest(name):
+                self.assertEqual(self.ids(self.get(**params)), [e.pk for e in expected])
+
+    def test_invalid_filters_rejected(self):
+        for params in ({'action': 'hack'}, {'kind': 'other'}, {'user': 'abc'}, {'patient': '-1'},
+                       {'date_from': '2026-13-01'}, {'date_from': '2026-03-05', 'date_to': '2026-03-01'}):
+            with self.subTest(params=params):
+                self.assertEqual(self.get(**params).status_code, 400)

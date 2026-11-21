@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AuthProvider from './auth/AuthProvider'
 import { PublicOnly, RequireAuth, RequireCapability } from './auth/guards'
 import AppShell from './components/layout/AppShell'
+import AuditLogsPage from './pages/AuditLogs/AuditLogsPage'
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage'
 import RegisterPage from './pages/Auth/RegisterPage'
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage'
@@ -53,6 +54,9 @@ function App() {
                 <Route path="admin/users" element={<UsersPage />} />
                 <Route path="admin/users/new" element={<UserCreatePage />} />
                 <Route path="admin/users/:id" element={<UserDetailPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="audit.view" />}>
+                <Route path="admin/audit-logs" element={<AuditLogsPage />} />
               </Route>
               <Route path="*" element={<NotFoundPage />} />
             </Route>

@@ -1,6 +1,7 @@
 """
-Helper for writing audit entries from API views (spec §4.4: every view, create, update and delete
-on clinical data writes a row).
+Helper for writing audit entries from API views. Policy: log important writes (staff accounts,
+patient registration/updates/category changes, donor application actions) and the opening of an
+individual patient profile (`profile_view`). Do not log list, search, filter or dashboard reads.
 
 Only *who / what / which row / when / from where* is stored: never field values, search terms,
 passwords or tokens.

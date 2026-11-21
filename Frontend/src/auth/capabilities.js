@@ -17,10 +17,10 @@ export const CAPABILITY_DESCRIPTIONS = {
   'self.profile': 'Manage your own account and password',
 }
 
-// Capabilities whose pages exist today. Others (audit viewer, donor applications, consents) are
+// Capabilities whose pages exist today. Others (donor applications, consents) are
 // added here when their stage is delivered, so dashboards never list unavailable features.
 export const IMPLEMENTED_CAPABILITIES = new Set([
-  'users.manage', 'patients.register', 'patients.view', 'patients.edit', 'patients.change_category',
+  'users.manage', 'audit.view', 'patients.register', 'patients.view', 'patients.edit', 'patients.change_category',
   'self.patient_record', 'self.profile',
 ])
 

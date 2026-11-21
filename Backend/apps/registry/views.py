@@ -9,7 +9,9 @@ enforced here, server-side (apps/accounts/rbac.py):
     patients.change_category  category changes     super_admin, coordinator, hepatologist
     self.patient_record       own record (portal)   patients (incl. donors)
 
-Every read and write of patient data is audited (AuditLog), without storing field values.
+Audited (AuditLog), without storing field values or search terms: every write (create, update,
+category_change) and every opening of an individual profile (profile_view). List, search, filter
+and dashboard reads are deliberately not logged.
 """
 from django.db.models import Count, Q
 from rest_framework import generics, status
@@ -81,11 +83,6 @@ class PatientListCreateView(generics.ListCreateAPIView):
     def get_serializer_class(self):
         return PatientCreateSerializer if self.request.method == 'POST' else PatientListSerializer
 
-    def list(self, request, *args, **kwargs):
-        response = super().list(request, *args, **kwargs)
-        audit(request, A.VIEW, ENTITY)  # list/search access; search terms are not stored
-        return response
-
     def create(self, request, *args, **kwargs):
         serializer = PatientCreateSerializer(
             data=request.data, context={'registered_by': get_staff_profile(request.user)})
@@ -122,7 +119,7 @@ class PatientDetailView(generics.RetrieveUpdateAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         patient = self.get_object()
-        audit(request, A.VIEW, ENTITY, entity_id=patient.pk, patient=patient)
+        audit(request, A.PROFILE_VIEW, ENTITY, entity_id=patient.pk, patient=patient)
         return Response(PatientDetailSerializer(patient).data)
 
     def partial_update(self, request, *args, **kwargs):
@@ -148,7 +145,7 @@ class PatientCategoryView(APIView):
         if new_category != patient.category:
             patient.category = new_category
             patient.save(update_fields=['category', 'updated_at'])
-            audit(request, A.UPDATE, ENTITY, entity_id=patient.pk, patient=patient)
+            audit(request, A.CATEGORY_CHANGE, ENTITY, entity_id=patient.pk, patient=patient)
         return Response(PatientDetailSerializer(patient).data)
 
 
@@ -172,7 +169,7 @@ class MyPatientRecordView(APIView):
         patient = self.get_record(request)
         if patient is None:
             return self.not_linked()
-        audit(request, A.VIEW, ENTITY, entity_id=patient.pk, patient=patient)
+        audit(request, A.PROFILE_VIEW, ENTITY, entity_id=patient.pk, patient=patient)
         return Response(OwnPatientRecordSerializer(patient).data)
 
     def patch(self, request):
