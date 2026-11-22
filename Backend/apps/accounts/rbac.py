@@ -48,7 +48,7 @@ PATIENT_CAPABILITIES = frozenset({
     'self.invoices',            # view own invoices, balance & payment history
 })
 
-EVERYONE = frozenset({'self.profile'})  # own account profile + password
+EVERYONE = frozenset({'self.profile', 'self.notifications'})  # own account profile + password, own notifications
 
 
 def get_staff_profile(user):

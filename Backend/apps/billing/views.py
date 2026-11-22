@@ -39,13 +39,27 @@ class BillingPagination(PageNumberPagination):
     max_page_size = 100
 
 
+class ServicePagination(BillingPagination):
+    """
+    Catalog pages. The invoice form still asks for up to max_page_size active services in one
+    request so it can offer them all in its picker.
+    """
+
+    page_size = 10
+
+
 # --------------------------------------------------------------------------- service catalog
 
 class ServiceListCreateView(generics.ListCreateAPIView):
-    """GET /api/services/ (billing.view) · POST /api/services/ (billing.manage_services)."""
+    """
+    GET  /api/services/?category=&coding_system=&status=&active_only=&page=&page_size=  (billing.view)
+    POST /api/services/                                                                (billing.manage_services)
+
+    Paginated: {count, next, previous, results}; 10 per page by default, page_size up to 100.
+    """
 
     serializer_class = ServiceSerializer
-    pagination_class = BillingPagination
+    pagination_class = ServicePagination
 
     def get_permissions(self):
         cap = 'billing.manage_services' if self.request.method == 'POST' else 'billing.view'
@@ -56,9 +70,16 @@ class ServiceListCreateView(generics.ListCreateAPIView):
         params = self.request.query_params
         if (category := params.get('category')) in Service.Category.values:
             qs = qs.filter(category=category)
+        if (coding_system := params.get('coding_system')) in Service.CodingSystem.values:
+            qs = qs.filter(coding_system=coding_system)
+        if params.get('status') == 'active':
+            qs = qs.filter(is_active=True)
+        elif params.get('status') == 'inactive':
+            qs = qs.filter(is_active=False)
         if params.get('active_only') == 'true':
             qs = qs.filter(is_active=True)
-        return qs
+        # A unique tie-breaker keeps page boundaries stable when two services share a name.
+        return qs.order_by('name', 'id')
 
 
 class ServiceDetailView(generics.RetrieveUpdateAPIView):

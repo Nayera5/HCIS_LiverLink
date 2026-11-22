@@ -76,14 +76,25 @@ class Service(models.Model):
     class Category(models.TextChoices):
         CONSULTATION = 'consultation', 'Consultation'
         IMAGING = 'imaging', 'Imaging'
-        LAB = 'lab', 'Lab'
-        AI_ANALYSIS = 'ai_analysis', 'AI analysis'
+        # AI_ANALYSIS = 'ai_analysis', 'AI analysis'
         EVALUATION_PACKAGE = 'evaluation_package', 'Evaluation package'
         SURGERY = 'surgery', 'Surgery'
+        MEDICAL_PROCEDURES = 'medical_procedures', 'Medical Procedures'
+        INPATIENT_SERVICES = 'inpatient_services', 'Inpatient Services'
+        PREVENTIVE_CARE = 'preventive_care', 'Preventive Care'
+
+    class CodingSystem(models.TextChoices):
+        SNOMED_CT = 'snomed_ct', 'SNOMED CT'
+        CPT = 'cpt', 'CPT'
+        HCPCS = 'hcpcs', 'HCPCS'
+        ICD10_PCS = 'icd10_pcs', 'ICD-10-PCS'
 
     code = models.CharField(max_length=30, unique=True)
     name = models.CharField(max_length=150)
     category = models.CharField(max_length=20, choices=Category.choices)
+    coding_system = models.CharField(max_length=20, choices=CodingSystem.choices, blank=True,
+    )
+    standard_code = models.CharField(max_length=50, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0'))])
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -96,6 +107,7 @@ class Service(models.Model):
             models.CheckConstraint(
                 condition=Q(category__in=[
                     'consultation', 'imaging', 'lab', 'ai_analysis', 'evaluation_package', 'surgery',
+                    'medical_procedures', 'inpatient_services', 'preventive_care',
                 ]),
                 name='billing_service_category_valid'),
         ]

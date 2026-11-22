@@ -36,7 +36,10 @@ export default function InvoiceCreatePage() {
   const [saving, setSaving] = useState(false)
 
   const services = serviceData?.results || []
-  const serviceOptions = services.map((s) => ({ value: String(s.id), label: `${s.name} (${formatMoney(s.price)})` }))
+  const serviceOptions = services.map((s) => ({
+    value: String(s.id),
+    label: `${s.name}${s.standard_code ? ` [${s.standard_code}]` : ''} (${formatMoney(s.price)})`,
+  }))
 
   const updateItem = (index, changes) => {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...changes } : item)))

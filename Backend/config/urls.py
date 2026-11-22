@@ -27,4 +27,5 @@ urlpatterns = [
     # Patient & donor registry (Person 1): patients, self-registration, own record.
     path('api/', include('apps.registry.urls')),
     path('api/', include('apps.billing.urls')),
+    path('api/', include('apps.notifications.urls')),
 ]
