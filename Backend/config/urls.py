@@ -28,4 +28,6 @@ urlpatterns = [
     path('api/', include('apps.registry.urls')),
     # EMR (module 4): encounters, history, diagnoses, vitals, documents.
     path('api/emr/', include('apps.emr.urls')),
+    # Appointment & scheduling (module 3): doctor schedules, free slots, appointments.
+    path('api/scheduling/', include('apps.scheduling.urls')),
 ]

@@ -9,8 +9,7 @@ Linked modules:
 - module 1 (accounts): Staff (treating doctor, author, recorder) and User (uploader);
 - module 2 (registry): Patient (owner of every record); Consent.document points here.
 
-Deferred: Encounter.appointment_id (→ scheduling.Appointment, spec §4.10) is added with a
-migration once the scheduling module has an Appointment model.
+- module 3 (scheduling): Appointment (the visit an encounter came from; empty for walk-ins).
 """
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -30,13 +29,19 @@ class Encounter(models.Model):
         SIGNED = "signed", "Signed"
 
     # Fields frozen once an encounter is signed (changes go through an addendum).
-    LOCKED_FIELDS = ("patient_id", "staff_id",
+    LOCKED_FIELDS = ("patient_id", "appointment_id", "staff_id",
                      "encounter_date", "chief_complaint", "clinical_notes")
 
     encounter_id = models.AutoField(primary_key=True)
     patient = models.ForeignKey(
         "registry.Patient", on_delete=models.PROTECT,
         related_name="encounters", db_column="patient_id",
+    )
+    # Business rule: at most one encounter per appointment (unique).
+    appointment = models.OneToOneField(
+        "scheduling.Appointment", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="encounter", db_column="appointment_id",
+        help_text="Appointment this visit came from (empty for walk-ins).",
     )
     staff = models.ForeignKey(
         "accounts.Staff", on_delete=models.PROTECT,

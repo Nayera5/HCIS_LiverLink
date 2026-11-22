@@ -108,7 +108,7 @@ class EncounterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Encounter
         fields = [
-            "encounter_id", "patient", "staff", "staff_name", "encounter_date",
+            "encounter_id", "patient", "appointment", "staff", "staff_name", "encounter_date",
             "chief_complaint", "clinical_notes", "status", "can_sign",
             "diagnoses", "vital_signs", "addenda",
         ]
@@ -132,6 +132,11 @@ class EncounterSerializer(serializers.ModelSerializer):
             if staff is None or not doctors().filter(pk=staff.pk).exists():
                 raise serializers.ValidationError({"staff": "Treating doctor is required."})
             attrs["staff"] = staff
+        # The appointment (if any) must be a visit of the same patient.
+        appointment = attrs.get("appointment")
+        patient = attrs.get("patient") or getattr(self.instance, "patient", None)
+        if appointment is not None and appointment.patient_id != getattr(patient, "pk", None):
+            raise serializers.ValidationError({"appointment": "This appointment belongs to another patient."})
         return attrs
 
 
@@ -142,7 +147,8 @@ class EncounterListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Encounter
-        fields = ["encounter_id", "patient", "staff", "staff_name", "encounter_date", "chief_complaint", "status"]
+        fields = ["encounter_id", "patient", "appointment", "staff", "staff_name", "encounter_date",
+                  "chief_complaint", "status"]
 
     def get_staff_name(self, encounter):
         return _staff_name(encounter.staff)

@@ -35,17 +35,21 @@ class RBACUnitTests(TestCase):
     EXPECTED = {
         T.SUPER_ADMIN: {'users.manage', 'audit.view', 'patients.register', 'patients.view', 'patients.edit',
                         'patients.change_category', 'donor_applications.view',
-                        'emr.view'},  # no consents.view
+                        'emr.view', 'schedules.manage_all', 'appointments.view',
+                        'appointments.book_any'},  # no consents.view
         T.BILLING_ADMIN: {'patients.view'},
         T.TRANSPLANT_COORDINATOR: {'patients.register', 'patients.view', 'patients.edit',
                                    'patients.change_category', 'donor_applications.submit_on_behalf',
                                    'donor_applications.screen', 'donor_applications.view',
-                                   'consents.record', 'consents.view', 'emr.view'},
+                                   'consents.record', 'consents.view', 'emr.view',
+                                   'appointments.view', 'appointments.book_any', 'appointments.check_in'},
         T.HEPATOLOGIST: {'patients.view', 'patients.change_category', 'donor_applications.view',
-                         'consents.record', 'consents.view', 'emr.view', 'emr.write'},
-        T.RADIOLOGIST: {'patients.view', 'donor_applications.view', 'consents.view', 'emr.view'},
+                         'consents.record', 'consents.view', 'emr.view', 'emr.write',
+                         'schedules.manage_own', 'appointments.view'},
+        T.RADIOLOGIST: {'patients.view', 'donor_applications.view', 'consents.view', 'emr.view',
+                        'schedules.manage_own', 'appointments.view'},
         T.TRANSPLANT_SURGEON: {'patients.view', 'donor_applications.view', 'consents.view',
-                               'emr.view', 'emr.write'},
+                               'emr.view', 'emr.write', 'schedules.manage_own', 'appointments.view'},
     }
 
     def test_matrix_per_job_title(self):
@@ -59,7 +63,7 @@ class RBACUnitTests(TestCase):
         user = make_user('pat', User.Role.PATIENT)
         self.assertEqual(capabilities_for(user), {'self.profile', 'self.patient_record',
                                                   'self.donor_applications', 'self.consents',
-                                                  'self.medical_records'})
+                                                  'self.medical_records', 'self.appointments'})
         self.assertIsNone(effective_job_title(user))
 
     def test_clinical_staff_without_job_title_has_no_clinical_permissions(self):

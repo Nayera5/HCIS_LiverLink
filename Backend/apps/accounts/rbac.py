@@ -37,10 +37,19 @@ STAFF_CAPABILITIES = {
     # EMR (module 4): clinical readers view; only the treating doctors write and sign.
     'emr.view': CLINICAL_READERS,
     'emr.write': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    # Scheduling (module 3): doctors manage their own working hours; super admin manages anyone's.
+    'schedules.manage_own': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON, T.RADIOLOGIST}),
+    'schedules.manage_all': frozenset({T.SUPER_ADMIN}),
+    'appointments.view': CLINICAL_READERS,
+    'appointments.book_any': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR}),  # on behalf of patients
+    'appointments.check_in': frozenset({T.TRANSPLANT_COORDINATOR}),                 # check-in and no-show
 }
 
 # Job titles that can be the treating doctor of an encounter (holders of 'emr.write').
 EMR_DOCTOR_TITLES = STAFF_CAPABILITIES['emr.write']
+
+# Job titles that have a working schedule and can be booked for appointments.
+SCHEDULABLE_TITLES = STAFF_CAPABILITIES['schedules.manage_own']
 
 # Self-service capabilities of patient/donor accounts (always limited to their own records).
 PATIENT_CAPABILITIES = frozenset({
@@ -48,6 +57,7 @@ PATIENT_CAPABILITIES = frozenset({
     'self.donor_applications',  # submit / view / withdraw own applications
     'self.consents',            # view own consents
     'self.medical_records',     # view own released EMR records (read-only)
+    'self.appointments',        # book / view / reschedule / cancel own appointments
 })
 
 EVERYONE = frozenset({'self.profile'})  # own account profile + password
