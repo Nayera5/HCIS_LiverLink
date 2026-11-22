@@ -74,8 +74,10 @@ class EncounterTests(EMRTestBase):
     def test_sign_then_only_addenda(self):
         enc = self.encounter()
         self.as_(self.surg)
+        self.assertFalse(self.client.get(f'{ENC}{enc.pk}/').data['can_sign'])
         self.assertEqual(self.client.post(f'{ENC}{enc.pk}/sign/').status_code, 403)  # not the treating doctor
         self.as_(self.hep)
+        self.assertTrue(self.client.get(f'{ENC}{enc.pk}/').data['can_sign'])
         self.assertEqual(self.client.post(f'{ENC}{enc.pk}/sign/').status_code, 200)
         self.assertEqual(self.client.patch(f'{ENC}{enc.pk}/', {'clinical_notes': 'x'}, format='json').status_code, 400)
         self.assertEqual(self.client.delete(f'{ENC}{enc.pk}/').status_code, 400)

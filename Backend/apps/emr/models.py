@@ -49,7 +49,7 @@ class Encounter(models.Model):
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
 
     class Meta:
-        db_table = "encounter"
+        db_table = "emr_encounter"
         ordering = ["-encounter_date"]
         indexes = [models.Index(fields=["patient", "-encounter_date"])]
 
@@ -85,7 +85,7 @@ class EncounterAddendum(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "encounter_addendum"
+        db_table = "emr_encounter_addendum"
         ordering = ["created_at"]
 
     def __str__(self):
@@ -117,7 +117,7 @@ class MedicalHistory(models.Model):
     )
 
     class Meta:
-        db_table = "medical_history"
+        db_table = "emr_medical_history"
         verbose_name_plural = "medical histories"
         ordering = ["history_type", "-onset_date"]
         indexes = [models.Index(fields=["patient", "history_type"])]
@@ -150,7 +150,7 @@ class Diagnosis(models.Model):
     diagnosed_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        db_table = "diagnosis"
+        db_table = "emr_diagnosis"
         verbose_name_plural = "diagnoses"
         ordering = ["-diagnosed_at"]
         constraints = [
@@ -203,7 +203,7 @@ class VitalSigns(models.Model):
     recorded_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        db_table = "vital_signs"
+        db_table = "emr_vital_signs"
         verbose_name_plural = "vital signs"
         ordering = ["-recorded_at"]
         constraints = [
@@ -277,7 +277,7 @@ class Document(models.Model):
     objects = DocumentQuerySet.as_manager()
 
     class Meta:
-        db_table = "document"
+        db_table = "emr_document"
         ordering = ["-uploaded_at"]
         indexes = [models.Index(fields=["patient", "is_released"])]
 

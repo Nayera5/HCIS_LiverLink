@@ -100,6 +100,7 @@ class EncounterSerializer(serializers.ModelSerializer):
                         "incorrect_type": "Choose an active hepatologist or transplant surgeon."},
     )
     staff_name = serializers.SerializerMethodField()
+    can_sign = serializers.SerializerMethodField()
     diagnoses = DiagnosisSerializer(many=True, read_only=True)
     vital_signs = VitalSignsSerializer(many=True, read_only=True)
     addenda = EncounterAddendumSerializer(many=True, read_only=True)
@@ -108,13 +109,19 @@ class EncounterSerializer(serializers.ModelSerializer):
         model = Encounter
         fields = [
             "encounter_id", "patient", "staff", "staff_name", "encounter_date",
-            "chief_complaint", "clinical_notes", "status",
+            "chief_complaint", "clinical_notes", "status", "can_sign",
             "diagnoses", "vital_signs", "addenda",
         ]
         read_only_fields = ["encounter_id", "status"]
 
     def get_staff_name(self, encounter):
         return _staff_name(encounter.staff)
+
+    def get_can_sign(self, encounter):
+        """True when the signed-in user is the treating doctor of this open encounter."""
+        request = self.context.get("request")
+        staff = staff_profile(request.user) if request else None
+        return encounter.status == Encounter.Status.OPEN and staff is not None and staff.pk == encounter.staff_id
 
     def validate(self, attrs):
         if self.instance:

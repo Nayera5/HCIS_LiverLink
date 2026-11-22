@@ -10,6 +10,8 @@ import DashboardPage from './pages/Dashboard/DashboardPage'
 import DonorApplicationCreatePage from './pages/DonorApplications/DonorApplicationCreatePage'
 import DonorApplicationDetailPage from './pages/DonorApplications/DonorApplicationDetailPage'
 import DonorApplicationsPage from './pages/DonorApplications/DonorApplicationsPage'
+import EncounterPage from './pages/EMR/EncounterPage'
+import MedicalRecordPage from './pages/EMR/MedicalRecordPage'
 import NotFoundPage from './pages/Errors/NotFoundPage'
 import LoginRoute from './pages/Login/LoginRoute'
 import PatientDetailPage from './pages/Patients/PatientDetailPage'
@@ -17,6 +19,7 @@ import PatientRegisterPage from './pages/Patients/PatientRegisterPage'
 import PatientsPage from './pages/Patients/PatientsPage'
 import MyConsentsPage from './pages/Portal/MyConsentsPage'
 import MyDonorApplicationsPage from './pages/Portal/MyDonorApplicationsPage'
+import MyMedicalRecordPage from './pages/Portal/MyMedicalRecordPage'
 import MyRecordPage from './pages/Portal/MyRecordPage'
 import ProfilePage from './pages/Profile/ProfilePage'
 import UserCreatePage from './pages/Users/UserCreatePage'
@@ -59,6 +62,15 @@ function App() {
               </Route>
               <Route element={<RequireCapability capability="self.consents" />}>
                 <Route path="my-consents" element={<MyConsentsPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="self.medical_records" />}>
+                <Route path="my-medical-record" element={<MyMedicalRecordPage />} />
+                <Route path="my-medical-record/encounters/:id" element={<EncounterPage portal />} />
+              </Route>
+
+              <Route element={<RequireCapability capability="emr.view" />}>
+                <Route path="patients/:id/medical-record" element={<MedicalRecordPage />} />
+                <Route path="encounters/:id" element={<EncounterPage />} />
               </Route>
 
               <Route element={<RequireCapability capability="donor_applications.view" />}>

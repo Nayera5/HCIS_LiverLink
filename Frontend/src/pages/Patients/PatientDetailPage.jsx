@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
 import { changePatientCategory, getPatient, updatePatient } from '../../api/patients'
 import { useAuth } from '../../auth/authContext'
@@ -98,8 +98,15 @@ export default function PatientDetailPage() {
         back={{ to: '/patients', label: 'Patients' }}
         eyebrow="Patient profile"
         title={patientName(patient)}
-        actions={canEdit && !editing && (
-          <Button variant="secondary" onClick={() => { setEditing(true); setFlash('') }}>Edit demographics</Button>
+        actions={!editing && (canEdit || can('emr.view')) && (
+          <>
+            {can('emr.view') && (
+              <Button as={Link} to={`/patients/${patient.id}/medical-record`}>Open medical record</Button>
+            )}
+            {canEdit && (
+              <Button variant="secondary" onClick={() => { setEditing(true); setFlash('') }}>Edit demographics</Button>
+            )}
+          </>
         )}
       />
       <div className="patient-summary">
