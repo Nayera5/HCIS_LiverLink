@@ -16,9 +16,9 @@ class PaymentInline(admin.TabularInline):
 
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
-    list_display = ['code', 'name', 'category', 'price', 'is_active']
-    list_filter = ['category', 'is_active']
-    search_fields = ['code', 'name']
+    list_display = ['code', 'name', 'category', 'coding_system', 'standard_code', 'price', 'is_active']
+    list_filter = ['category', 'coding_system', 'is_active']
+    search_fields = ['code', 'name', 'standard_code']
 
 
 @admin.register(Invoice)

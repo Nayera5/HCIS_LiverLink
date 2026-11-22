@@ -18,7 +18,10 @@ def _django_errors(exc):
 class ServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
-        fields = ['id', 'code', 'name', 'category', 'price', 'is_active', 'created_at', 'updated_at']
+        fields = [
+            'id', 'code', 'name', 'category', 'coding_system', 'standard_code',
+            'price', 'is_active', 'created_at', 'updated_at',
+        ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def validate_price(self, value):

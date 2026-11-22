@@ -16,6 +16,7 @@ import DonorApplicationDetailPage from './pages/DonorApplications/DonorApplicati
 import DonorApplicationsPage from './pages/DonorApplications/DonorApplicationsPage'
 import NotFoundPage from './pages/Errors/NotFoundPage'
 import LoginRoute from './pages/Login/LoginRoute'
+import NotificationsPage from './pages/Notifications/NotificationsPage'
 import PatientDetailPage from './pages/Patients/PatientDetailPage'
 import PatientRegisterPage from './pages/Patients/PatientRegisterPage'
 import PatientsPage from './pages/Patients/PatientsPage'
@@ -48,6 +49,7 @@ function App() {
             <Route element={<AppShell />}>
               <Route index element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
 
               <Route element={<RequireCapability capability="patients.view" />}>
                 <Route path="patients" element={<PatientsPage />} />

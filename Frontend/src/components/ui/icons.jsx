@@ -204,3 +204,10 @@ export const CreditCardIcon = (p) => (
     <path d="M7 14.5h4" />
   </Svg>
 )
+
+export const BellIcon = (p) => (
+  <Svg {...p}>
+    <path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6Z" />
+    <path d="M10 19a2 2 0 0 0 4 0" />
+  </Svg>
+)
