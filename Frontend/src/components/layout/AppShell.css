@@ -174,20 +174,22 @@
   flex: none;
   width: 34px;
   height: 34px;
-  color: var(--sidebar-text);
-  background: none;
+  color: #f87171; /* reddish: signing out is a "leave" action */
+  background: rgba(248, 113, 113, 0.1);
   border: 0;
   border-radius: 8px;
   cursor: pointer;
+  transition: color 0.15s, background 0.15s;
 }
 
 .sidebar__logout:hover:not(:disabled) {
   color: #fff;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-danger);
 }
 
 .sidebar__logout:focus-visible {
-  outline: 2px solid var(--color-teal-glow);
+  outline: 2px solid #f87171;
+  outline-offset: 2px;
 }
 
 /* ---------- Main column ---------- */
