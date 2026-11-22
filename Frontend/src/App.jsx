@@ -20,6 +20,7 @@ import NotificationsPage from './pages/Notifications/NotificationsPage'
 import PatientDetailPage from './pages/Patients/PatientDetailPage'
 import PatientRegisterPage from './pages/Patients/PatientRegisterPage'
 import PatientsPage from './pages/Patients/PatientsPage'
+import MyConsentsPage from './pages/Portal/MyConsentsPage'
 import MyDonorApplicationsPage from './pages/Portal/MyDonorApplicationsPage'
 import MyInvoiceDetailPage from './pages/Portal/MyInvoiceDetailPage'
 import MyInvoicesPage from './pages/Portal/MyInvoicesPage'
@@ -67,6 +68,9 @@ function App() {
               <Route element={<RequireCapability capability="self.invoices" />}>
                 <Route path="my-invoices" element={<MyInvoicesPage />} />
                 <Route path="my-invoices/:id" element={<MyInvoiceDetailPage />} />
+               </Route>
+              <Route element={<RequireCapability capability="self.consents" />}>
+                <Route path="my-consents" element={<MyConsentsPage />} />
               </Route>
 
               <Route element={<RequireCapability capability="donor_applications.view" />}>

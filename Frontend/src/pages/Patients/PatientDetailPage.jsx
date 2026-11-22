@@ -13,6 +13,7 @@ import Panel from '../../components/ui/Panel'
 import SelectField from '../../components/ui/SelectField'
 import { useApi } from '../../hooks/useApi'
 import { formatDate, formatDateTime } from '../../utils/format'
+import ConsentsPanel from '../Consents/ConsentsPanel'
 import PatientForm from './PatientForm'
 import { ageSex, CATEGORY_LABELS, CATEGORY_OPTIONS, categoryBadge, patientName } from './patientDisplay'
 import './Patients.css'
@@ -82,6 +83,7 @@ export default function PatientDetailPage() {
 
   const canEdit = can('patients.edit')
   const canChangeCategory = can('patients.change_category')
+  const canViewConsents = can('consents.view') // not Super Admin or Billing Admin
 
   const save = async (payload) => {
     const updated = await updatePatient(patient.id, payload)
@@ -155,6 +157,7 @@ export default function PatientDetailPage() {
                     setFlash(message)
                   }} />
               )}
+              {canViewConsents && <ConsentsPanel patient={patient} />}
               <Panel title="Registration">
                 <dl className="detail-list">
                   <div>

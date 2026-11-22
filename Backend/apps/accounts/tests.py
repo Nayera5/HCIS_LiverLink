@@ -34,7 +34,7 @@ class RBACUnitTests(TestCase):
 
     EXPECTED = {
         T.SUPER_ADMIN: {'users.manage', 'audit.view', 'patients.register', 'patients.view', 'patients.edit',
-                        'patients.change_category', 'donor_applications.view', 'consents.view'},
+                        'patients.change_category', 'donor_applications.view'},  # no consents.view
         T.BILLING_ADMIN: {'patients.view'},
         T.TRANSPLANT_COORDINATOR: {'patients.register', 'patients.view', 'patients.edit',
                                    'patients.change_category', 'donor_applications.submit_on_behalf',
