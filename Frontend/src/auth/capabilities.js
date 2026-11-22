@@ -9,20 +9,21 @@ export const CAPABILITY_DESCRIPTIONS = {
   'donor_applications.submit_on_behalf': 'Submit donor applications on behalf of a donor',
   'donor_applications.screen': 'Screen donor applications (accept or reject)',
   'donor_applications.view': 'View donor applications',
-  'consents.record': 'Record signed consents and withdrawals',
-  'consents.view': 'View patients’ consent records',
+  'consents.record': 'Record signed surgery consents and withdrawals',
+  'consents.view': 'View patients’ surgery consent records',
   'self.patient_record': 'View your own record and update your contact details',
   'self.donor_applications': 'Apply to become a living donor and follow your application',
   'self.consents': 'View the consents you have signed',
   'self.profile': 'Manage your own account and password',
 }
 
-// Capabilities whose pages exist today. Others (consents) are
-// added here when their stage is delivered, so dashboards never list unavailable features.
+// Capabilities whose pages exist today. Capabilities of later stages are added here when
+// delivered, so dashboards never list unavailable features.
 export const IMPLEMENTED_CAPABILITIES = new Set([
   'users.manage', 'audit.view', 'patients.register', 'patients.view', 'patients.edit', 'patients.change_category',
   'donor_applications.view', 'donor_applications.screen', 'donor_applications.submit_on_behalf',
-  'self.patient_record', 'self.donor_applications', 'self.profile',
+  'consents.view', 'consents.record',
+  'self.patient_record', 'self.donor_applications', 'self.consents', 'self.profile',
 ])
 
 export function describeCapabilities(capabilities = []) {
