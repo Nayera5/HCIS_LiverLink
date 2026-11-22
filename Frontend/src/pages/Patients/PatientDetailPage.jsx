@@ -14,6 +14,8 @@ import SelectField from '../../components/ui/SelectField'
 import { useApi } from '../../hooks/useApi'
 import { formatDate, formatDateTime } from '../../utils/format'
 import PatientLabResultsPanel from '../Labs/PatientLabResultsPanel'
+import PatientMedicationsPanel from '../Prescriptions/PatientMedicationsPanel'
+import PatientTreatmentPlansPanel from '../Prescriptions/PatientTreatmentPlansPanel'
 import PatientForm from './PatientForm'
 import { ageSex, CATEGORY_LABELS, CATEGORY_OPTIONS, categoryBadge, patientName } from './patientDisplay'
 import './Patients.css'
@@ -173,6 +175,8 @@ export default function PatientDetailPage() {
             </div>
           </div>
         )}
+        {!editing && can('prescriptions.view') && <PatientMedicationsPanel patientId={patient.id} />}
+        {!editing && can('treatment_plans.view') && <PatientTreatmentPlansPanel patientId={patient.id} />}
         {!editing && can('labs.view') && <PatientLabResultsPanel patientId={patient.id} />}
       </div>
     </>

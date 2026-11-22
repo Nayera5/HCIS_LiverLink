@@ -28,4 +28,6 @@ urlpatterns = [
     path('api/', include('apps.registry.urls')),
     # Laboratory (Module 5): orders, pending tests, results, trends.
     path('api/', include('apps.labs.urls')),
+    # Prescriptions & treatment plans (Module 6): drug catalog, e-prescriptions, medication lists, plans.
+    path('api/', include('apps.prescriptions.urls')),
 ]

@@ -14,7 +14,7 @@ import TextField from '../../components/ui/TextField'
 import { useApi } from '../../hooks/useApi'
 import { formatDateTime } from '../../utils/format'
 import {
-  ACTION_OPTIONS, KIND_OPTIONS, actionChange, actionLabel, describeRecord, entryKind, hasActiveFilters,
+  ACTION_OPTIONS, KIND_OPTIONS, actionChange, actionLabel, describeChanges, describeRecord, entryKind, hasActiveFilters,
   kindParam, readFilters, toApiParams, validateFilters,
 } from './auditLogFilters'
 import './AuditLogs.css'
@@ -126,7 +126,17 @@ export default function AuditLogsPage() {
                             <span>{entry.action_label || actionLabel(entry.action)}</span>
                           </div>
                         </td>
-                        <td>{describeRecord(entry)}</td>
+                        <td>
+                          <div>{describeRecord(entry)}</div>
+                          {describeChanges(entry).length > 0 && (
+                            <ul className="audit-changes">
+                              {describeChanges(entry).map((c) => (
+                                <li key={c.field}><strong>{c.field}:</strong> {c.from} → {c.to}</li>
+                              ))}
+                            </ul>
+                          )}
+                          {entry.reason && <div className="audit-reason"><strong>Reason:</strong> {entry.reason}</div>}
+                        </td>
                         <td>
                           {entry.patient ? (
                             <>

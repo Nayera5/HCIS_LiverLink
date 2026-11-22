@@ -19,6 +19,10 @@ import MyLabOrdersPage from './pages/Labs/MyLabOrdersPage'
 import MyLabResultsPage from './pages/Labs/MyLabResultsPage'
 import PendingTestsPage from './pages/Labs/PendingTestsPage'
 import MyRecordPage from './pages/Portal/MyRecordPage'
+import MyMedicationsPage from './pages/Prescriptions/MyMedicationsPage'
+import MyTreatmentPlansPage from './pages/Prescriptions/MyTreatmentPlansPage'
+import PlanReviewsPage from './pages/Prescriptions/PlanReviewsPage'
+import PrescribePage from './pages/Prescriptions/PrescribePage'
 import ProfilePage from './pages/Profile/ProfilePage'
 import UserCreatePage from './pages/Users/UserCreatePage'
 import UserDetailPage from './pages/Users/UserDetailPage'
@@ -67,6 +71,17 @@ function App() {
               <Route element={<RequireCapability capability="self.lab_results" />}>
                 <Route path="my-results" element={<MyLabResultsPage />} />
                 <Route path="my-lab-orders" element={<MyLabOrdersPage />} />
+              </Route>
+
+              <Route element={<RequireCapability capability="prescriptions.prescribe" />}>
+                <Route path="rx/new" element={<PrescribePage />} />
+              </Route>
+              <Route element={<RequireCapability capability="treatment_plans.view" />}>
+                <Route path="rx/reviews" element={<PlanReviewsPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="self.medications" />}>
+                <Route path="my-medications" element={<MyMedicationsPage />} />
+                <Route path="my-treatment-plans" element={<MyTreatmentPlansPage />} />
               </Route>
 
               <Route element={<RequireCapability capability="users.manage" />}>

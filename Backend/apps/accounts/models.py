@@ -176,6 +176,10 @@ class AuditLog(models.Model):
     `user` is empty for events without an authenticated account (e.g. a failed login or a
     password-reset request); `actor` then identifies who acted. `actor` also keeps the username
     as it was at the time of the event. Never store passwords, tokens or other secrets in it.
+
+    `changes` and `reason` are optional and used for clinical edits that must be traceable
+    (e.g. treatment plans, prescriptions): `changes` maps field -> {"from": old, "to": new} and
+    `reason` is the justification given by the user. They never hold secrets.
     """
 
     class Action(models.TextChoices):
@@ -213,6 +217,10 @@ class AuditLog(models.Model):
     entity_type = models.CharField(max_length=100, help_text='Table the action was on, e.g. registry.patient.')
     entity_id = models.BigIntegerField(null=True, blank=True, help_text='ID of the row the action was on.')
     ip_address = models.GenericIPAddressField(null=True, blank=True)
+    changes = models.JSONField(
+        null=True, blank=True,
+        help_text='Changed values: {field: {"from": old, "to": new}} (clinical edits only).')
+    reason = models.TextField(blank=True, help_text='Reason given for the change.')
     timestamp = models.DateTimeField(default=timezone.now, editable=False)
 
     objects = AuditLogQuerySet.as_manager()
@@ -250,7 +258,7 @@ class AuditLog(models.Model):
 
     @classmethod
     def record(cls, action, entity_type, *, user=None, actor='', entity_id=None, patient=None,
-               ip_address=None):
+               ip_address=None, changes=None, reason=''):
         """
         Append one entry. `entity_type` is a model label such as 'registry.patient'.
         With a user, `actor` defaults to their current username. Anonymous events must pass
@@ -261,5 +269,5 @@ class AuditLog(models.Model):
         actor = (actor or (user.get_username() if user is not None else '')).strip()[:150]
         return cls.objects.create(
             user=user, actor=actor, action=action, entity_type=entity_type, entity_id=entity_id,
-            patient=patient, ip_address=ip_address,
+            patient=patient, ip_address=ip_address, changes=changes or None, reason=(reason or '').strip(),
         )

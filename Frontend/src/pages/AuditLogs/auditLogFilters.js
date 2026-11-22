@@ -40,6 +40,11 @@ const ENTITY_LABELS = {
   'registry.patient': 'Patient record',
   'accounts.user': 'User account',
   'registry.donorapplication': 'Donor application',
+  'labs.laborder': 'Lab order',
+  'labs.labresult': 'Lab result',
+  'prescriptions.prescription': 'Prescription',
+  'prescriptions.treatmentplan': 'Treatment plan',
+  'prescriptions.drug': 'Drug catalog entry',
 }
 
 /** Filters kept in the page URL. `page` is handled separately by the page. */
@@ -136,4 +141,27 @@ export function entryKind(entry) {
 export function describeRecord(entry) {
   const label = ENTITY_LABELS[entry.entity_type] || entry.entity_type
   return entry.entity_id != null ? `${label} #${entry.entity_id}` : label
+}
+
+const FIELD_LABELS = {
+  plan_type: 'Treatment', goals: 'Goals', steps: 'Steps', start_date: 'Start date', review_date: 'Review date',
+  status: 'Status', is_active: 'Active', default_route: 'Usual route', common_dose: 'Usual dose',
+  generic_name: 'Generic name', drug_class: 'Class', name: 'Name',
+}
+
+function showValue(value) {
+  if (value === null || value === undefined || value === '') return '(empty)'
+  if (typeof value === 'boolean') return value ? 'yes' : 'no'
+  const text = String(value)
+  return text.length > 80 ? `${text.slice(0, 77)}…` : text
+}
+
+/** Changed values of a clinical edit as [{ field, from, to }] (empty when the entry has none). */
+export function describeChanges(entry) {
+  if (!entry.changes || typeof entry.changes !== 'object') return []
+  return Object.entries(entry.changes).map(([field, change]) => ({
+    field: FIELD_LABELS[field] || field,
+    from: showValue(change?.from),
+    to: showValue(change?.to),
+  }))
 }
