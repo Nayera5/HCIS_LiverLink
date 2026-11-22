@@ -32,6 +32,10 @@ STAFF_CAPABILITIES = {
     'donor_applications.screen': frozenset({T.TRANSPLANT_COORDINATOR}),
     'donor_applications.view': CLINICAL_READERS,
     'consents.record': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
+    'billing.manage_services': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
+    'billing.view': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
+    'billing.create_invoice': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
+    'billing.record_payment': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
     # Super Admin does not see consent records; consent actions are monitored via the audit log.
     'consents.view': CLINICAL_READERS - {T.SUPER_ADMIN},
 }
@@ -41,6 +45,7 @@ PATIENT_CAPABILITIES = frozenset({
     'self.patient_record',      # view own record, edit own contact details
     'self.donor_applications',  # submit / view / withdraw own applications
     'self.consents',            # view own consents
+    'self.invoices',            # view own invoices, balance & payment history
 })
 
 EVERYONE = frozenset({'self.profile'})  # own account profile + password
