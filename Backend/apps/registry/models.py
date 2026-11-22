@@ -292,8 +292,8 @@ class Consent(models.Model):
     withdrawal creates a new row.
 
     Stage 6 scope: donor_surgery and transplant_surgery. ct_contrast and data_use (spec §4.7)
-    are deferred and will be added to `ConsentType` with a migration. The scanned copy
-    (`document_id` → EMR Document) is deferred until the Document model exists.
+    are deferred and will be added to `ConsentType` with a migration. The scanned copy is an
+    optional EMR Document (`document`, type consent_form, same patient).
     """
 
     class ConsentType(models.TextChoices):
@@ -312,6 +312,9 @@ class Consent(models.Model):
 
     patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='consents',
                                 help_text='Person who signed.')
+    document = models.OneToOneField(
+        'emr.Document', null=True, blank=True, on_delete=models.PROTECT, related_name='consent',
+        help_text='Scanned copy of the signed form (optional).')
     consent_type = models.CharField(max_length=30, choices=ConsentType.choices)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.SIGNED)
     signed_at = models.DateTimeField(help_text='When the form was signed.')

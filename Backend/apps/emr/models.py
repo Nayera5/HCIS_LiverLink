@@ -5,8 +5,12 @@
 Entities: Encounter, MedicalHistory, Diagnosis, VitalSigns, Document
 (entity dictionary sections 4.10 – 4.14).
 
-Cross-module references use lazy strings so this app does not import the
-registry (Patient), scheduling (Appointment) or accounts (Staff) apps directly.
+Linked modules:
+- module 1 (accounts): Staff (treating doctor, author, recorder) and User (uploader);
+- module 2 (registry): Patient (owner of every record); Consent.document points here.
+
+Deferred: Encounter.appointment_id (→ scheduling.Appointment, spec §4.10) is added with a
+migration once the scheduling module has an Appointment model.
 """
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -26,19 +30,13 @@ class Encounter(models.Model):
         SIGNED = "signed", "Signed"
 
     # Fields frozen once an encounter is signed (changes go through an addendum).
-    LOCKED_FIELDS = ("patient_id", "appointment_id", "staff_id",
+    LOCKED_FIELDS = ("patient_id", "staff_id",
                      "encounter_date", "chief_complaint", "clinical_notes")
 
     encounter_id = models.AutoField(primary_key=True)
     patient = models.ForeignKey(
         "registry.Patient", on_delete=models.PROTECT,
         related_name="encounters", db_column="patient_id",
-    )
-    appointment = models.OneToOneField(
-        "scheduling.Appointment", on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="encounter",
-        db_column="appointment_id",
-        help_text="Empty for walk-ins. At most one encounter per appointment.",
     )
     staff = models.ForeignKey(
         "accounts.Staff", on_delete=models.PROTECT,
@@ -121,6 +119,7 @@ class MedicalHistory(models.Model):
     class Meta:
         db_table = "medical_history"
         verbose_name_plural = "medical histories"
+        ordering = ["history_type", "-onset_date"]
         indexes = [models.Index(fields=["patient", "history_type"])]
 
     def __str__(self):
@@ -153,6 +152,7 @@ class Diagnosis(models.Model):
     class Meta:
         db_table = "diagnosis"
         verbose_name_plural = "diagnoses"
+        ordering = ["-diagnosed_at"]
         constraints = [
             # Business rule: each encounter has at most one primary diagnosis.
             models.UniqueConstraint(

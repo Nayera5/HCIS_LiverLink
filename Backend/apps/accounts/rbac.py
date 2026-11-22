@@ -34,13 +34,20 @@ STAFF_CAPABILITIES = {
     'consents.record': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
     # Super Admin does not see consent records; consent actions are monitored via the audit log.
     'consents.view': CLINICAL_READERS - {T.SUPER_ADMIN},
+    # EMR (module 4): clinical readers view; only the treating doctors write and sign.
+    'emr.view': CLINICAL_READERS,
+    'emr.write': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
 }
+
+# Job titles that can be the treating doctor of an encounter (holders of 'emr.write').
+EMR_DOCTOR_TITLES = STAFF_CAPABILITIES['emr.write']
 
 # Self-service capabilities of patient/donor accounts (always limited to their own records).
 PATIENT_CAPABILITIES = frozenset({
     'self.patient_record',      # view own record, edit own contact details
     'self.donor_applications',  # submit / view / withdraw own applications
     'self.consents',            # view own consents
+    'self.medical_records',     # view own released EMR records (read-only)
 })
 
 EVERYONE = frozenset({'self.profile'})  # own account profile + password

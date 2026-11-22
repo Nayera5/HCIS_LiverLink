@@ -1,7 +1,26 @@
+from django.core.validators import FileExtensionValidator
+from django.urls import reverse
 from rest_framework import serializers
+
+from apps.accounts.models import Staff, User
+from apps.accounts.rbac import EMR_DOCTOR_TITLES
 
 from .models import Diagnosis, Document, Encounter, EncounterAddendum, MedicalHistory, VitalSigns
 from .permissions import staff_profile
+
+ALLOWED_DOCUMENT_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"]
+MAX_DOCUMENT_SIZE = 20 * 1024 * 1024  # 20 MB
+
+
+def doctors():
+    """Active staff who can be the treating doctor of an encounter (hepatologist, transplant surgeon)."""
+    return Staff.objects.filter(
+        user__is_active=True, user__role=User.Role.CLINICAL_STAFF, job_title__in=EMR_DOCTOR_TITLES,
+    ).select_related("user")
+
+
+def _staff_name(staff):
+    return (staff.user.get_full_name() or staff.user.username) if staff else None
 
 
 def _reject_if_signed(encounter):
@@ -63,15 +82,24 @@ class DiagnosisSerializer(serializers.ModelSerializer):
 
 
 class EncounterAddendumSerializer(serializers.ModelSerializer):
-    author_name = serializers.StringRelatedField(source="author", read_only=True)
+    author_name = serializers.SerializerMethodField()
 
     class Meta:
         model = EncounterAddendum
         fields = ["addendum_id", "encounter", "author", "author_name", "text", "created_at"]
         read_only_fields = ["addendum_id", "encounter", "author", "created_at"]
 
+    def get_author_name(self, addendum):
+        return _staff_name(addendum.author)
+
 
 class EncounterSerializer(serializers.ModelSerializer):
+    staff = serializers.PrimaryKeyRelatedField(
+        queryset=doctors(), required=False,
+        error_messages={"does_not_exist": "Choose an active hepatologist or transplant surgeon.",
+                        "incorrect_type": "Choose an active hepatologist or transplant surgeon."},
+    )
+    staff_name = serializers.SerializerMethodField()
     diagnoses = DiagnosisSerializer(many=True, read_only=True)
     vital_signs = VitalSignsSerializer(many=True, read_only=True)
     addenda = EncounterAddendumSerializer(many=True, read_only=True)
@@ -79,35 +107,38 @@ class EncounterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Encounter
         fields = [
-            "encounter_id", "patient", "appointment", "staff", "encounter_date",
+            "encounter_id", "patient", "staff", "staff_name", "encounter_date",
             "chief_complaint", "clinical_notes", "status",
             "diagnoses", "vital_signs", "addenda",
         ]
         read_only_fields = ["encounter_id", "status"]
-        extra_kwargs = {"staff": {"required": False}}
+
+    def get_staff_name(self, encounter):
+        return _staff_name(encounter.staff)
 
     def validate(self, attrs):
         if self.instance:
             _reject_if_signed(self.instance)
-        # Default the treating doctor to the logged-in staff member.
+        # Default the treating doctor to the logged-in doctor.
         if not attrs.get("staff") and not self.instance:
             staff = staff_profile(self.context["request"].user)
-            if staff is None:
+            if staff is None or not doctors().filter(pk=staff.pk).exists():
                 raise serializers.ValidationError({"staff": "Treating doctor is required."})
             attrs["staff"] = staff
-        appointment = attrs.get("appointment")
-        patient = attrs.get("patient") or getattr(self.instance, "patient", None)
-        if appointment and patient and getattr(appointment, "patient_id", patient.pk) != patient.pk:
-            raise serializers.ValidationError({"appointment": "Appointment belongs to a different patient."})
         return attrs
 
 
 class EncounterListSerializer(serializers.ModelSerializer):
     """Lightweight rows for list views."""
 
+    staff_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Encounter
-        fields = ["encounter_id", "patient", "appointment", "staff", "encounter_date", "chief_complaint", "status"]
+        fields = ["encounter_id", "patient", "staff", "staff_name", "encounter_date", "chief_complaint", "status"]
+
+    def get_staff_name(self, encounter):
+        return _staff_name(encounter.staff)
 
 
 class MedicalHistorySerializer(serializers.ModelSerializer):
@@ -127,10 +158,18 @@ class DocumentSerializer(serializers.ModelSerializer):
             "file_path", "file_url", "is_released", "uploaded_at",
         ]
         read_only_fields = ["document_id", "uploaded_by", "uploaded_at"]
-        extra_kwargs = {"file_path": {"write_only": True}}
+        extra_kwargs = {"file_path": {"write_only": True,
+                                      "validators": [FileExtensionValidator(ALLOWED_DOCUMENT_EXTENSIONS)]}}
+
+    def validate_file_path(self, value):
+        if value.size > MAX_DOCUMENT_SIZE:
+            raise serializers.ValidationError("The file is too large (maximum 20 MB).")
+        return value
 
     def get_file_url(self, obj):
-        request = self.context.get("request")
+        """Authenticated download endpoint (files are never served from a public URL)."""
         if not obj.file_path:
             return None
-        return request.build_absolute_uri(obj.file_path.url) if request else obj.file_path.url
+        url = reverse("emr:document-download", args=[obj.pk])
+        request = self.context.get("request")
+        return request.build_absolute_uri(url) if request else url

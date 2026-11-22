@@ -34,16 +34,18 @@ class RBACUnitTests(TestCase):
 
     EXPECTED = {
         T.SUPER_ADMIN: {'users.manage', 'audit.view', 'patients.register', 'patients.view', 'patients.edit',
-                        'patients.change_category', 'donor_applications.view'},  # no consents.view
+                        'patients.change_category', 'donor_applications.view',
+                        'emr.view'},  # no consents.view
         T.BILLING_ADMIN: {'patients.view'},
         T.TRANSPLANT_COORDINATOR: {'patients.register', 'patients.view', 'patients.edit',
                                    'patients.change_category', 'donor_applications.submit_on_behalf',
                                    'donor_applications.screen', 'donor_applications.view',
-                                   'consents.record', 'consents.view'},
+                                   'consents.record', 'consents.view', 'emr.view'},
         T.HEPATOLOGIST: {'patients.view', 'patients.change_category', 'donor_applications.view',
-                         'consents.record', 'consents.view'},
-        T.RADIOLOGIST: {'patients.view', 'donor_applications.view', 'consents.view'},
-        T.TRANSPLANT_SURGEON: {'patients.view', 'donor_applications.view', 'consents.view'},
+                         'consents.record', 'consents.view', 'emr.view', 'emr.write'},
+        T.RADIOLOGIST: {'patients.view', 'donor_applications.view', 'consents.view', 'emr.view'},
+        T.TRANSPLANT_SURGEON: {'patients.view', 'donor_applications.view', 'consents.view',
+                               'emr.view', 'emr.write'},
     }
 
     def test_matrix_per_job_title(self):
@@ -56,7 +58,8 @@ class RBACUnitTests(TestCase):
     def test_patient_only_self_service(self):
         user = make_user('pat', User.Role.PATIENT)
         self.assertEqual(capabilities_for(user), {'self.profile', 'self.patient_record',
-                                                  'self.donor_applications', 'self.consents'})
+                                                  'self.donor_applications', 'self.consents',
+                                                  'self.medical_records'})
         self.assertIsNone(effective_job_title(user))
 
     def test_clinical_staff_without_job_title_has_no_clinical_permissions(self):

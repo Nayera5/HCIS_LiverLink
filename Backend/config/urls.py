@@ -26,4 +26,6 @@ urlpatterns = [
     path('api/', include('apps.accounts.urls')),
     # Patient & donor registry (Person 1): patients, self-registration, own record.
     path('api/', include('apps.registry.urls')),
+    # EMR (module 4): encounters, history, diagnoses, vitals, documents.
+    path('api/emr/', include('apps.emr.urls')),
 ]
