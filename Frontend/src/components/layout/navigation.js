@@ -27,6 +27,7 @@ export const NAV_SECTIONS = [
     label: 'My health',
     items: [
       { to: '/my-record', label: 'My health record', icon: HeartPulseIcon, capability: 'self.patient_record' },
+      { to: '/my-medical-record', label: 'My medical record', icon: ClipboardIcon, capability: 'self.medical_records' },
       { to: '/my-donor-applications', label: 'My donor applications', icon: UserPlusIcon, capability: 'self.donor_applications' },
       { to: '/my-invoices', label: 'My invoices', icon: ReceiptIcon, capability: 'self.invoices' },
       { to: '/my-consents', label: 'My consents', icon: CheckCircleIcon, capability: 'self.consents' },

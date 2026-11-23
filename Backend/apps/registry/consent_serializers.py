@@ -3,6 +3,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.accounts.models import Staff, User
+from apps.emr.models import Document
 
 from .models import Consent
 
@@ -30,7 +31,7 @@ def active_witnesses():
 
 
 class ConsentRecordSerializer(serializers.Serializer):
-    """{consent_type, signed_at, witnessed_by?} for the patient in context."""
+    """{consent_type, signed_at, witnessed_by?, document?} for the patient in context."""
 
     consent_type = serializers.ChoiceField(choices=Consent.ConsentType.choices)
     signed_at = serializers.DateTimeField()
@@ -38,6 +39,20 @@ class ConsentRecordSerializer(serializers.Serializer):
         queryset=active_witnesses(), required=False, allow_null=True,
         error_messages={'does_not_exist': 'Choose an active clinical or coordination staff member as the witness.',
                         'incorrect_type': 'Choose an active clinical or coordination staff member as the witness.'})
+    document = serializers.PrimaryKeyRelatedField(
+        queryset=Document.objects.filter(document_type=Document.DocumentType.CONSENT_FORM),
+        required=False, allow_null=True,
+        error_messages={'does_not_exist': 'Choose an uploaded consent form document.',
+                        'incorrect_type': 'Choose an uploaded consent form document.'})
+
+    def validate_document(self, document):
+        if document is None:
+            return None
+        if document.patient_id != self.context['patient'].pk:
+            raise serializers.ValidationError('This document belongs to a different person.')
+        if Consent.objects.filter(document=document).exists():
+            raise serializers.ValidationError('This document is already attached to another consent.')
+        return document
 
     def validate_signed_at(self, value):
         if value > timezone.now():
@@ -70,7 +85,8 @@ class ConsentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Consent
         fields = ['id', 'patient_id', 'consent_type', 'type_label', 'status', 'status_label', 'is_active',
-                  'signed_at', 'witnessed_by', 'recorded_by', 'withdrawn_at', 'withdrawn_by', 'created_at']
+                  'signed_at', 'witnessed_by', 'recorded_by', 'withdrawn_at', 'withdrawn_by', 'document_id',
+                  'created_at']
         read_only_fields = fields
 
     def get_witnessed_by(self, consent):

@@ -22,23 +22,30 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest(path, { method = 'GET', body, headers = {}, signal } = {}) {
+/**
+ * `body`: a plain object (sent as JSON) or a FormData (file uploads; the browser sets the type).
+ * `responseType`: 'json' (default) or 'blob' (file downloads).
+ */
+export async function apiRequest(path, { method = 'GET', body, headers = {}, signal, responseType = 'json' } = {}) {
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData
   let response
   try {
     response = await fetch(`${API_URL}${path}`, {
       method,
       headers: {
         Accept: 'application/json',
-        ...(body !== undefined && { 'Content-Type': 'application/json' }),
+        ...(body !== undefined && !isForm && { 'Content-Type': 'application/json' }),
         ...headers,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       signal,
     })
   } catch (err) {
     if (err.name === 'AbortError') throw err
     throw new ApiError('Network request failed', { status: 0 })
   }
+
+  if (responseType === 'blob' && response.ok) return response.blob()
 
   const text = await response.text()
   let data = null

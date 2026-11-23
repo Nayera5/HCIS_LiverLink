@@ -38,13 +38,30 @@ STAFF_CAPABILITIES = {
     'billing.record_payment': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
     # Super Admin does not see consent records; consent actions are monitored via the audit log.
     'consents.view': CLINICAL_READERS - {T.SUPER_ADMIN},
+    # EMR (module 4): clinical readers view; only the treating doctors write and sign.
+    'emr.view': CLINICAL_READERS,
+    'emr.write': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    # Scheduling (module 3): doctors manage their own working hours; super admin manages anyone's.
+    'schedules.manage_own': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON, T.RADIOLOGIST}),
+    'schedules.manage_all': frozenset({T.SUPER_ADMIN}),
+    'appointments.view': CLINICAL_READERS,
+    'appointments.book_any': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR}),  # on behalf of patients
+    'appointments.check_in': frozenset({T.TRANSPLANT_COORDINATOR}),                 # check-in and no-show
 }
+
+# Job titles that can be the treating doctor of an encounter (holders of 'emr.write').
+EMR_DOCTOR_TITLES = STAFF_CAPABILITIES['emr.write']
+
+# Job titles that have a working schedule and can be booked for appointments.
+SCHEDULABLE_TITLES = STAFF_CAPABILITIES['schedules.manage_own']
 
 # Self-service capabilities of patient/donor accounts (always limited to their own records).
 PATIENT_CAPABILITIES = frozenset({
     'self.patient_record',      # view own record, edit own contact details
     'self.donor_applications',  # submit / view / withdraw own applications
     'self.consents',            # view own consents
+    'self.medical_records',     # view own released EMR records (read-only)
+    'self.appointments',        # book / view / reschedule / cancel own appointments
     'self.invoices',            # view own invoices, balance & payment history
 })
 
