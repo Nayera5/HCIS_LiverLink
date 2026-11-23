@@ -34,11 +34,14 @@ export default function TransplantCasesPage() {
 
   return (
     <div className="transplant-page">
-      <PageHeader title="Transplant Cases">
-        {can('transplant.refer') && (
-          <Link to="/transplant/new" className="btn btn-primary">+ New Referral</Link>
-        )}
-      </PageHeader>
+      <PageHeader
+        title="Transplant Cases"
+        actions={
+          can('transplant.refer') && (
+            <Link to="/transplant/new" className="btn btn-primary">+ New Referral</Link>
+          )
+        }
+      />
 
       <div className="filters-row">
         <input

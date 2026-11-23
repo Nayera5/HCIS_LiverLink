@@ -69,9 +69,10 @@ export default function TransplantCaseDetailPage() {
 
   return (
     <div className="transplant-page case-detail">
-      <PageHeader title={`Transplant Case #${c.id}`}>
-        <Link to="/transplant" className="btn">← Back to Cases</Link>
-      </PageHeader>
+      <PageHeader
+        title={`Transplant Case #${c.id}`}
+        actions={<Link to="/transplant" className="btn">← Back to Cases</Link>}
+      />
 
       {/* Case header info */}
       <div className="case-info-grid">

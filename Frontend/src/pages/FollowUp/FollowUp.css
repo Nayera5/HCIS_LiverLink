@@ -1,18 +1,20 @@
-/* Follow-up module styles – imports shared transplant styles and adds follow-up specifics. */
+/* Follow-up module styles – scoped to .followup-page */
 @import '../Transplant/Transplant.css';
 
-.followup-page { padding: 0; }
+.followup-page {
+  padding: 0;
+}
 
 /* Plan cards grid */
-.plan-cards {
+.followup-page .plan-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1rem;
 }
-.plan-card {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
+.followup-page .plan-card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e1e7ed);
+  border-radius: var(--radius-md, 8px);
   padding: 1.25rem;
   cursor: pointer;
   transition: box-shadow 0.15s;
@@ -20,38 +22,54 @@
   color: inherit;
   display: block;
 }
-.plan-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.followup-page .plan-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
 
-.plan-card__header {
+.followup-page .plan-card__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.75rem;
 }
-.plan-card__header h3 { margin: 0; font-size: 1rem; font-weight: 600; }
-.plan-card__meta {
+.followup-page .plan-card__header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.followup-page .plan-card__meta {
   font-size: 0.8125rem;
-  color: var(--text-secondary, #6b7280);
+  color: var(--color-text-muted, #5b6b79);
   line-height: 1.6;
 }
-.plan-card__meta span { display: block; }
-.plan-card__stats {
+.followup-page .plan-card__meta span {
+  display: block;
+}
+.followup-page .plan-card__stats {
   display: flex;
   gap: 1.5rem;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border, #f3f4f6);
+  border-top: 1px solid var(--color-border, #e1e7ed);
   font-size: 0.8125rem;
 }
-.plan-card__stats .stat-label { color: var(--text-secondary, #6b7280); }
-.plan-card__stats .stat-value { font-weight: 600; }
+.followup-page .plan-card__stats .stat-label {
+  color: var(--color-text-muted, #5b6b79);
+}
+.followup-page .plan-card__stats .stat-value {
+  font-weight: 600;
+}
 
 /* Visit timeline */
-.visit-timeline { display: flex; flex-direction: column; gap: 0.75rem; }
-.visit-card {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
+.followup-page .visit-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.followup-page .visit-card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e1e7ed);
+  border-radius: var(--radius-md, 8px);
   padding: 1rem 1.25rem;
   display: flex;
   justify-content: space-between;
@@ -59,63 +77,106 @@
   cursor: pointer;
   transition: box-shadow 0.15s;
 }
-.visit-card:hover { box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
-.visit-card__info { display: flex; flex-direction: column; gap: 0.25rem; }
-.visit-card__date { font-weight: 600; font-size: 0.9375rem; }
-.visit-card__detail { font-size: 0.8125rem; color: var(--text-secondary, #6b7280); }
-.visit-card__actions { display: flex; gap: 0.5rem; }
+.followup-page .visit-card:hover {
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+.followup-page .visit-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.followup-page .visit-card__date {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.followup-page .visit-card__detail {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #5b6b79);
+}
+.followup-page .visit-card__actions {
+  display: flex;
+  gap: 0.5rem;
+}
 
 /* Recovery chart */
-.recovery-section { margin-top: 1rem; }
-.chart-row {
+.followup-page .recovery-section {
+  margin-top: 1rem;
+}
+.followup-page .chart-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
-@media (max-width: 768px) { .chart-row { grid-template-columns: 1fr; } }
+@media (max-width: 768px) {
+  .followup-page .chart-row {
+    grid-template-columns: 1fr;
+  }
+}
 
-.mini-chart {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
+.followup-page .mini-chart {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e1e7ed);
+  border-radius: var(--radius-md, 8px);
   padding: 1rem;
 }
-.mini-chart h4 { margin: 0 0 0.75rem 0; font-size: 0.875rem; font-weight: 600; }
-.bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
-.bar-chart .bar {
+.followup-page .mini-chart h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.followup-page .bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 120px;
+}
+.followup-page .bar-chart .bar {
   flex: 1;
-  background: var(--primary, #2563eb);
+  background: var(--color-primary, #11707b);
   border-radius: 3px 3px 0 0;
   min-width: 8px;
   position: relative;
 }
-.bar-chart .bar.alert { background: var(--danger, #ef4444); }
-.bar-chart .bar-label {
+.followup-page .bar-chart .bar.alert {
+  background: var(--color-danger, #c63b3b);
+}
+.followup-page .bar-chart .bar-label {
   position: absolute;
   bottom: -20px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 0.625rem;
-  color: var(--text-secondary, #9ca3af);
+  color: var(--color-text-subtle, #8a97a3);
   white-space: nowrap;
 }
-.chart-empty { text-align: center; color: var(--text-secondary, #9ca3af); padding: 2rem; font-size: 0.875rem; }
+.followup-page .chart-empty {
+  text-align: center;
+  color: var(--color-text-subtle, #8a97a3);
+  padding: 2rem;
+  font-size: 0.875rem;
+}
 
 /* Modal / overlay form for new visit */
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.3);
-  display: flex; align-items: center; justify-content: center;
+.followup-page .modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 34, 51, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 100;
 }
-.modal-box {
-  background: var(--surface, #fff);
-  border-radius: 10px;
+.followup-page .modal-box {
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-lg, 14px);
   padding: 1.5rem;
   width: 100%;
   max-width: 560px;
   max-height: 85vh;
   overflow-y: auto;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
 }
-.modal-box h2 { margin: 0 0 1rem 0; font-size: 1.125rem; }
+.followup-page .modal-box h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+}
