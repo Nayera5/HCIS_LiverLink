@@ -882,6 +882,8 @@ class TransplantAPITests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         plan.refresh_from_db()
         self.assertEqual(plan.status, 'completed')
+        self.assertIsNotNone(plan.end_date)
+        self.assertEqual(resp.data['end_date'], plan.end_date.isoformat())
 
 
 # ═══════════════════════════════════════════════════════════════════════════

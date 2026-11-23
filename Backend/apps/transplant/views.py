@@ -1,6 +1,7 @@
 """Views for the transplant module (Modules 11 & 12)."""
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -464,9 +465,18 @@ class FollowUpPlanDetailView(generics.RetrieveUpdateAPIView):
 
     def partial_update(self, request, *args, **kwargs):
         plan = self.get_object()
+        update_fields = []
         if 'status' in request.data:
             plan.status = request.data['status']
-            plan.save(update_fields=['status'])
+            update_fields.append('status')
+            if plan.status == FollowUpPlan.Status.COMPLETED and not plan.end_date:
+                plan.end_date = request.data.get('end_date') or timezone.now().date()
+                update_fields.append('end_date')
+        if 'end_date' in request.data and 'end_date' not in update_fields:
+            plan.end_date = request.data['end_date']
+            update_fields.append('end_date')
+        if update_fields:
+            plan.save(update_fields=update_fields)
         return Response(FollowUpPlanSerializer(plan).data)
 
 
@@ -523,7 +533,7 @@ class RecoveryStatsView(generics.GenericAPIView):
 
     def get(self, request, plan_pk):
         plan = FollowUpPlan.objects.get(pk=plan_pk)
-        visits = plan.visits.filter(status='completed').order_by('due_date')
+        visits = plan.visits.all().order_by('due_date')
         return Response({
             'plan_id': plan.pk,
             'patient_role': plan.patient_role,

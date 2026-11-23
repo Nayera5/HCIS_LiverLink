@@ -26,7 +26,7 @@ export default function FollowUpPlanDetailPage() {
 
   const { data: plan, loading: planLoading, error: planError, reload: reloadPlan } = useApi(planLoader)
   const { data: visitsRaw, loading: visitsLoading, reload: reloadVisits } = useApi(visitsLoader)
-  const { data: stats } = useApi(statsLoader)
+  const { data: stats, reload: reloadStats } = useApi(statsLoader)
   const visits = Array.isArray(visitsRaw) ? visitsRaw : visitsRaw?.results || []
 
   /* ── New-visit modal state ──────────────────────────────────── */
@@ -59,6 +59,7 @@ export default function FollowUpPlanDetailPage() {
       setShowModal(false)
       setForm({ due_date: '', notes: '' })
       reloadVisits()
+      reloadStats?.()
     } catch (err) { setFormError(err.message) }
     finally { setSaving(false) }
   }
@@ -67,8 +68,10 @@ export default function FollowUpPlanDetailPage() {
     if (!window.confirm('Mark this follow-up plan as completed?')) return
     setCompleting(true)
     try {
-      await updateFollowUpPlan(id, { status: 'completed', end_date: new Date().toISOString().slice(0, 10) })
+      const today = new Date().toISOString().slice(0, 10)
+      await updateFollowUpPlan(id, { status: 'completed', end_date: today })
       reloadPlan()
+      reloadStats?.()
     } catch (err) { alert(err.message) }
     finally { setCompleting(false) }
   }
@@ -88,7 +91,7 @@ export default function FollowUpPlanDetailPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      const payload = { ...editForm }
+      const payload = { ...editForm, status: 'completed' }
       // Convert numeric strings
       if (payload.immuno_level === '') delete payload.immuno_level
       else payload.immuno_level = parseFloat(payload.immuno_level)
@@ -97,6 +100,7 @@ export default function FollowUpPlanDetailPage() {
       await updateFollowUpVisit(editingVisitId, payload)
       setEditingVisitId(null)
       reloadVisits()
+      reloadStats?.()
     } catch (err) { alert(err.message) }
     finally { setSaving(false) }
   }

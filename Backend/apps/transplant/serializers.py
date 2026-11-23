@@ -337,17 +337,32 @@ class SurgeryCompleteSerializer(serializers.Serializer):
 class FollowUpPlanSerializer(serializers.ModelSerializer):
     patient_detail = _PatientBriefSerializer(source='patient', read_only=True)
     visit_count = serializers.SerializerMethodField()
+    end_date = serializers.SerializerMethodField()
 
     class Meta:
         model = FollowUpPlan
         fields = [
             'id', 'case', 'patient', 'patient_detail', 'patient_role',
-            'start_date', 'status', 'visit_count', 'created_at',
+            'start_date', 'end_date', 'status', 'visit_count', 'created_at',
         ]
-        read_only_fields = fields
+        read_only_fields = [
+            'id', 'case', 'patient', 'patient_detail', 'patient_role',
+            'start_date', 'visit_count', 'created_at',
+        ]
 
     def get_visit_count(self, obj):
         return obj.visits.count()
+
+    def get_end_date(self, obj):
+        if obj.end_date:
+            return obj.end_date.isoformat() if hasattr(obj.end_date, 'isoformat') else str(obj.end_date)
+        if obj.status == FollowUpPlan.Status.COMPLETED:
+            latest = obj.visits.order_by('-due_date').first()
+            if latest and latest.due_date:
+                return latest.due_date.isoformat() if hasattr(latest.due_date, 'isoformat') else str(latest.due_date)
+            if obj.start_date:
+                return obj.start_date.isoformat() if hasattr(obj.start_date, 'isoformat') else str(obj.start_date)
+        return None
 
 
 # ─── FollowUpVisit ───────────────────────────────────────────────────────
