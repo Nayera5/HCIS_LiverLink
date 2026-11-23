@@ -8,6 +8,7 @@ import { LoadingBlock } from '../../components/ui/Feedback'
 import PageHeader from '../../components/ui/PageHeader'
 import { useApi } from '../../hooks/useApi'
 import { ageSex, categoryBadge, patientName } from '../Patients/patientDisplay'
+import { PatientImagingReportsPanel } from '../Reports/reportPanels'
 import { DocumentsPanel, EncountersPanel, HistoryPanel } from './emrPanels'
 import '../Patients/Patients.css'
 
@@ -53,6 +54,7 @@ export default function MedicalRecordPage() {
         </div>
         <div className="content-stack">
           <HistoryPanel patientId={patient.id} canEdit={canEdit} />
+          {can('reports.imaging_patient') && <PatientImagingReportsPanel />}
         </div>
       </div>
     </>

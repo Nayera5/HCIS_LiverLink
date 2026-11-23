@@ -734,3 +734,71 @@ a.stat-card:focus-visible {
     padding-right: 12px;
   }
 }
+
+/* ---------- Bar chart (reports & dashboards) ---------- */
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar-chart__row {
+  display: grid;
+  grid-template-columns: minmax(90px, 32%) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 13.5px;
+}
+
+.bar-chart__label {
+  overflow: hidden;
+  color: var(--color-text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bar-chart__track {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  background: var(--color-surface-muted);
+  border-radius: 999px;
+}
+
+.bar-chart__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.bar-chart__bar {
+  fill: var(--color-primary);
+}
+
+.bar-chart__value {
+  min-width: 48px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-strong);
+  text-align: right;
+}
+
+.bar-chart__empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 640px) {
+  .bar-chart__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .bar-chart__track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

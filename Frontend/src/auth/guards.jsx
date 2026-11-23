@@ -19,7 +19,7 @@ export function RequireAuth() {
 
 /**
  * Renders child routes only when the user holds the capability (the backend checks too).
- * `capability` may be a list: holding any one of them is enough.
+ * `capability` may be a list: then holding ANY of them is enough.
  */
 export function RequireCapability({ capability }) {
   const { can } = useAuth()

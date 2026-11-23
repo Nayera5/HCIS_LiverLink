@@ -33,6 +33,8 @@ import MyInvoiceDetailPage from './pages/Portal/MyInvoiceDetailPage'
 import MyInvoicesPage from './pages/Portal/MyInvoicesPage'
 import MyRecordPage from './pages/Portal/MyRecordPage'
 import ProfilePage from './pages/Profile/ProfilePage'
+import ReportsPage from './pages/Reports/ReportsPage'
+import { REPORT_CAPABILITIES } from './pages/Reports/reportDisplay'
 import UserCreatePage from './pages/Users/UserCreatePage'
 import UserDetailPage from './pages/Users/UserDetailPage'
 import UsersPage from './pages/Users/UsersPage'
@@ -119,6 +121,10 @@ function App() {
               </Route>
               <Route element={<RequireCapability capability="billing.create_invoice" />}>
                 <Route path="billing/invoices/new" element={<InvoiceCreatePage />} />
+              </Route>
+
+              <Route element={<RequireCapability capability={REPORT_CAPABILITIES} />}>
+                <Route path="reports" element={<ReportsPage />} />
               </Route>
 
               <Route element={<RequireCapability capability="users.manage" />}>

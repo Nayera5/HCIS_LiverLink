@@ -32,4 +32,6 @@ urlpatterns = [
     path('api/scheduling/', include('apps.scheduling.urls')),
     path('api/', include('apps.billing.urls')),
     path('api/', include('apps.notifications.urls')),
+    # Reporting & analytics (module 15): read-only reports with CSV/PDF export.
+    path('api/', include('apps.reporting.urls')),
 ]

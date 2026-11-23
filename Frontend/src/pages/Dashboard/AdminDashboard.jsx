@@ -12,6 +12,7 @@ import Panel from '../../components/ui/Panel'
 import StatCard from '../../components/ui/StatCard'
 import { useApi } from '../../hooks/useApi'
 import { formatDate, greeting, longDate } from '../../utils/format'
+import { ReportHighlights } from '../Reports/reportPanels'
 import { accountBadge, accountTitle } from '../Users/accountStatus'
 
 async function loadAdminOverview() {
@@ -130,6 +131,8 @@ export default function AdminDashboard() {
           )}
         </Panel>
       </div>
+
+      <ReportHighlights />
     </>
   )
 }
