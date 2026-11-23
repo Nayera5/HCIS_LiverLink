@@ -38,7 +38,8 @@ class RBACUnitTests(TestCase):
                         'emr.view', 'schedules.manage_all', 'appointments.view',
                         'appointments.book_any', 'billing.manage_services', 'billing.view',
                         'billing.create_invoice', 'billing.record_payment', 'reports.patients', 'reports.financial',
-                        'reports.system_usage', 'reports.transplant', 'reports.imaging'},  # no consents.view
+                        'reports.system_usage', 'reports.transplant', 'reports.imaging',
+                        'transplant.view', 'transplant.view_followup'},  # no consents.view
         T.BILLING_ADMIN: {'patients.view', 'billing.manage_services', 'billing.view', 'billing.create_invoice',
                           'billing.record_payment', 'reports.financial'},
         T.TRANSPLANT_COORDINATOR: {'patients.register', 'patients.view', 'patients.edit',
@@ -46,16 +47,23 @@ class RBACUnitTests(TestCase):
                                    'donor_applications.screen', 'donor_applications.view',
                                    'consents.record', 'consents.view', 'emr.view',
                                    'appointments.view', 'appointments.book_any', 'appointments.check_in',
-                                   'reports.patients', 'reports.transplant'},
+                                   'reports.patients', 'reports.transplant', 'services.view',
+                                   'transplant.manage', 'transplant.manage_followup', 'transplant.view',
+                                   'transplant.view_followup'},
         T.HEPATOLOGIST: {'patients.view', 'patients.change_category', 'donor_applications.view',
                          'consents.record', 'consents.view', 'emr.view', 'emr.write',
                          'schedules.manage_own', 'appointments.view', 'reports.patients',
-                         'reports.transplant', 'reports.imaging', 'reports.imaging_patient'},
+                         'reports.transplant', 'reports.imaging', 'reports.imaging_patient', 'services.view',
+                         'transplant.committee_decide', 'transplant.manage', 'transplant.manage_followup',
+                         'transplant.refer', 'transplant.view', 'transplant.view_followup'},
         T.RADIOLOGIST: {'patients.view', 'donor_applications.view', 'consents.view', 'emr.view',
-                        'schedules.manage_own', 'appointments.view', 'reports.imaging'},
+                        'schedules.manage_own', 'appointments.view', 'reports.imaging', 'services.view',
+                        'transplant.view', 'transplant.view_followup'},
         T.TRANSPLANT_SURGEON: {'patients.view', 'donor_applications.view', 'consents.view',
                                'emr.view', 'emr.write', 'schedules.manage_own', 'appointments.view',
-                               'reports.transplant'},
+                               'reports.transplant', 'services.view', 'transplant.manage',
+                               'transplant.manage_followup', 'transplant.record_surgery', 'transplant.view',
+                               'transplant.view_followup'},
     }
 
     def test_matrix_per_job_title(self):
@@ -70,7 +78,7 @@ class RBACUnitTests(TestCase):
         self.assertEqual(capabilities_for(user), EVERYONE | {'self.patient_record', 'self.invoices',
                                                   'self.donor_applications', 'self.consents',
                                                   'self.medical_records', 'self.appointments',
-                                                  'self.imaging_reports'})
+                                                  'self.imaging_reports', 'services.view'})
         self.assertIsNone(effective_job_title(user))
 
     def test_clinical_staff_without_job_title_has_no_clinical_permissions(self):

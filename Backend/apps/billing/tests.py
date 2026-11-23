@@ -64,3 +64,35 @@ class ServiceListPaginationTests(APITestCase):
 
     def test_out_of_range_page_is_404(self):
         self.assertEqual(self.get(page=99).status_code, 404)
+
+
+class ServiceReadOnlyAccessTests(APITestCase):
+    """The read-only Services page: clinical staff and patients may list services, never change them."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.accounts.models import User
+        from apps.accounts.tests import make_user
+
+        cls.service = Service.objects.create(code='RO-01', name='Read-only check', category='imaging', price=100)
+        cls.readers = [make_staff(f'ro_{title}', title) for title in (
+            Staff.JobTitle.HEPATOLOGIST, Staff.JobTitle.RADIOLOGIST,
+            Staff.JobTitle.TRANSPLANT_SURGEON, Staff.JobTitle.TRANSPLANT_COORDINATOR)]
+        cls.readers.append(make_user('ro_patient', User.Role.PATIENT))
+        cls.nojob = make_user('ro_nojob', User.Role.CLINICAL_STAFF)
+
+    def test_readers_can_list_but_not_change(self):
+        for user in self.readers:
+            with self.subTest(user=user.username):
+                self.client.force_authenticate(user)
+                r = self.client.get('/api/services/', {'category': 'imaging'})
+                self.assertEqual(r.status_code, 200)
+                self.assertIn('RO-01', [row['code'] for row in r.data['results']])
+                payload = {'code': 'X-1', 'name': 'X', 'category': 'imaging', 'price': 1}
+                self.assertEqual(self.client.post('/api/services/', payload, format='json').status_code, 403)
+                url = f'/api/services/{self.service.pk}/'
+                self.assertEqual(self.client.patch(url, {'price': 5}, format='json').status_code, 403)
+
+    def test_account_without_job_title_cannot_list(self):
+        self.client.force_authenticate(self.nojob)
+        self.assertEqual(self.client.get('/api/services/').status_code, 403)

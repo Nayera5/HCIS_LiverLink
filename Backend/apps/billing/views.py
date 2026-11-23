@@ -52,7 +52,8 @@ class ServicePagination(BillingPagination):
 
 class ServiceListCreateView(generics.ListCreateAPIView):
     """
-    GET  /api/services/?category=&coding_system=&status=&active_only=&page=&page_size=  (billing.view)
+    GET  /api/services/?category=&coding_system=&status=&active_only=&page=&page_size=
+         (billing.view, or services.view: the read-only Services page for clinical staff & patients)
     POST /api/services/                                                                (billing.manage_services)
 
     Paginated: {count, next, previous, results}; 10 per page by default, page_size up to 100.
@@ -62,8 +63,9 @@ class ServiceListCreateView(generics.ListCreateAPIView):
     pagination_class = ServicePagination
 
     def get_permissions(self):
-        cap = 'billing.manage_services' if self.request.method == 'POST' else 'billing.view'
-        return [IsAuthenticated(), HasCapability(cap)()]
+        if self.request.method == 'POST':
+            return [IsAuthenticated(), HasCapability('billing.manage_services')()]
+        return [IsAuthenticated(), HasCapability('billing.view', 'services.view')()]
 
     def get_queryset(self):
         qs = Service.objects.all()

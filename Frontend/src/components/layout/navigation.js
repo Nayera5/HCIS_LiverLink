@@ -27,6 +27,8 @@ export const NAV_SECTIONS = [
     items: [
       { to: '/billing/invoices', label: 'Invoices', icon: ReceiptIcon, capability: 'billing.view' },
       { to: '/billing/services', label: 'Service catalog', icon: CreditCardIcon, capability: 'billing.view' },
+      // Read-only list for clinical staff and patients (admins have the Service catalog above).
+      { to: '/services', label: 'Services & prices', icon: CreditCardIcon, capability: 'services.view' },
     ],
   },
   {
