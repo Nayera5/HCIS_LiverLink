@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0007_merge_20261123_2203'),
+        ('accounts', '0007_auditlog_reason_changes'),
         ('emr', '0003_encounter_appointment'),
         ('registry', '0003_consent_document'),
         ('scheduling', '0001_initial'),

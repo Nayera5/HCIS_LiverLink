@@ -268,4 +268,3 @@ class AuditLog(models.Model):
             user=user, actor=actor, action=action, entity_type=entity_type, entity_id=entity_id,
             patient=patient, ip_address=ip_address, reason=reason or '', changes=changes,
         )
-        )
