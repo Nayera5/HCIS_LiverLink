@@ -93,3 +93,17 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Changed values and reason of clinical edits (treatment plans, prescriptions) */
+.audit-changes {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.audit-reason {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}

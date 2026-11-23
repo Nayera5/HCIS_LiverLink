@@ -32,6 +32,18 @@ STAFF_CAPABILITIES = {
     'donor_applications.screen': frozenset({T.TRANSPLANT_COORDINATOR}),
     'donor_applications.view': CLINICAL_READERS,
     'consents.record': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
+    'consents.view': CLINICAL_READERS,
+    # Laboratory (Module 5)
+    'labs.view': CLINICAL_READERS,
+    'labs.order': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    'labs.enter_result': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
+    'labs.release': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    # Prescriptions & treatment plans (Module 6). Only doctors prescribe / manage plans.
+    'prescriptions.view': CLINICAL_READERS,
+    'prescriptions.prescribe': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    'treatment_plans.view': CLINICAL_READERS,
+    'treatment_plans.manage': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    'drugs.manage': frozenset({T.SUPER_ADMIN, T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
     'billing.manage_services': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
     'billing.view': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
     'billing.create_invoice': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
@@ -77,6 +89,8 @@ PATIENT_CAPABILITIES = frozenset({
     'self.patient_record',      # view own record, edit own contact details
     'self.donor_applications',  # submit / view / withdraw own applications
     'self.consents',            # view own consents
+    'self.lab_results',         # view own RELEASED lab results and trends
+    'self.medications',         # view own prescriptions (active + past) and treatment plans
     'self.medical_records',     # view own released EMR records (read-only)
     'self.appointments',        # book / view / reschedule / cancel own appointments
     'self.invoices',            # view own invoices, balance & payment history

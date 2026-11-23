@@ -1,0 +1,220 @@
+/* Laboratory pages. Colours come from the app tokens in index.css. */
+
+.filter-bar--labs {
+  grid-template-columns: repeat(2, minmax(160px, 240px)) auto;
+}
+
+@media (max-width: 560px) {
+  .filter-bar--labs {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Inline result entry */
+.result-entry__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-entry__input {
+  width: 120px;
+  height: 36px;
+  font-size: 14px;
+}
+
+.result-entry .field__error {
+  margin-top: 4px;
+}
+
+/* Order form */
+.test-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.test-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+}
+
+.test-option:hover {
+  border-color: var(--color-border-hover);
+}
+
+.test-option--on {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+
+.test-option input {
+  margin-top: 3px;
+  accent-color: var(--color-primary);
+}
+
+.test-option .cell-secondary {
+  display: block;
+}
+
+.picker-list {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.picker-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Trend chart */
+.lab-chart {
+  margin: 0;
+}
+
+.lab-chart__plot {
+  position: relative;
+}
+
+.lab-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.lab-chart__band {
+  fill: var(--color-success);
+  opacity: 0.1;
+}
+
+.lab-chart__grid {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.lab-chart__tick {
+  font-size: 11px;
+  fill: var(--color-text-muted);
+}
+
+.lab-chart__line {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lab-chart__crosshair {
+  stroke: var(--color-border-hover);
+  stroke-width: 1;
+}
+
+.lab-chart__dot {
+  fill: var(--color-primary);
+  stroke: var(--color-surface);
+  stroke-width: 2;
+}
+
+.lab-chart__dot--abnormal {
+  fill: var(--color-danger);
+}
+
+.lab-chart g:focus-visible {
+  outline: none;
+}
+
+.lab-chart g:focus-visible .lab-chart__dot {
+  stroke: var(--color-text-strong);
+}
+
+.lab-chart__hit {
+  fill: transparent;
+  cursor: crosshair;
+}
+
+.lab-tooltip {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(15, 42, 59, 0.12);
+  transform: translate(-50%, calc(-100% - 12px));
+  white-space: nowrap;
+}
+
+.lab-tooltip strong {
+  font-size: 14px;
+  color: var(--color-text-strong);
+}
+
+.lab-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+.lab-chart__key {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.lab-chart__key--line {
+  width: 16px;
+  height: 0;
+  border-top: 2px solid var(--color-primary);
+}
+
+.lab-chart__key--band {
+  width: 16px;
+  height: 10px;
+  background: var(--color-success);
+  opacity: 0.25;
+}
+
+.lab-chart__key--abnormal {
+  width: 10px;
+  height: 10px;
+  background: var(--color-danger);
+  border-radius: 50%;
+}
+
+.lab-chart__table {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.lab-chart__table summary {
+  cursor: pointer;
+  color: var(--color-primary);
+}
+
+.lab-refetch {
+  opacity: 0.6;
+}

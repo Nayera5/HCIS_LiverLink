@@ -336,7 +336,7 @@ class StaffAccountUpdateSerializer(_StaffFieldsMixin):
 # --------------------------------------------------------------------------- audit log viewer
 
 class AuditLogSerializer(serializers.ModelSerializer):
-    """One audit entry for the Super Admin viewer. Read-only; entries never hold field values."""
+    """One audit entry for the Super Admin viewer. Read-only. `changes`/`reason` only for clinical edits."""
 
     action_label = serializers.CharField(source='get_action_display', read_only=True)
     is_read = serializers.SerializerMethodField()
@@ -346,7 +346,7 @@ class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditLog
         fields = ('id', 'timestamp', 'actor', 'user_id', 'action', 'action_label', 'is_read',
-                  'entity_type', 'entity_id', 'patient', 'ip_address')
+                  'entity_type', 'entity_id', 'patient', 'ip_address', 'changes', 'reason')
         read_only_fields = fields
 
     def get_is_read(self, entry):

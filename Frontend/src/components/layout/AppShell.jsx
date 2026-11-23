@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/authContext'
 import { displayName, initials, roleLine } from '../../auth/roles'
 import { useApi } from '../../hooks/useApi'
 import Button from '../ui/Button'
+import { ConfirmDialog } from '../ui/Feedback'
 import { BellIcon, CloseIcon, LogOutIcon, MenuIcon, PlusIcon, SearchIcon } from '../ui/icons'
 import { navigationFor, primaryActionFor } from './navigation'
 import './AppShell.css'
@@ -78,6 +79,7 @@ export default function AppShell() {
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
 
   const sections = navigationFor(can)
   const primary = primaryActionFor(can)
@@ -134,7 +136,7 @@ export default function AppShell() {
           <button
             type="button"
             className="sidebar__logout"
-            onClick={handleSignOut}
+            onClick={() => setConfirmSignOut(true)}
             disabled={signingOut}
             aria-label="Sign out"
             title="Sign out"
@@ -143,6 +145,18 @@ export default function AppShell() {
           </button>
         </div>
       </aside>
+
+      <ConfirmDialog
+        open={confirmSignOut}
+        title="Sign out of LiverLink?"
+        confirmLabel="Sign out"
+        tone="danger"
+        busy={signingOut}
+        onConfirm={handleSignOut}
+        onCancel={() => setConfirmSignOut(false)}
+      >
+        Any unsaved changes on this page will be lost.
+      </ConfirmDialog>
 
       <button
         type="button"
