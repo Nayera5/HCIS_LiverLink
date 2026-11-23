@@ -3,35 +3,47 @@ import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Badge from '../../components/ui/Badge'
 import PageHeader from '../../components/ui/PageHeader'
+import { Pagination } from '../../components/ui/Feedback'
 import { useApi } from '../../hooks/useApi'
 import { listFollowUpPlans } from '../../api/transplant'
 import './FollowUp.css'
 
+const PAGE_SIZE = 10
 const ROLE_LABELS = { recipient: 'Recipient', donor: 'Donor' }
 const STATUS_TONES = { active: 'info', completed: 'success' }
 
 export default function FollowUpDashboard() {
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
 
   const loader = useCallback(
-    () => listFollowUpPlans({ patient_role: roleFilter, status: statusFilter }),
-    [roleFilter, statusFilter],
+    () => listFollowUpPlans({ patient_role: roleFilter, status: statusFilter, page, page_size: PAGE_SIZE }),
+    [roleFilter, statusFilter, page],
   )
   const { data, loading, error } = useApi(loader)
   const plans = Array.isArray(data) ? data : data?.results || []
+  const totalCount = data?.count ?? plans.length
 
   return (
     <div className="followup-page">
       <PageHeader title="Post-Transplant Follow-up" />
 
       <div className="filters-row">
-        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input">
+        <select
+          value={roleFilter}
+          onChange={(e) => { setRoleFilter(e.target.value); setPage(1) }}
+          className="input"
+        >
           <option value="">All roles</option>
           <option value="recipient">Recipient</option>
           <option value="donor">Donor</option>
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input">
+        <select
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+          className="input"
+        >
           <option value="">All statuses</option>
           <option value="active">Active</option>
           <option value="completed">Completed</option>
@@ -75,6 +87,13 @@ export default function FollowUpDashboard() {
           </Link>
         ))}
       </div>
+
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        count={totalCount}
+        onPageChange={setPage}
+      />
     </div>
   )
 }

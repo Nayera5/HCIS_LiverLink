@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import Badge from '../../components/ui/Badge'
 import PageHeader from '../../components/ui/PageHeader'
+import { Pagination } from '../../components/ui/Feedback'
 import { useAuth } from '../../auth/authContext'
 import { useApi } from '../../hooks/useApi'
 import {
@@ -12,22 +13,25 @@ import {
 } from '../../api/transplant'
 import './FollowUp.css'
 
+const VISIT_PAGE_SIZE = 10
 const ROLE_LABELS = { recipient: 'Recipient', donor: 'Donor' }
 
 export default function FollowUpPlanDetailPage() {
   const { id } = useParams()
   const { can } = useAuth()
   const canManage = can('transplant.manage_followup')
+  const [visitPage, setVisitPage] = useState(1)
 
   /* ── Data loading ───────────────────────────────────────────── */
   const planLoader = useCallback(() => getFollowUpPlan(id), [id])
-  const visitsLoader = useCallback(() => listFollowUpVisits(id), [id])
+  const visitsLoader = useCallback(() => listFollowUpVisits(id, { page: visitPage, page_size: VISIT_PAGE_SIZE }), [id, visitPage])
   const statsLoader = useCallback(() => getRecoveryStats(id), [id])
 
   const { data: plan, loading: planLoading, error: planError, reload: reloadPlan } = useApi(planLoader)
   const { data: visitsRaw, loading: visitsLoading, reload: reloadVisits } = useApi(visitsLoader)
   const { data: stats, reload: reloadStats } = useApi(statsLoader)
   const visits = Array.isArray(visitsRaw) ? visitsRaw : visitsRaw?.results || []
+  const visitsCount = visitsRaw?.count ?? visits.length
 
   /* ── New-visit modal state ──────────────────────────────────── */
   const [showModal, setShowModal] = useState(false)
@@ -237,7 +241,7 @@ export default function FollowUpPlanDetailPage() {
         <h3>
           Visits
           <span style={{ fontWeight: 400, fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-            {' '}({visits.length} total)
+            {' '}({visitsCount} total)
           </span>
         </h3>
 
@@ -341,6 +345,13 @@ export default function FollowUpPlanDetailPage() {
             <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>No visits recorded yet.</p>
           )}
         </div>
+
+        <Pagination
+          page={visitPage}
+          pageSize={VISIT_PAGE_SIZE}
+          count={visitsCount}
+          onPageChange={setVisitPage}
+        />
       </div>
 
       {/* ── New visit modal ───────────────────────────────────── */}

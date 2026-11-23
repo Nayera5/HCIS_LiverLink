@@ -4,6 +4,7 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -33,6 +34,26 @@ from .serializers import (
 ENTITY = 'transplant.transplantcase'
 
 
+class TransplantPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class PositiveIdMixin:
+    """Validates that all URL pk parameters are positive integers (>= 1)."""
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        for key, val in kwargs.items():
+            if key in ('pk', 'plan_pk', 'case_pk', 'id') or key.endswith('_pk'):
+                try:
+                    if int(val) < 1:
+                        raise DRFValidationError({key: 'ID must be positive and start from 1.'})
+                except (ValueError, TypeError):
+                    raise DRFValidationError({key: 'ID must be an integer.'})
+
+
 def _staff(request):
     return get_staff_profile(request.user)
 
@@ -45,6 +66,8 @@ class TransplantCaseListCreateView(generics.ListCreateAPIView):
     GET  /api/transplant/cases/         list all cases
     POST /api/transplant/cases/         create a new referral
     """
+
+    pagination_class = TransplantPagination
 
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -88,7 +111,7 @@ class TransplantCaseListCreateView(generics.ListCreateAPIView):
         )
 
 
-class TransplantCaseDetailView(generics.RetrieveAPIView):
+class TransplantCaseDetailView(PositiveIdMixin, generics.RetrieveAPIView):
     """GET /api/transplant/cases/<id>/"""
 
     permission_classes = [IsAuthenticated, CanViewTransplant]
@@ -100,7 +123,7 @@ class TransplantCaseDetailView(generics.RetrieveAPIView):
     )
 
 
-class TransplantCaseStatusView(generics.GenericAPIView):
+class TransplantCaseStatusView(PositiveIdMixin, generics.GenericAPIView):
     """POST /api/transplant/cases/<id>/status/  {status: "under_evaluation"}"""
 
     permission_classes = [IsAuthenticated, CanManageTransplant]
@@ -121,7 +144,7 @@ class TransplantCaseStatusView(generics.GenericAPIView):
         return Response(TransplantCaseDetailSerializer(case).data)
 
 
-class TransplantCaseUpdateView(generics.UpdateAPIView):
+class TransplantCaseUpdateView(PositiveIdMixin, generics.UpdateAPIView):
     """PATCH /api/transplant/cases/<id>/  (update coordinator, etc.)"""
 
     permission_classes = [IsAuthenticated, CanManageTransplant]
@@ -151,7 +174,7 @@ class TransplantCaseUpdateView(generics.UpdateAPIView):
 # ───────────────────────────────────────────────────────────────────────────
 # CaseDonor
 # ───────────────────────────────────────────────────────────────────────────
-class CaseDonorListCreateView(generics.ListCreateAPIView):
+class CaseDonorListCreateView(PositiveIdMixin, generics.ListCreateAPIView):
     """
     GET  /api/transplant/cases/<case_pk>/donors/
     POST /api/transplant/cases/<case_pk>/donors/
@@ -177,7 +200,7 @@ class CaseDonorListCreateView(generics.ListCreateAPIView):
         serializer.save()
 
 
-class CaseDonorDetailView(generics.RetrieveAPIView):
+class CaseDonorDetailView(PositiveIdMixin, generics.RetrieveAPIView):
     """GET /api/transplant/donors/<id>/"""
 
     permission_classes = [IsAuthenticated, CanViewTransplant]
@@ -185,7 +208,7 @@ class CaseDonorDetailView(generics.RetrieveAPIView):
     queryset = CaseDonor.objects.select_related('donor')
 
 
-class CaseDonorStatusView(generics.GenericAPIView):
+class CaseDonorStatusView(PositiveIdMixin, generics.GenericAPIView):
     """POST /api/transplant/donors/<id>/status/  {status: "approved"}"""
 
     permission_classes = [IsAuthenticated, CanManageTransplant]
@@ -201,7 +224,7 @@ class CaseDonorStatusView(generics.GenericAPIView):
         return Response(CaseDonorSerializer(cd).data)
 
 
-class ABOCheckView(generics.GenericAPIView):
+class ABOCheckView(PositiveIdMixin, generics.GenericAPIView):
     """GET /api/transplant/donors/<id>/abo-check/"""
 
     permission_classes = [IsAuthenticated, CanViewTransplant]
@@ -221,7 +244,7 @@ class ABOCheckView(generics.GenericAPIView):
 # ───────────────────────────────────────────────────────────────────────────
 # ChecklistItem
 # ───────────────────────────────────────────────────────────────────────────
-class ChecklistItemListCreateView(generics.ListCreateAPIView):
+class ChecklistItemListCreateView(PositiveIdMixin, generics.ListCreateAPIView):
     """
     GET  /api/transplant/cases/<case_pk>/checklist/
     POST /api/transplant/cases/<case_pk>/checklist/
@@ -247,7 +270,7 @@ class ChecklistItemListCreateView(generics.ListCreateAPIView):
         serializer.save()
 
 
-class ChecklistItemDetailView(generics.RetrieveUpdateDestroyAPIView):
+class ChecklistItemDetailView(PositiveIdMixin, generics.RetrieveUpdateDestroyAPIView):
     """GET/PATCH/DELETE /api/transplant/checklist/<id>/"""
 
     permission_classes = [IsAuthenticated, CanManageTransplant]
@@ -255,7 +278,7 @@ class ChecklistItemDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = ChecklistItem.objects.all()
 
 
-class ChecklistItemStatusView(generics.GenericAPIView):
+class ChecklistItemStatusView(PositiveIdMixin, generics.GenericAPIView):
     """POST /api/transplant/checklist/<id>/status/  {status: "done"}"""
 
     permission_classes = [IsAuthenticated, CanManageTransplant]
@@ -281,7 +304,7 @@ class ChecklistItemStatusView(generics.GenericAPIView):
 # ───────────────────────────────────────────────────────────────────────────
 # CommitteeDecision
 # ───────────────────────────────────────────────────────────────────────────
-class CommitteeDecisionListCreateView(generics.ListCreateAPIView):
+class CommitteeDecisionListCreateView(PositiveIdMixin, generics.ListCreateAPIView):
     """
     GET  /api/transplant/cases/<case_pk>/decisions/
     POST /api/transplant/cases/<case_pk>/decisions/
@@ -317,7 +340,7 @@ class CommitteeDecisionListCreateView(generics.ListCreateAPIView):
         )
 
 
-class CommitteeDecisionDetailView(generics.RetrieveAPIView):
+class CommitteeDecisionDetailView(PositiveIdMixin, generics.RetrieveAPIView):
     """GET /api/transplant/decisions/<id>/"""
 
     permission_classes = [IsAuthenticated, CanViewTransplant]
@@ -330,7 +353,7 @@ class CommitteeDecisionDetailView(generics.RetrieveAPIView):
 # ───────────────────────────────────────────────────────────────────────────
 # Surgery
 # ───────────────────────────────────────────────────────────────────────────
-class SurgeryListCreateView(generics.ListCreateAPIView):
+class SurgeryListCreateView(PositiveIdMixin, generics.ListCreateAPIView):
     """
     GET  /api/transplant/cases/<case_pk>/surgeries/
     POST /api/transplant/cases/<case_pk>/surgeries/
@@ -366,7 +389,7 @@ class SurgeryListCreateView(generics.ListCreateAPIView):
         )
 
 
-class SurgeryDetailView(generics.RetrieveUpdateAPIView):
+class SurgeryDetailView(PositiveIdMixin, generics.RetrieveUpdateAPIView):
     """GET/PATCH /api/transplant/surgeries/<id>/"""
 
     permission_classes = [IsAuthenticated, CanRecordSurgery]
@@ -377,7 +400,7 @@ class SurgeryDetailView(generics.RetrieveUpdateAPIView):
     http_method_names = ['get', 'patch', 'head', 'options']
 
 
-class SurgeryCompleteView(generics.GenericAPIView):
+class SurgeryCompleteView(PositiveIdMixin, generics.GenericAPIView):
     """POST /api/transplant/surgeries/<id>/complete/"""
 
     permission_classes = [IsAuthenticated, CanRecordSurgery]
@@ -407,7 +430,7 @@ class SurgeryCompleteView(generics.GenericAPIView):
         return Response(SurgerySerializer(surgery).data)
 
 
-class SurgeryTeamMemberView(generics.ListCreateAPIView):
+class SurgeryTeamMemberView(PositiveIdMixin, generics.ListCreateAPIView):
     """
     GET/POST /api/transplant/surgeries/<surgery_pk>/team/
     """
@@ -424,7 +447,7 @@ class SurgeryTeamMemberView(generics.ListCreateAPIView):
         serializer.save(surgery_id=self.kwargs['surgery_pk'])
 
 
-class SurgeryTeamMemberDeleteView(generics.DestroyAPIView):
+class SurgeryTeamMemberDeleteView(PositiveIdMixin, generics.DestroyAPIView):
     """DELETE /api/transplant/team-members/<id>/"""
 
     permission_classes = [IsAuthenticated, CanRecordSurgery]
@@ -442,6 +465,7 @@ class FollowUpPlanListView(generics.ListAPIView):
 
     permission_classes = [IsAuthenticated, CanViewFollowUp]
     serializer_class = FollowUpPlanSerializer
+    pagination_class = TransplantPagination
 
     def get_queryset(self):
         qs = FollowUpPlan.objects.select_related('patient', 'case').prefetch_related('visits')
@@ -455,7 +479,7 @@ class FollowUpPlanListView(generics.ListAPIView):
         return qs
 
 
-class FollowUpPlanDetailView(generics.RetrieveUpdateAPIView):
+class FollowUpPlanDetailView(PositiveIdMixin, generics.RetrieveUpdateAPIView):
     """GET/PATCH /api/transplant/followup/plans/<id>/"""
 
     permission_classes = [IsAuthenticated, CanViewFollowUp]
@@ -483,11 +507,13 @@ class FollowUpPlanDetailView(generics.RetrieveUpdateAPIView):
 # ───────────────────────────────────────────────────────────────────────────
 # FollowUpVisit
 # ───────────────────────────────────────────────────────────────────────────
-class FollowUpVisitListCreateView(generics.ListCreateAPIView):
+class FollowUpVisitListCreateView(PositiveIdMixin, generics.ListCreateAPIView):
     """
     GET  /api/transplant/followup/plans/<plan_pk>/visits/
     POST /api/transplant/followup/plans/<plan_pk>/visits/
     """
+
+    pagination_class = TransplantPagination
 
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -514,7 +540,7 @@ class FollowUpVisitListCreateView(generics.ListCreateAPIView):
         serializer.save()
 
 
-class FollowUpVisitDetailView(generics.RetrieveUpdateAPIView):
+class FollowUpVisitDetailView(PositiveIdMixin, generics.RetrieveUpdateAPIView):
     """GET/PATCH /api/transplant/followup/visits/<id>/"""
 
     permission_classes = [IsAuthenticated, CanManageFollowUp]
@@ -523,7 +549,7 @@ class FollowUpVisitDetailView(generics.RetrieveUpdateAPIView):
     http_method_names = ['get', 'patch', 'head', 'options']
 
 
-class RecoveryStatsView(generics.GenericAPIView):
+class RecoveryStatsView(PositiveIdMixin, generics.GenericAPIView):
     """
     GET /api/transplant/followup/plans/<plan_pk>/recovery/
     Returns all visits for a plan, ordered by due_date, for chart rendering.

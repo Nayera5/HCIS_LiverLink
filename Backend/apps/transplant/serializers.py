@@ -110,6 +110,8 @@ class TransplantCaseCreateSerializer(serializers.ModelSerializer):
         fields = ['recipient', 'referral_encounter', 'coordinator', 'referral_date']
 
     def validate_recipient(self, patient):
+        if patient.pk < 1:
+            raise serializers.ValidationError('ID must be positive and start from 1.')
         if patient.category not in ('liver_patient', 'recipient'):
             raise serializers.ValidationError(
                 'Only liver patients or recipients can be referred for transplant.'
@@ -122,6 +124,11 @@ class TransplantCaseCreateSerializer(serializers.ModelSerializer):
                 'This recipient already has an open transplant case.'
             )
         return patient
+
+    def validate_coordinator(self, staff):
+        if staff and staff.pk < 1:
+            raise serializers.ValidationError('ID must be positive and start from 1.')
+        return staff
 
     def create(self, validated_data):
         validated_data['referred_by'] = self.context['staff']
@@ -149,6 +156,8 @@ class CaseDonorSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         case = attrs.get('case') or (self.instance and self.instance.case)
         donor = attrs.get('donor') or (self.instance and self.instance.donor)
+        if donor and donor.pk < 1:
+            raise serializers.ValidationError({'donor': 'ID must be positive and start from 1.'})
         if case and donor:
             if donor.pk == case.recipient_id:
                 raise serializers.ValidationError({
@@ -262,6 +271,11 @@ class SurgeryTeamMemberSerializer(serializers.ModelSerializer):
         fields = ['id', 'surgery', 'staff', 'staff_detail', 'team_role']
         read_only_fields = ['id']
 
+    def validate_staff(self, staff):
+        if staff.pk < 1:
+            raise serializers.ValidationError('ID must be positive and start from 1.')
+        return staff
+
 
 class SurgerySerializer(serializers.ModelSerializer):
     team_members = SurgeryTeamMemberSerializer(many=True, read_only=True)
@@ -295,6 +309,9 @@ class SurgeryCreateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         case = attrs['case']
         case_donor = attrs['case_donor']
+        lead_surgeon = attrs.get('lead_surgeon')
+        if lead_surgeon and lead_surgeon.pk < 1:
+            raise serializers.ValidationError({'lead_surgeon': 'ID must be positive and start from 1.'})
 
         if case.status != TransplantCase.Status.APPROVED:
             raise serializers.ValidationError({

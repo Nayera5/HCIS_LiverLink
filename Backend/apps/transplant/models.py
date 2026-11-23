@@ -114,6 +114,10 @@ class TransplantCase(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
+                condition=Q(id__gte=1),
+                name='transplant_case_id_gte_1',
+            ),
+            models.CheckConstraint(
                 condition=Q(status__in=[
                     'referred', 'under_evaluation', 'committee_review',
                     'approved', 'rejected', 'surgery_scheduled',
@@ -205,6 +209,10 @@ class CaseDonor(models.Model):
         ordering = ['-added_at']
         constraints = [
             models.CheckConstraint(
+                condition=Q(id__gte=1),
+                name='transplant_casedonor_id_gte_1',
+            ),
+            models.CheckConstraint(
                 condition=Q(status__in=[
                     'candidate', 'under_evaluation', 'approved',
                     'not_suitable', 'withdrawn',
@@ -291,6 +299,10 @@ class ChecklistItem(models.Model):
         ordering = ['item_type', 'item_name']
         constraints = [
             models.CheckConstraint(
+                condition=Q(id__gte=1),
+                name='transplant_checklist_id_gte_1',
+            ),
+            models.CheckConstraint(
                 condition=Q(item_type__in=['lab_test', 'imaging', 'consultation', 'document']),
                 name='transplant_checklist_type_valid',
             ),
@@ -353,6 +365,10 @@ class CommitteeDecision(models.Model):
         ordering = ['-meeting_date', '-created_at']
         constraints = [
             models.CheckConstraint(
+                condition=Q(id__gte=1),
+                name='transplant_decision_id_gte_1',
+            ),
+            models.CheckConstraint(
                 condition=(
                     Q(decision__isnull=True)
                     | Q(decision__in=['approved', 'rejected', 'more_tests_needed'])
@@ -403,6 +419,10 @@ class CommitteeMember(models.Model):
 
     class Meta:
         constraints = [
+            models.CheckConstraint(
+                condition=Q(id__gte=1),
+                name='transplant_committee_member_id_gte_1',
+            ),
             models.UniqueConstraint(
                 fields=['decision', 'staff'],
                 name='transplant_committee_member_unique',
@@ -475,6 +495,10 @@ class Surgery(models.Model):
         verbose_name_plural = 'surgeries'
         ordering = ['-scheduled_at']
         constraints = [
+            models.CheckConstraint(
+                condition=Q(id__gte=1),
+                name='transplant_surgery_id_gte_1',
+            ),
             models.CheckConstraint(
                 condition=Q(status__in=[
                     'scheduled', 'in_progress', 'completed', 'cancelled',
@@ -563,6 +587,10 @@ class SurgeryTeamMember(models.Model):
 
     class Meta:
         constraints = [
+            models.CheckConstraint(
+                condition=Q(id__gte=1),
+                name='transplant_surgery_team_member_id_gte_1',
+            ),
             models.UniqueConstraint(
                 fields=['surgery', 'staff'],
                 name='transplant_surgery_team_unique',
@@ -608,6 +636,10 @@ class FollowUpPlan(models.Model):
     class Meta:
         ordering = ['-created_at']
         constraints = [
+            models.CheckConstraint(
+                condition=Q(id__gte=1),
+                name='transplant_followup_plan_id_gte_1',
+            ),
             models.CheckConstraint(
                 condition=Q(patient_role__in=['recipient', 'donor']),
                 name='transplant_followup_role_valid',
@@ -675,6 +707,10 @@ class FollowUpVisit(models.Model):
     class Meta:
         ordering = ['due_date']
         constraints = [
+            models.CheckConstraint(
+                condition=Q(id__gte=1),
+                name='transplant_visit_id_gte_1',
+            ),
             models.CheckConstraint(
                 condition=Q(status__in=['scheduled', 'completed', 'missed', 'cancelled']),
                 name='transplant_visit_status_valid',

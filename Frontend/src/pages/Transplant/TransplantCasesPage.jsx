@@ -4,9 +4,12 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import Badge from '../../components/ui/Badge'
 import PageHeader from '../../components/ui/PageHeader'
+import { Pagination } from '../../components/ui/Feedback'
 import { useApi } from '../../hooks/useApi'
 import { listCases } from '../../api/transplant'
 import './Transplant.css'
+
+const PAGE_SIZE = 10
 
 const STATUS_COLORS = {
   referred: 'info', under_evaluation: 'warning', committee_review: 'warning',
@@ -24,13 +27,15 @@ export default function TransplantCasesPage() {
   const { can } = useAuth()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
 
   const loader = useCallback(
-    () => listCases({ search, status: statusFilter }),
-    [search, statusFilter],
+    () => listCases({ search, status: statusFilter, page, page_size: PAGE_SIZE }),
+    [search, statusFilter, page],
   )
   const { data, loading, error } = useApi(loader)
   const cases = Array.isArray(data) ? data : data?.results || []
+  const totalCount = data?.count ?? cases.length
 
   return (
     <div className="transplant-page">
@@ -46,10 +51,14 @@ export default function TransplantCasesPage() {
       <div className="filters-row">
         <input
           type="text" placeholder="Search by patient name or MRN…"
-          value={search} onChange={(e) => setSearch(e.target.value)}
+          value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           className="input"
         />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input">
+        <select
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+          className="input"
+        >
           <option value="">All statuses</option>
           {Object.entries(STATUS_LABELS).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
@@ -95,6 +104,13 @@ export default function TransplantCasesPage() {
           )}
         </tbody>
       </table>
+
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        count={totalCount}
+        onPageChange={setPage}
+      />
     </div>
   )
 }

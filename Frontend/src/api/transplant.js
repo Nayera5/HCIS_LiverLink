@@ -125,8 +125,8 @@ export function updateFollowUpPlan(id, data) {
   return authRequest(`/transplant/followup/plans/${id}/`, { method: 'PATCH', body: data })
 }
 
-export function listFollowUpVisits(planId) {
-  return authRequest(`/transplant/followup/plans/${planId}/visits/`)
+export function listFollowUpVisits(planId, params = {}) {
+  return authRequest(`/transplant/followup/plans/${planId}/visits/${toQuery(params)}`)
 }
 
 export function createFollowUpVisit(planId, data) {
