@@ -197,6 +197,28 @@ export const HeartPulseIcon = (p) => (
   </Svg>
 )
 
+export const FlaskIcon = (p) => (
+  <Svg {...p}>
+    <path d="M9.5 3.5h5M10.5 3.5v6L5 19a1.6 1.6 0 0 0 1.4 2.4h11.2A1.6 1.6 0 0 0 19 19l-5.5-9.5v-6" />
+    <path d="M7.8 15h8.4" />
+  </Svg>
+)
+
+export const PillIcon = (p) => (
+  <Svg {...p}>
+    <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />
+    <path d="m8.5 8.5 7 7" />
+  </Svg>
+)
+
+export const TargetIcon = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="1" />
+  </Svg>
+)
+
 export const ReceiptIcon = (p) => (
   <Svg {...p}>
     <path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5Z" />

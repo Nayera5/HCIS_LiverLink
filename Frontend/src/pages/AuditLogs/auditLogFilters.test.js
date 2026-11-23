@@ -137,3 +137,12 @@ describe('Type filter (defaults to writes)', () => {
     assert.deepEqual(actionChange('', 'write'), { action: '' })
   })
 })
+
+test('describeChanges lists labelled before/after values', async () => {
+  const { describeChanges } = await import('./auditLogFilters.js')
+  assert.deepEqual(describeChanges({}), [])
+  assert.deepEqual(describeChanges({ changes: { review_date: { from: '2026-01-01', to: null }, is_active: { from: true, to: false } } }), [
+    { field: 'Review date', from: '2026-01-01', to: '(empty)' },
+    { field: 'Active', from: 'yes', to: 'no' },
+  ])
+})

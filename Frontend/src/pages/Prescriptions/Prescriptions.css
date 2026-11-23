@@ -1,0 +1,188 @@
+/* Prescriptions & treatment plans. Colours come from the app tokens in index.css. */
+
+.field__textarea {
+  height: auto;
+  min-height: 88px;
+  padding: 10px 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.rx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* Drug autocomplete */
+.rx-combobox {
+  position: relative;
+}
+
+.rx-combobox__list {
+  position: absolute;
+  z-index: 20;
+  top: 76px;
+  right: 0;
+  left: 0;
+  max-height: 320px;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgb(15 23 42 / 0.12);
+}
+
+.rx-combobox__option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.rx-combobox__option--active,
+.rx-combobox__option:hover {
+  background: var(--color-primary-soft);
+}
+
+.rx-combobox__empty {
+  padding: 8px 10px;
+  color: var(--color-text-muted);
+}
+
+.rx-combobox__add {
+  padding: 4px 4px 2px;
+  border-top: 1px solid var(--color-border);
+}
+
+.rx-add-drug {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--color-surface-muted);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 10px;
+}
+
+/* Current / past tabs */
+.rx-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.rx-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+}
+
+.rx-tabs__tab--on {
+  color: var(--color-text-strong);
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+}
+
+.rx-tabs__tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.rx-tabs__count {
+  min-width: 20px;
+  padding: 0 6px;
+  font-size: 12px;
+  text-align: center;
+  background: var(--color-border);
+  border-radius: 999px;
+}
+
+.rx-actions-cell {
+  white-space: nowrap;
+}
+
+/* Treatment plans */
+.rx-plan-list {
+  display: grid;
+  gap: 12px;
+}
+
+.rx-plan {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.rx-plan--editing {
+  margin-bottom: 12px;
+  border-color: var(--color-primary);
+}
+
+.rx-plan__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rx-plan__title {
+  margin: 0 0 2px;
+  font-size: 16px;
+  color: var(--color-text-strong);
+}
+
+.rx-plan__body {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.rx-plan__body dt {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rx-plan__body dd {
+  margin: 2px 0 0;
+  color: var(--color-text);
+}
+
+.rx-pre {
+  white-space: pre-line;
+}
+
+.rx-review {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .rx-plan__header {
+    flex-direction: column;
+  }
+}
