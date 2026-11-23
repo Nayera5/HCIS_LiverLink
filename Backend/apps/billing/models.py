@@ -6,12 +6,13 @@ Billing & Payments (spec §13 and entity dictionary §4.38–§4.41).
 - InvoiceItem: one billed service on an invoice (price is snapshotted at billing time).
 - Payment: a desk payment (cash or card) against an invoice.
 
-Deviations from the spec (agreed for this first pass, scheduling/labs/imaging not built yet):
+Invoices are created by billing staff, or automatically (apps.billing.services) when an
+appointment is completed or a lab order is fully resulted.
+
+Deviations from the spec:
 - Online payment is dropped: Payment.method is cash/card only, and there is no gateway_txn_id.
-- InvoiceItem.appointment_id is a plain nullable integer (no FK yet): the Appointment model
-  does not exist yet. It will become a real foreign key once the scheduling app is built.
-- Automatic invoice generation from completed appointments/scans/tests is not implemented yet
-  for the same reason; invoices are created manually by billing staff for now.
+- Addition: InvoiceItem.lab_order links a charge to the lab order it came from, so a resulted
+  order is never billed twice. Lab services are matched to lab tests by LOINC code.
 """
 from decimal import Decimal
 
@@ -76,7 +77,8 @@ class Service(models.Model):
     class Category(models.TextChoices):
         CONSULTATION = 'consultation', 'Consultation'
         IMAGING = 'imaging', 'Imaging'
-        # AI_ANALYSIS = 'ai_analysis', 'AI analysis'
+        LAB = 'lab', 'Lab test'
+        AI_ANALYSIS = 'ai_analysis', 'AI analysis'
         EVALUATION_PACKAGE = 'evaluation_package', 'Evaluation package'
         SURGERY = 'surgery', 'Surgery'
         MEDICAL_PROCEDURES = 'medical_procedures', 'Medical Procedures'
@@ -88,6 +90,7 @@ class Service(models.Model):
         CPT = 'cpt', 'CPT'
         HCPCS = 'hcpcs', 'HCPCS'
         ICD10_PCS = 'icd10_pcs', 'ICD-10-PCS'
+        LOINC = 'loinc', 'LOINC'  # lab tests: standard_code = apps.labs LabTest.code
 
     code = models.CharField(max_length=30, unique=True)
     name = models.CharField(max_length=150)
@@ -201,10 +204,14 @@ class Invoice(models.Model):
         return self.status
 
     def cancel(self):
-        if self.paid_amount() > 0:
-            raise ValidationError({'status': 'An invoice with recorded payments cannot be cancelled.'})
-        self.status = self.Status.CANCELLED
-        self.save(update_fields=['status', 'updated_at'])
+        # Same row lock as recording a payment, so a payment cannot land while we cancel.
+        with transaction.atomic():
+            locked = Invoice.objects.select_for_update().get(pk=self.pk)
+            if locked.paid_amount() > 0:
+                raise ValidationError({'status': 'An invoice with recorded payments cannot be cancelled.'})
+            locked.status = self.Status.CANCELLED
+            locked.save(update_fields=['status', 'updated_at'])
+        self.status, self.updated_at = locked.status, locked.updated_at
 
 
 class InvoiceItem(models.Model):
@@ -212,10 +219,13 @@ class InvoiceItem(models.Model):
 
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
     service = models.ForeignKey(Service, on_delete=models.PROTECT, related_name='invoice_items')
-    appointment_id = models.PositiveBigIntegerField(
-        null=True, blank=True,
-        help_text='Visit the charge came from, if any. Not yet a foreign key: the Appointment '
-                  'model does not exist until the scheduling app is built.',
+    appointment = models.ForeignKey(
+        'scheduling.Appointment', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='invoice_items', help_text='Visit the charge came from, if any.',
+    )
+    lab_order = models.ForeignKey(
+        'labs.LabOrder', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='invoice_items', help_text='Lab order the charge came from, if any.',
     )
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     unit_price = models.DecimalField(

@@ -11,7 +11,7 @@ class ServiceCodingFieldsTests(SimpleTestCase):
     def test_supported_coding_system_choices(self):
         self.assertEqual(
             list(Service.CodingSystem.values),
-            ['snomed_ct', 'cpt', 'hcpcs', 'icd10_pcs'],
+            ['snomed_ct', 'cpt', 'hcpcs', 'icd10_pcs', 'loinc'],
         )
 
     def test_new_service_category_choices(self):

@@ -23,8 +23,9 @@ The date filter is inclusive on both ends; with no dates the report covers all t
 import datetime
 from decimal import Decimal
 
-from django.db.models import Count, DecimalField, Q, Sum, Value
+from django.db.models import Count, DecimalField, Min, Q, Sum, Value
 from django.db.models.functions import Coalesce, TruncMonth
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.accounts.models import User
@@ -32,6 +33,7 @@ from apps.billing.models import Invoice, InvoiceItem, Payment
 from apps.emr.models import Diagnosis
 from apps.registry.models import DonorApplication, Patient
 from apps.scheduling.models import Appointment
+from apps.transplant.models import CommitteeDecision, Surgery, TransplantCase
 
 ZERO = Value(Decimal('0'), output_field=DecimalField(max_digits=12, decimal_places=2))
 
@@ -195,6 +197,75 @@ def financial_report(date_from=None, date_to=None):
                   'Balance (EGP)'], unpaid_rows),
     ]
     return _report('financial', 'Financial report', date_from, date_to, summary, sections)
+
+
+# --------------------------------------------------------------------------- transplant
+
+def _percent(part, whole):
+    return f'{part / whole * 100:.1f}%' if whole else '—'
+
+
+def transplant_report(date_from=None, date_to=None):
+    """
+    Cases by stage, approval rate and time from referral to surgery.
+
+    Period: cases by referral date; committee decisions by meeting date; transplants by the
+    date of the case's first completed surgery.
+    Approval rate = approved / (approved + rejected) committee decisions ("more tests needed" is
+    not a final decision, so it is left out).
+    Time from referral to surgery = days from the case's referral date to its first completed surgery.
+    """
+    cases = in_period(TransplantCase.objects.all(), 'referral_date', date_from, date_to)
+    decisions = in_period(CommitteeDecision.objects.filter(decision__isnull=False),
+                          'meeting_date', date_from, date_to)
+
+    stage_rows = _choice_counts(cases, 'status', TransplantCase.Status.choices)
+    decision_rows = _choice_counts(decisions, 'decision', CommitteeDecision.Decision.choices)
+    decision_counts = dict(decisions.values_list('decision').annotate(n=Count('pk')).values_list('decision', 'n'))
+    approved = decision_counts.get(CommitteeDecision.Decision.APPROVED, 0)
+    rejected = decision_counts.get(CommitteeDecision.Decision.REJECTED, 0)
+
+    first_surgery = (TransplantCase.objects
+                     .annotate(surgery_at=Min('surgeries__scheduled_at',
+                                              filter=Q(surgeries__status=Surgery.Status.COMPLETED)))
+                     .filter(surgery_at__isnull=False).select_related('recipient'))
+    transplanted = in_period(first_surgery, 'surgery_at__date', date_from, date_to).order_by('surgery_at', 'pk')
+
+    surgery_rows = []
+    waits = []
+    for case in transplanted:
+        surgery_day = timezone.localtime(case.surgery_at).date()
+        days = (surgery_day - case.referral_date).days
+        waits.append(days)
+        surgery_rows.append([f'#{case.pk}', case.recipient.full_name, case.recipient.mrn,
+                             case.referral_date.isoformat(), surgery_day.isoformat(), days])
+    waits.sort()
+    median = '—'
+    if waits:
+        mid = len(waits) // 2
+        median = waits[mid] if len(waits) % 2 else (waits[mid - 1] + waits[mid]) / 2
+
+    by_month = (cases.annotate(month=TruncMonth('referral_date')).values('month')
+                .annotate(count=Count('pk')).order_by('month'))
+    month_rows = [[month_label(row['month']), row['count']] for row in by_month]
+
+    summary = [
+        ('Cases referred', cases.count()),
+        ('Open cases', cases.exclude(status=TransplantCase.Status.CLOSED).count()),
+        ('Approval rate', _percent(approved, approved + rejected)),
+        ('Transplants performed', len(waits)),
+        ('Average days from referral to surgery', f'{sum(waits) / len(waits):.1f}' if waits else '—'),
+        ('Median days from referral to surgery', median),
+    ]
+    sections = [
+        _section('cases_by_stage', 'Cases by stage', ['Stage', 'Cases'], stage_rows, chart_column=1),
+        _section('committee_decisions', 'Committee decisions', ['Decision', 'Decisions'],
+                 decision_rows, chart_column=1),
+        _section('referrals_by_month', 'Referrals by month', ['Month', 'Cases'], month_rows, chart_column=1),
+        _section('referral_to_surgery', 'Time from referral to surgery',
+                 ['Case', 'Recipient', 'MRN', 'Referred', 'Surgery', 'Days'], surgery_rows),
+    ]
+    return _report('transplant', 'Transplant report', date_from, date_to, summary, sections)
 
 
 # --------------------------------------------------------------------------- system usage

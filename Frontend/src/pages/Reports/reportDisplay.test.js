@@ -23,9 +23,9 @@ describe('report tabs', () => {
     assert.equal(pickTab([], 'patients'), null)
   })
 
-  test('transplant and imaging tabs are placeholders', () => {
+  test('only the imaging tab is a placeholder', () => {
     const tabs = tabsFor(() => true)
-    assert.deepEqual(tabs.filter((tab) => !tab.available).map((tab) => tab.key), ['transplant', 'imaging'])
+    assert.deepEqual(tabs.filter((tab) => !tab.available).map((tab) => tab.key), ['imaging'])
   })
 })
 

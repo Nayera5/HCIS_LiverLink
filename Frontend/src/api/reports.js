@@ -6,6 +6,7 @@ const REPORT_PATHS = {
   patients: 'patients',
   financial: 'financial',
   system_usage: 'system-usage',
+  transplant: 'transplant',
 }
 
 /** params: { date_from, date_to } (YYYY-MM-DD, optional). */

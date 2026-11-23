@@ -218,8 +218,8 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
-# check_due_reminders is currently a no-op (apps.notifications.tasks): the Appointment and
-# FollowUpVisit models it would query don't exist yet. Fill in its logic once they do.
+# check_due_reminders (apps.notifications.tasks): appointment and follow-up reminders, and
+# pending-checklist alerts for the transplant coordinator. It never sends the same reminder twice.
 CELERY_BEAT_SCHEDULE = {
     'check-due-reminders-every-15-minutes': {
         'task': 'apps.notifications.tasks.check_due_reminders',

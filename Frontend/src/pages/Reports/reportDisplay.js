@@ -3,16 +3,13 @@
 
 /**
  * Report tabs. `available: false` tabs are UI placeholders: their backend modules (radiology,
- * AI analysis, transplant) are not built yet, so `planned` lists what the tab will show.
+ * AI analysis) are not built yet, so `planned` lists what the tab will show.
  */
 export const REPORT_TABS = [
   { key: 'patients', label: 'Patients & donors', capability: 'reports.patients', available: true },
   { key: 'financial', label: 'Financial', capability: 'reports.financial', available: true },
   { key: 'system_usage', label: 'System usage', capability: 'reports.system_usage', available: true },
-  {
-    key: 'transplant', label: 'Transplant', capability: 'reports.transplant', available: false,
-    planned: ['Cases by stage', 'Approval rate', 'Time from referral to surgery'],
-  },
+  { key: 'transplant', label: 'Transplant', capability: 'reports.transplant', available: true },
   {
     key: 'imaging', label: 'Imaging & AI', capability: 'reports.imaging', available: false,
     planned: ['Studies per period', 'AI runs', 'Average AI processing time', '% of AI results edited by radiologists'],

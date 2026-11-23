@@ -5,6 +5,7 @@ from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
 from apps.registry.models import Patient
+from apps.scheduling.models import Appointment
 
 from .models import Invoice, InvoiceItem, Payment, Service
 
@@ -49,7 +50,7 @@ class InvoiceItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InvoiceItem
-        fields = ['id', 'service', 'service_code', 'service_name', 'appointment_id',
+        fields = ['id', 'service', 'service_code', 'service_name', 'appointment', 'lab_order',
                   'quantity', 'unit_price', 'line_total']
         read_only_fields = fields
 
@@ -102,7 +103,8 @@ class InvoiceDetailSerializer(InvoiceListSerializer):
 class InvoiceItemInputSerializer(serializers.Serializer):
     service = serializers.PrimaryKeyRelatedField(queryset=Service.objects.filter(is_active=True))
     quantity = serializers.IntegerField(min_value=1, default=1)
-    appointment_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+    appointment = serializers.PrimaryKeyRelatedField(
+        queryset=Appointment.objects.all(), required=False, allow_null=True)
 
 
 class InvoiceCreateSerializer(serializers.Serializer):
@@ -116,6 +118,15 @@ class InvoiceCreateSerializer(serializers.Serializer):
         if not value:
             raise serializers.ValidationError('An invoice must have at least one item.')
         return value
+
+    def validate(self, attrs):
+        patient = attrs['patient']
+        for item in attrs['items']:
+            appointment = item.get('appointment')
+            if appointment is not None and appointment.patient_id != patient.pk:
+                raise serializers.ValidationError(
+                    {'items': ['An appointment on the invoice must belong to the billed patient.']})
+        return attrs
 
     def validate_due_date(self, value):
         issue_date = self.context.get('issue_date')
@@ -136,7 +147,7 @@ class InvoiceCreateSerializer(serializers.Serializer):
                     service = item_data['service']
                     item = InvoiceItem(
                         invoice=invoice, service=service, quantity=item_data['quantity'],
-                        unit_price=service.price, appointment_id=item_data.get('appointment_id'),
+                        unit_price=service.price, appointment=item_data.get('appointment'),
                     )
                     item.full_clean(exclude=['line_total'])
                     item.save()
@@ -158,20 +169,29 @@ class PaymentCreateSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
     method = serializers.ChoiceField(choices=Payment.Method.choices)
 
-    def validate(self, attrs):
-        invoice = self.context['invoice']
+    @staticmethod
+    def check_open(invoice):
         if invoice.status in (Invoice.Status.PAID, Invoice.Status.CANCELLED):
             raise serializers.ValidationError(
                 {'non_field_errors': [f'An invoice that is {invoice.get_status_display().lower()} '
                                       'cannot take further payments.']})
+
+    def validate(self, attrs):
+        self.check_open(self.context['invoice'])
         return attrs
 
     def create(self, validated):
-        invoice = self.context['invoice']
-        payment = Payment(invoice=invoice, received_by=self.context.get('received_by'), **validated)
+        """
+        Locks the invoice row (SELECT ... FOR UPDATE) for the whole check-and-save, so two desk
+        payments recorded at the same time cannot both pass the "not more than the total" check.
+        The second one waits, then sees the first payment and the updated status.
+        """
         try:
-            payment.full_clean(exclude=['receipt_no'])
             with transaction.atomic():
+                invoice = Invoice.objects.select_for_update().get(pk=self.context['invoice'].pk)
+                self.check_open(invoice)
+                payment = Payment(invoice=invoice, received_by=self.context.get('received_by'), **validated)
+                payment.full_clean(exclude=['receipt_no'])
                 payment.save()
         except DjangoValidationError as exc:
             raise serializers.ValidationError(_django_errors(exc))

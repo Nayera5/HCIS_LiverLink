@@ -21,6 +21,7 @@ from rest_framework.response import Response
 from apps.accounts.audit import audit
 from apps.accounts.models import AuditLog
 from apps.accounts.rbac import get_staff_profile, has_capability
+from apps.billing.services import invoice_for_appointment
 from .models import Appointment, DoctorSchedule, free_slots
 from .permissions import AppointmentAccess, ScheduleAccess, can_book_any, can_view_all, is_portal_user
 from .serializers import AppointmentSerializer, DoctorScheduleSerializer, schedulable_doctors
@@ -147,6 +148,8 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
             appointment.status = new_status
             appointment.save(update_fields=["status"])
             self.log(A.STATUS_CHANGE, appointment)
+            if new_status == Appointment.Status.COMPLETED:
+                invoice_for_appointment(appointment)  # module 13: automatic invoice
         return Response(self.get_serializer(appointment).data)
 
     # --- endpoints -------------------------------------------------------

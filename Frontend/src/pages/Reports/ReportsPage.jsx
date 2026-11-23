@@ -34,8 +34,8 @@ function ReportView({ reportKey, period }) {
 }
 
 /**
- * Reporting & Analytics (module 15). One tab per report the user may open; transplant and
- * imaging/AI tabs are placeholders until those modules exist. Filters live in the URL.
+ * Reporting & Analytics (module 15). One tab per report the user may open; the imaging/AI
+ * tab is a placeholder until that module exists. Filters live in the URL.
  */
 export default function ReportsPage() {
   const { can } = useAuth()

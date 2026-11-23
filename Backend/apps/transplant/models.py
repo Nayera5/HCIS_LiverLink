@@ -163,10 +163,14 @@ class TransplantCase(models.Model):
                         'items are still pending.'
                     ),
                 })
+        old_status = self.status
         self.status = new_status
         if new_status == self.Status.CLOSED:
             self.closed_at = timezone.now()
         self.save(update_fields=['status', 'closed_at', 'updated_at'])
+
+        from apps.notifications import events  # module 14: case status updates
+        events.case_stage_changed(self, old_status)
 
 
 # ───────────────────────────────────────────────────────────────────────────

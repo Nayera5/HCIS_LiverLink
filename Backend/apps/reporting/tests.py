@@ -10,10 +10,12 @@ from apps.emr.models import Diagnosis, Encounter
 from apps.registry.models import DonorApplication
 from apps.registry.test_api import PatientAPITestBase, make_patient
 from apps.scheduling.models import Appointment
+from apps.transplant.models import CaseDonor, CommitteeDecision, Surgery, TransplantCase
 
 PATIENTS = '/api/reports/patients/'
 FINANCIAL = '/api/reports/financial/'
 USAGE = '/api/reports/system-usage/'
+TRANSPLANT = '/api/reports/transplant/'
 
 
 def section(report, key):
@@ -36,6 +38,7 @@ class PermissionTests(ReportTestBase):
             PATIENTS: {self.root, self.admin, self.coord, self.hep},
             FINANCIAL: {self.root, self.admin, self.billing},
             USAGE: {self.root, self.admin},
+            TRANSPLANT: {self.root, self.admin, self.coord, self.hep, self.surg},
         }
         everyone = [self.root, self.admin, self.coord, self.hep, self.rad, self.surg, self.billing,
                     self.nojob, self.pat_user]
@@ -163,6 +166,67 @@ class SystemUsageReportTests(ReportTestBase):
     def test_no_show_rate_without_appointments(self):
         Appointment.objects.all().delete()
         self.assertEqual(summary(self.get(self.admin, USAGE).data, 'No-show rate'), '—')
+
+
+class TransplantReportTests(ReportTestBase):
+    def setUp(self):
+        super().setUp()
+        hep = self.hep.staff_profile
+        donor = make_patient(first_name='Don', last_name='Or', category='donor', national_id='29001011234561')
+        noon = lambda day: timezone.make_aware(datetime.datetime.combine(day, datetime.time(12)))
+        jan, feb = datetime.date(2026, 1, 1), datetime.date(2026, 2, 1)
+
+        def case(status, referral_date, decisions=(), surgery_after=None, surgery_status='completed'):
+            recipient = make_patient(first_name=f'R{TransplantCase.objects.count()}', last_name='Case',
+                                     category='recipient',
+                                     national_id=f'2900101{TransplantCase.objects.count():07d}')
+            c = TransplantCase.objects.create(recipient=recipient, referred_by=hep, status=status,
+                                              referral_date=referral_date)
+            for decision in decisions:
+                CommitteeDecision.objects.create(case=c, recorded_by=hep, meeting_date=referral_date,
+                                                 decision=decision, reasons='-')
+            if surgery_after is not None:
+                cd = CaseDonor.objects.create(case=c, donor=donor, status='approved')
+                Surgery.objects.create(case=c, case_donor=cd, lead_surgeon=self.surg.staff_profile,
+                                       status=surgery_status,
+                                       scheduled_at=noon(referral_date + datetime.timedelta(days=surgery_after)))
+            return c
+
+        self.c1 = case('transplanted', jan, ['approved'], surgery_after=30)
+        self.c2 = case('follow_up', jan, ['more_tests_needed', 'approved'], surgery_after=10)
+        case('rejected', feb, ['rejected'])
+        case('surgery_scheduled', feb, ['approved'], surgery_after=5, surgery_status='scheduled')
+        case('referred', feb)
+
+    def test_numbers(self):
+        r = self.get(self.coord, TRANSPLANT)
+        self.assertEqual(r.status_code, 200)
+        data = r.data
+        self.assertEqual(summary(data, 'Cases referred'), 5)
+        self.assertEqual(summary(data, 'Open cases'), 5)
+        self.assertEqual(summary(data, 'Approval rate'), '75.0%')      # 3 approved / (3 + 1 rejected)
+        self.assertEqual(summary(data, 'Transplants performed'), 2)    # scheduled surgery not counted
+        self.assertEqual(summary(data, 'Average days from referral to surgery'), '20.0')
+        self.assertEqual(summary(data, 'Median days from referral to surgery'), 20.0)
+        stages = dict(section(data, 'cases_by_stage')['rows'])
+        self.assertEqual((stages['Referred'], stages['Rejected'], stages['Closed']), (1, 1, 0))
+        decisions = dict(section(data, 'committee_decisions')['rows'])
+        self.assertEqual(decisions['More tests needed'], 1)
+        rows = section(data, 'referral_to_surgery')['rows']
+        self.assertEqual([(row[0], row[-1]) for row in rows], [(f'#{self.c2.pk}', 10), (f'#{self.c1.pk}', 30)])
+        self.assertEqual(section(data, 'referrals_by_month')['rows'], [['2026-01', 2], ['2026-02', 3]])
+
+    def test_date_filter(self):
+        data = self.get(self.admin, TRANSPLANT, date_from='2026-02-01', date_to='2026-02-28').data
+        self.assertEqual(summary(data, 'Cases referred'), 3)
+        self.assertEqual(summary(data, 'Approval rate'), '50.0%')
+        self.assertEqual(summary(data, 'Transplants performed'), 0)
+        self.assertEqual(summary(data, 'Average days from referral to surgery'), '—')
+
+    def test_export(self):
+        r = self.get(self.hep, TRANSPLANT, export='csv')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('Time from referral to surgery', r.content.decode('utf-8-sig'))
 
 
 class ExportTests(ReportTestBase):

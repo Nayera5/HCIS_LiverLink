@@ -6,6 +6,7 @@ from .models import Invoice, InvoiceItem, Payment, Service
 class InvoiceItemInline(admin.TabularInline):
     model = InvoiceItem
     extra = 0
+    raw_id_fields = ['appointment', 'lab_order']
 
 
 class PaymentInline(admin.TabularInline):

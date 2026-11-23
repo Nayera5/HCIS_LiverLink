@@ -73,7 +73,7 @@ STAFF_CAPABILITIES = {
     'reports.patients': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
     'reports.financial': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
     'reports.system_usage': frozenset({T.SUPER_ADMIN}),
-    # Transplant and imaging/AI reports: UI placeholders only until modules 7, 9 and 11 exist.
+    # Imaging/AI reports: UI placeholders only until modules 7 and 9 exist.
     'reports.transplant': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST,
                                      T.TRANSPLANT_SURGEON}),
     'reports.imaging': frozenset({T.SUPER_ADMIN, T.HEPATOLOGIST, T.RADIOLOGIST}),

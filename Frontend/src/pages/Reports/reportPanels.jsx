@@ -112,6 +112,7 @@ export function PatientImagingReportsPanel({ own = false }) {
 const HIGHLIGHTS = [
   { key: 'patients', capability: 'reports.patients', section: 'by_category', title: 'Patients by category' },
   { key: 'financial', capability: 'reports.financial', section: 'revenue_by_month', title: 'Revenue this year' },
+  { key: 'transplant', capability: 'reports.transplant', section: 'cases_by_stage', title: 'Cases referred this year, by stage' },
   { key: 'system_usage', capability: 'reports.system_usage', section: 'appointments_by_status', title: 'Appointments this year' },
 ]
 

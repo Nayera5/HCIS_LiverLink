@@ -1,4 +1,8 @@
-"""Lab business logic, shared by the REST API and (later) the HL7 ORU handler."""
+"""Lab business logic, shared by the REST API and (later) the HL7 ORU handler.
+
+Side effects: notifications (results ready / released) and the automatic invoice once an
+order is fully resulted.
+"""
 from django.db import transaction
 from django.utils import timezone
 
@@ -26,8 +30,20 @@ def record_result(result, value, result_time=None):
     result.flag = result.lab_test.compute_flag(value)
     result.result_time = result_time or timezone.now()
     result.save(update_fields=['value', 'flag', 'result_time'])
+    was_resulted = order.status == LabOrder.Status.RESULTED
     order.refresh_status()
+    if order.status == LabOrder.Status.RESULTED and not was_resulted:
+        _on_order_resulted(order)
     return result
+
+
+def _on_order_resulted(order):
+    """All tests have values: tell the ordering doctor (module 14) and bill the tests (module 13)."""
+    from apps.billing.services import invoice_for_lab_order
+    from apps.notifications import events
+
+    events.lab_order_resulted(order)
+    invoice_for_lab_order(order)
 
 
 @transaction.atomic
@@ -46,7 +62,12 @@ def release_order(order):
         raise LabError('A cancelled order cannot be released.')
     if not order.results.filter(value__isnull=False).exists():
         raise LabError('There are no results to release yet.')
-    return order.results.filter(value__isnull=False, is_released=False).update(is_released=True)
+    released = order.results.filter(value__isnull=False, is_released=False).update(is_released=True)
+    if released:
+        from apps.notifications import events
+
+        events.lab_results_released(order)
+    return released
 
 
 def trend_points(patient, test_code, released_only=False):
