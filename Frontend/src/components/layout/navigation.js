@@ -1,7 +1,8 @@
-// Sidebar navigation. Items are shown only when the user holds `capability` (if given);
-// the backend enforces the same rules. Later stages add their pages here.
+// Sidebar navigation. Items are shown only when the user holds `capability` (if given; a list
+// means any of them); the backend enforces the same rules. Later stages add their pages here.
+import { REPORT_CAPABILITIES } from '../../pages/Reports/reportDisplay'
 import {
-  ClipboardIcon, CreditCardIcon, GridIcon, HeartPulseIcon, ReceiptIcon, ShieldIcon, UserIcon, UserPlusIcon, UsersIcon, CheckCircleIcon,
+  BarChartIcon, ClipboardIcon, CreditCardIcon, GridIcon, HeartPulseIcon, ReceiptIcon, ShieldIcon, UserIcon, UserPlusIcon, UsersIcon, CheckCircleIcon,
 } from '../ui/icons'
 
 export const NAV_SECTIONS = [
@@ -22,6 +23,11 @@ export const NAV_SECTIONS = [
       { to: '/billing/invoices', label: 'Invoices', icon: ReceiptIcon, capability: 'billing.view' },
       { to: '/billing/services', label: 'Service catalog', icon: CreditCardIcon, capability: 'billing.view' },
     ],
+  },
+  {
+    label: 'Analytics',
+    // Shown when the user may open at least one report.
+    items: [{ to: '/reports', label: 'Reports', icon: BarChartIcon, capability: REPORT_CAPABILITIES }],
   },
   {
     label: 'My health',
@@ -50,7 +56,8 @@ export const NAV_SECTIONS = [
 export function navigationFor(can) {
   return NAV_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) => !item.capability || can(item.capability)),
+    items: section.items.filter((item) => !item.capability
+      || (Array.isArray(item.capability) ? item.capability.some(can) : can(item.capability))),
   })).filter((section) => section.items.length > 0)
 }
 
