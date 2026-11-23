@@ -14,8 +14,7 @@ def client_ip(request):
     return request.META.get('REMOTE_ADDR') or None
 
 
-def audit(request, action, entity_type, *, entity_id=None, patient=None, user=None, actor='',
-          changes=None, reason=''):
+def audit(request, action, entity_type, *, entity_id=None, patient=None, user=None, actor='', reason='', changes=None):
     """
     Append one audit entry for `request`. `user` defaults to the authenticated request user;
     pass `user` explicitly when the account was just created (self-registration).
@@ -28,6 +27,6 @@ def audit(request, action, entity_type, *, entity_id=None, patient=None, user=No
         entity_id=entity_id,
         patient=patient,
         ip_address=client_ip(request),
-        changes=changes,
         reason=reason,
+        changes=changes,
     )

@@ -10,6 +10,7 @@ import PageHeader from '../../components/ui/PageHeader'
 import Panel from '../../components/ui/Panel'
 import { useApi } from '../../hooks/useApi'
 import { greeting, longDate } from '../../utils/format'
+import { ReportHighlights } from '../Reports/reportPanels'
 import { PatientOverviewError, PatientStats, RecentPatientsPanel } from './PatientOverview'
 
 function AccessPanel({ user }) {
@@ -106,6 +107,9 @@ export default function StaffDashboard() {
           <ProfilePanel user={user} />
         </div>
       )}
+
+      {/* Charts for the reports this job title may open (nothing for other roles). */}
+      <ReportHighlights />
     </>
   )
 }

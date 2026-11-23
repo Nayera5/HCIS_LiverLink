@@ -85,6 +85,29 @@ export async function authFetch(path, options = {}) {
   }
 }
 
+/**
+ * Downloads a file (PDF, CSV…) and triggers a save in the browser. No JSON body, so authRequest
+ * doesn't apply. Used by billing receipts and report exports.
+ */
+export async function downloadFile(path, fallbackFilename) {
+  const response = await authFetch(path)
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new ApiError(data?.detail || `Request failed with status ${response.status}`, { status: response.status, data })
+  }
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const filename = disposition.match(/filename="?([^";]+)"?/)?.[1] || fallbackFilename
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
 /** Build "?a=1&b=2" from an object, skipping empty values. */
 export function toQuery(params = {}) {
   const query = new URLSearchParams()

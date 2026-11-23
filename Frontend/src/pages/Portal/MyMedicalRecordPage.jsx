@@ -1,5 +1,7 @@
+import { useAuth } from '../../auth/authContext'
 import PageHeader from '../../components/ui/PageHeader'
 import { DocumentsPanel, EncountersPanel, HistoryPanel } from '../EMR/emrPanels'
+import { PatientImagingReportsPanel } from '../Reports/reportPanels'
 import '../Patients/Patients.css'
 
 /**
@@ -7,6 +9,7 @@ import '../Patients/Patients.css'
  * signed-in patient's signed encounters, their medical history and released documents.
  */
 export default function MyMedicalRecordPage() {
+  const { can } = useAuth()
   return (
     <>
       <PageHeader eyebrow="Patient portal" title="My medical record" />
@@ -20,6 +23,7 @@ export default function MyMedicalRecordPage() {
         </div>
         <div className="content-stack">
           <HistoryPanel />
+          {can('self.imaging_reports') && <PatientImagingReportsPanel own />}
         </div>
       </div>
     </>
