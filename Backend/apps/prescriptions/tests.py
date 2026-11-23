@@ -98,6 +98,36 @@ class DrugCatalogTests(Base):
         self.assertEqual(r.status_code, 400)
         self.assertIn('name', r.data)
 
+    def test_generic_name_duplicates_rejected(self):
+        Drug.objects.create(name='Tacrolimus', generic_name='Tacrolimus')
+        self.as_(self.doctor)
+        # brand entry whose generic is already in the catalog
+        r = self.client.post('/api/rx/drugs/', {'name': 'Prograf', 'generic_name': 'tacrolimus'}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('generic_name', r.data)
+        # new name equal to an existing generic name
+        Drug.objects.create(name='Cellcept', generic_name='Mycophenolate')
+        r = self.client.post('/api/rx/drugs/', {'name': 'mycophenolate'}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('name', r.data)
+        # a drug may keep its own generic name when edited
+        d = Drug.objects.get(name='Cellcept')
+        r = self.client.patch(f'/api/rx/drugs/{d.pk}/', {'generic_name': 'Mycophenolate', 'common_dose': '500 mg'},
+                              format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+
+    def test_dose_in_name_rejected(self):
+        self.as_(self.doctor)
+        for name in ('Tacrolimus 1mg', 'Tacrolimus 0.5 mg', 'Heparin 5000 units', 'Lidocaine 2%'):
+            r = self.client.post('/api/rx/drugs/', {'name': name}, format='json')
+            self.assertEqual(r.status_code, 400, name)
+            self.assertIn('name', r.data)
+        r = self.client.post('/api/rx/drugs/', {'name': 'Tacro', 'generic_name': 'Tacrolimus 1 mg'}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('generic_name', r.data)
+        r = self.client.post('/api/rx/drugs/', {'name': 'Vitamin B12', 'common_dose': '1000 mcg'}, format='json')
+        self.assertEqual(r.status_code, 201, r.data)
+
     def test_edit_drug_is_audited_with_changes(self):
         self.as_(self.admin)
         r = self.client.patch(f'/api/rx/drugs/{self.tdf.pk}/', {'is_active': False}, format='json')

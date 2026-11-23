@@ -1,8 +1,14 @@
+import re
+
 from rest_framework import serializers
 
 from apps.registry.models import Patient
 
 from .models import Drug, Prescription, Route, TreatmentPlan
+
+
+# A number followed by a dose unit, e.g. "1mg", "500 mg", "2.5 ml", "10%".
+DOSE_IN_TEXT = re.compile(r'\d+(?:[.,]\d+)?\s*(?:mg|mcg|µg|ug|g|ml|iu|units?)\b|\d\s*%', re.IGNORECASE)
 
 
 def _staff_name(staff):
@@ -19,13 +25,36 @@ class DrugSerializer(serializers.ModelSerializer):
         fields = ['id', 'code', 'name', 'generic_name', 'drug_class', 'default_route', 'common_dose', 'is_active']
         read_only_fields = ['id', 'code']
 
+    def _others(self):
+        qs = Drug.objects.all()
+        return qs.exclude(pk=self.instance.pk) if self.instance is not None else qs
+
+    @staticmethod
+    def _reject_dose(value):
+        if DOSE_IN_TEXT.search(value):
+            raise serializers.ValidationError(
+                'Do not put the dose or strength in the name (e.g. "1 mg"); use the "common dose" field.')
+
     def validate_name(self, value):
         value = value.strip()
-        qs = Drug.objects.filter(name__iexact=value)
-        if self.instance is not None:
-            qs = qs.exclude(pk=self.instance.pk)
-        if qs.exists():
+        self._reject_dose(value)
+        others = self._others()
+        if others.filter(name__iexact=value).exists():
             raise serializers.ValidationError('A drug with this name already exists in the catalog.')
+        if others.filter(generic_name__iexact=value).exists():
+            raise serializers.ValidationError(
+                'This name is already the generic name of another catalog drug; use that entry instead.')
+        return value
+
+    def validate_generic_name(self, value):
+        value = value.strip()
+        if not value:
+            return value
+        self._reject_dose(value)
+        others = self._others()
+        if others.filter(generic_name__iexact=value).exists() or others.filter(name__iexact=value).exists():
+            raise serializers.ValidationError(
+                'A drug with this generic name already exists in the catalog; use that entry instead.')
         return value
 
 
