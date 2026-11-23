@@ -2,6 +2,7 @@
 Scheduling API (module 3), mounted at /api/scheduling/. Permissions: see permissions.py.
 
     schedules/                          doctor working schedules (no delete: set is_active=false)
+    schedules/doctors/                  doctors who can be booked
     schedules/free-slots/?staff=&date=  free slots of a doctor on one day (YYYY-MM-DD)
     appointments/                       list (calendar filters) and book
     appointments/{id}/reschedule/       new start_time (and optionally staff)
@@ -76,6 +77,17 @@ class DoctorScheduleViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mi
             schedule = serializer.save()
             audit(self.request, A.UPDATE, "scheduling.doctorschedule", entity_id=schedule.pk)
 
+    @action(detail=False, methods=["get"])
+    def doctors(self, request):
+        """Doctors who can be booked (for the booking and schedule pages). `is_me` marks the signed-in doctor."""
+        own = get_staff_profile(request.user)
+        rows = schedulable_doctors().order_by("user__first_name", "user__last_name")
+        return Response([
+            {"staff_id": staff.pk, "name": staff.user.get_full_name() or staff.user.username,
+             "job_title": staff.job_title, "is_me": own is not None and own.pk == staff.pk}
+            for staff in rows
+        ])
+
     @action(detail=False, methods=["get"], url_path="free-slots")
     def available_slots(self, request):
         day = _date_param(request.query_params, "date")
@@ -96,7 +108,7 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
     Patients and donors only see and manage their own appointments.
     """
 
-    queryset = Appointment.objects.select_related("patient", "staff__user")
+    queryset = Appointment.objects.select_related("patient", "staff__user", "encounter")
     serializer_class = AppointmentSerializer
     permission_classes = [AppointmentAccess]
 
