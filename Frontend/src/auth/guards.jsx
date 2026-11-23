@@ -17,10 +17,14 @@ export function RequireAuth() {
   return <Outlet />
 }
 
-/** Renders child routes only when the user holds the capability (the backend checks too). */
+/**
+ * Renders child routes only when the user holds the capability (the backend checks too).
+ * `capability` may be a list: holding any one of them is enough.
+ */
 export function RequireCapability({ capability }) {
   const { can } = useAuth()
-  return can(capability) ? <Outlet /> : <ForbiddenPage />
+  const allowed = Array.isArray(capability) ? capability.some(can) : can(capability)
+  return allowed ? <Outlet /> : <ForbiddenPage />
 }
 
 /** Public-only pages (login, password reset): signed-in users go to the app. */

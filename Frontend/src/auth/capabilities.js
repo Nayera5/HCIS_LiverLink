@@ -13,6 +13,12 @@ export const CAPABILITY_DESCRIPTIONS = {
   'consents.view': 'View patients’ surgery consent records',
   'emr.view': 'View patients’ medical records (encounters, history, diagnoses, vitals, documents)',
   'emr.write': 'Write encounters, diagnoses, vital signs and history; sign encounters; upload and release documents',
+  'schedules.manage_own': 'Set your working days and hours so patients can book appointments',
+  'schedules.manage_all': 'Set the working days and hours of any doctor',
+  'appointments.view': 'View the appointment calendar of every doctor and patient',
+  'appointments.book_any': 'Book, reschedule and cancel appointments on behalf of patients',
+  'appointments.check_in': 'Check patients in for their appointments and mark no-shows',
+  'self.appointments': 'Book, reschedule and cancel your own appointments',
   'self.patient_record': 'View your own record and update your contact details',
   'self.medical_records': 'View your own signed visits, medical history and released documents',
   'self.donor_applications': 'Apply to become a living donor and follow your application',
@@ -26,7 +32,8 @@ export const IMPLEMENTED_CAPABILITIES = new Set([
   'users.manage', 'audit.view', 'patients.register', 'patients.view', 'patients.edit', 'patients.change_category',
   'donor_applications.view', 'donor_applications.screen', 'donor_applications.submit_on_behalf',
   'consents.view', 'consents.record', 'emr.view', 'emr.write',
-  'self.patient_record', 'self.donor_applications', 'self.consents', 'self.medical_records', 'self.profile',
+  'schedules.manage_own', 'schedules.manage_all', 'appointments.view', 'appointments.book_any', 'appointments.check_in',
+  'self.patient_record', 'self.appointments', 'self.donor_applications', 'self.consents', 'self.medical_records', 'self.profile',
 ])
 
 export function describeCapabilities(capabilities = []) {

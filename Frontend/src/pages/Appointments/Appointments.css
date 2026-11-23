@@ -1,0 +1,187 @@
+/* Appointment pages (calendar, booking, schedule, portal). Builds on ui.css, AppShell.css and EMR.css. */
+
+/* Calendar toolbar: view switch, date navigation, doctor filter */
+.appt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.appt-toolbar__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.appt-toolbar__doctor {
+  min-width: 240px;
+  margin-left: auto;
+}
+
+.appt-toolbar .field__label-row {
+  display: none;
+}
+
+.appt-date {
+  width: auto;
+  height: 32px;
+}
+
+.appt-range {
+  margin: 0 0 14px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-muted);
+}
+
+.segmented__item {
+  padding: 5px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.segmented__item.is-active {
+  background: var(--color-surface);
+  color: var(--color-text-strong);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+/* Table cells */
+.appt-time {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.appt-sub {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.appt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.appt-actions__error {
+  flex-basis: 100%;
+  margin: 0;
+  text-align: right;
+}
+
+/* Free-slot picker */
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 8px;
+}
+
+.slot {
+  padding: 8px 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.slot:hover {
+  border-color: var(--color-primary);
+}
+
+.slot--selected,
+.slot--selected:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Booking form */
+.appt-form {
+  max-width: 640px;
+}
+
+.appt-picked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.appt-results {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.appt-result {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.appt-result:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+/* Schedule page */
+.appt-schedule-form {
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.emr-list__item .appt-schedule-form {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.appt-schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.appt-schedule-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
