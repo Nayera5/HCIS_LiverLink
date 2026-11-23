@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from apps.accounts.models import Staff, User
 from apps.accounts.rbac import SCHEDULABLE_TITLES, get_staff_profile, has_capability
+from apps.emr.models import Encounter
 from apps.registry.models import Patient
 
 from .models import Appointment, DoctorSchedule, free_slots
@@ -91,11 +92,12 @@ class AppointmentSerializer(serializers.ModelSerializer):
     patient_name = serializers.SerializerMethodField()
     patient_mrn = serializers.CharField(source="patient.mrn", read_only=True)
     staff_name = serializers.SerializerMethodField()
+    encounter = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
         fields = ["appointment_id", "patient", "patient_name", "patient_mrn", "staff", "staff_name",
-                  "booked_by", "appointment_type", "start_time", "end_time", "status", "reason"]
+                  "booked_by", "appointment_type", "start_time", "end_time", "status", "reason", "encounter"]
         read_only_fields = ["appointment_id", "booked_by", "end_time", "status"]
 
     def get_patient_name(self, appointment):
@@ -103,6 +105,13 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
     def get_staff_name(self, appointment):
         return _staff_name(appointment.staff)
+
+    def get_encounter(self, appointment):
+        """Id of the EMR encounter recorded for this visit, or None."""
+        try:
+            return appointment.encounter.pk
+        except Encounter.DoesNotExist:
+            return None
 
     def validate(self, attrs):
         user = self.context["request"].user

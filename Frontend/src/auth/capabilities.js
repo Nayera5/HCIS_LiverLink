@@ -16,6 +16,12 @@ export const CAPABILITY_DESCRIPTIONS = {
   'reports.patients': 'View patient & donor statistics (diagnoses, categories, donor applications) and export them',
   'reports.financial': 'View financial reports (revenue by service and month, unpaid invoices) and export them',
   'reports.system_usage': 'View system usage reports (signed-in users, new accounts, appointment no-show rate)',
+  'schedules.manage_own': 'Set your working days and hours so patients can book appointments',
+  'schedules.manage_all': 'Set the working days and hours of any doctor',
+  'appointments.view': 'View the appointment calendar of every doctor and patient',
+  'appointments.book_any': 'Book, reschedule and cancel appointments on behalf of patients',
+  'appointments.check_in': 'Check patients in for their appointments and mark no-shows',
+  'self.appointments': 'Book, reschedule and cancel your own appointments',
   'self.patient_record': 'View your own record and update your contact details',
   'self.medical_records': 'View your own signed visits, medical history and released documents',
   'self.donor_applications': 'Apply to become a living donor and follow your application',
@@ -31,6 +37,8 @@ export const IMPLEMENTED_CAPABILITIES = new Set([
   'consents.view', 'consents.record', 'emr.view', 'emr.write',
   'reports.patients', 'reports.financial', 'reports.system_usage',
   'self.patient_record', 'self.donor_applications', 'self.consents', 'self.medical_records', 'self.profile',
+  'schedules.manage_own', 'schedules.manage_all', 'appointments.view', 'appointments.book_any', 'appointments.check_in',
+  'self.patient_record', 'self.appointments', 'self.donor_applications', 'self.consents', 'self.medical_records', 'self.profile',
 ])
 
 export function describeCapabilities(capabilities = []) {

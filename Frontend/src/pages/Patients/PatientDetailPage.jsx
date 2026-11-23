@@ -98,10 +98,21 @@ export default function PatientDetailPage() {
         back={{ to: '/patients', label: 'Patients' }}
         eyebrow="Patient profile"
         title={patientName(patient)}
-        actions={!editing && (canEdit || can('emr.view')) && (
+        actions={!editing && (canEdit || can('emr.view') || can('appointments.view')) && (
           <>
             {can('emr.view') && (
               <Button as={Link} to={`/patients/${patient.id}/medical-record`}>Open medical record</Button>
+            )}
+            {can('appointments.view') && (
+              <Button variant="secondary" as={Link} to={`/appointments?patient=${patient.id}&view=week&staff=all`}>
+                Appointments
+              </Button>
+            )}
+            {can('appointments.book_any') && (
+              <Button variant="secondary" as={Link} to="/appointments/new"
+                state={{ patientId: patient.id, patientName: patientName(patient) }}>
+                Book appointment
+              </Button>
             )}
             {canEdit && (
               <Button variant="secondary" onClick={() => { setEditing(true); setFlash('') }}>Edit demographics</Button>

@@ -592,6 +592,15 @@ class AuditLogModelTests(TestCase):
     def test_actor_defaults_to_username_snapshot(self):
         self.assertEqual(self.entry().actor, 'coord')
 
+    def test_record_defaults_optional_audit_details(self):
+        log = self.entry()
+        self.assertEqual(log.reason, '')
+        self.assertIsNone(log.changes)
+        log = AuditLog.record('update', 'accounts.user', user=self.user, reason='Approval granted',
+                              changes={'active': {'from': False, 'to': True}})
+        self.assertEqual(log.reason, 'Approval granted')
+        self.assertEqual(log.changes['active']['to'], True)
+
     def test_anonymous_event_with_actor(self):
         from django.contrib.auth.models import AnonymousUser
         log = AuditLog.record('login', 'accounts.user', user=AnonymousUser(), actor='  unknown.user  ',

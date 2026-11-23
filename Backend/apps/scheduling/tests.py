@@ -105,6 +105,19 @@ class ScheduleTests(SchedulingTestBase):
         starts = [s['start_time'] for s in r.data['slots']]
         self.assertEqual(starts, [at(9), at(10), at(10, 30)])
 
+    def test_doctors_list(self):
+        self.as_(self.hep)
+        r = self.client.get(f'{SCHED}doctors/')
+        self.assertEqual(r.status_code, 200)
+        ids = {row['staff_id']: row for row in r.data}
+        self.assertEqual(set(ids), {self.hep.staff_profile.pk, self.surg.staff_profile.pk, self.rad.staff_profile.pk})
+        self.assertTrue(ids[self.hep.staff_profile.pk]['is_me'])
+        self.assertFalse(ids[self.surg.staff_profile.pk]['is_me'])
+        self.as_(self.pat_user)
+        self.assertEqual(self.client.get(f'{SCHED}doctors/').status_code, 200)
+        self.as_(self.billing)
+        self.assertEqual(self.client.get(f'{SCHED}doctors/').status_code, 403)
+
     def test_free_slots_validation(self):
         self.as_(self.coord)
         self.assertEqual(self.client.get(f'{SCHED}free-slots/', {'staff': self.hep.staff_profile.pk}).status_code, 400)
@@ -255,6 +268,7 @@ class EncounterLinkTests(SchedulingTestBase):
         r = self.client.post('/api/emr/encounters/', {'patient': self.own.pk, 'appointment': appt.pk}, format='json')
         self.assertEqual(r.status_code, 201, r.data)
         self.assertEqual(Encounter.objects.get(pk=r.data['encounter_id']).appointment, appt)
+        self.assertEqual(self.client.get(f'{APPT}{appt.pk}/').data['encounter'], r.data['encounter_id'])
         # At most one encounter per appointment.
         r = self.client.post('/api/emr/encounters/', {'patient': self.own.pk, 'appointment': appt.pk}, format='json')
         self.assertEqual(r.status_code, 400)
