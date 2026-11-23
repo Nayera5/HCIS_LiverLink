@@ -32,7 +32,6 @@ STAFF_CAPABILITIES = {
     'donor_applications.screen': frozenset({T.TRANSPLANT_COORDINATOR}),
     'donor_applications.view': CLINICAL_READERS,
     'consents.record': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
-    'consents.view': CLINICAL_READERS,
     # Laboratory (Module 5)
     'labs.view': CLINICAL_READERS,
     'labs.order': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
@@ -48,6 +47,9 @@ STAFF_CAPABILITIES = {
     'billing.view': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
     'billing.create_invoice': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
     'billing.record_payment': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
+    # Read-only list of services and prices for clinical staff. Admins (billing.view) use the
+    # full Service catalog page instead, so they don't get this one.
+    'services.view': CLINICAL_READERS - {T.SUPER_ADMIN},
     # Super Admin does not see consent records; consent actions are monitored via the audit log.
     'consents.view': CLINICAL_READERS - {T.SUPER_ADMIN},
     # EMR (module 4): clinical readers view; only the treating doctors write and sign.
@@ -95,6 +97,7 @@ PATIENT_CAPABILITIES = frozenset({
     'self.appointments',        # book / view / reschedule / cancel own appointments
     'self.invoices',            # view own invoices, balance & payment history
     'self.imaging_reports',     # own imaging & AI reports (UI placeholder until module 9 exists)
+    'services.view',            # read-only list of services and prices
 })
 
 EVERYONE = frozenset({'self.profile', 'self.notifications'})  # own account profile + password, own notifications

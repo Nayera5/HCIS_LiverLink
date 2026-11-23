@@ -48,6 +48,7 @@ import MyTreatmentPlansPage from './pages/Prescriptions/MyTreatmentPlansPage'
 import PlanReviewsPage from './pages/Prescriptions/PlanReviewsPage'
 import PrescribePage from './pages/Prescriptions/PrescribePage'
 import ProfilePage from './pages/Profile/ProfilePage'
+import ServicesPage from './pages/Services/ServicesPage'
 import ReportsPage from './pages/Reports/ReportsPage'
 import { REPORT_CAPABILITIES } from './pages/Reports/reportDisplay'
 import UserCreatePage from './pages/Users/UserCreatePage'
@@ -88,6 +89,9 @@ function App() {
               </Route>
               <Route element={<RequireCapability capability="self.donor_applications" />}>
                 <Route path="my-donor-applications" element={<MyDonorApplicationsPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="services.view" />}>
+                <Route path="services" element={<ServicesPage />} />
               </Route>
               <Route element={<RequireCapability capability="self.invoices" />}>
                 <Route path="my-invoices" element={<MyInvoicesPage />} />
