@@ -30,4 +30,6 @@ urlpatterns = [
     path('api/emr/', include('apps.emr.urls')),
     # Appointment & scheduling (module 3): doctor schedules, free slots, appointments.
     path('api/scheduling/', include('apps.scheduling.urls')),
+    path('api/', include('apps.billing.urls')),
+    path('api/', include('apps.notifications.urls')),
 ]
