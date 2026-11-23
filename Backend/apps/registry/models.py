@@ -5,8 +5,7 @@ Patient & Donor Registry (spec §2 and entity dictionary §4.5–§4.6).
   donors (one table; the current role is `category`). Optionally linked to a login account.
 - MRNSequence: single-row counter that issues Medical Record Numbers (LL-000001, …).
 - DonorApplication: a registered person's application to donate to a registered recipient.
-
-Consent (§4.7) is intentionally not implemented yet.
+- Consent: a recorded, signed informed consent (Stage 6: surgery consents only).
 """
 from decimal import Decimal
 
@@ -192,6 +191,18 @@ class DonorApplication(models.Model):
 
     OPEN_STATUSES = ('submitted', 'screening', 'accepted')
     DECIDED_STATUSES = ('accepted', 'rejected')
+    # Screening workflow (coordinator). `accepted` means approved to proceed to the next evaluation
+    # stage, NOT medical clearance or surgery approval, so an accepted application stays open and
+    # can still be withdrawn by (or for) the donor. Only rejected and withdrawn are terminal.
+    SCREENING_TRANSITIONS = {
+        'submitted': ('screening', 'accepted', 'rejected'),
+        'screening': ('accepted', 'rejected'),
+        'accepted': (),
+        'rejected': (),
+        'withdrawn': (),
+    }
+    # Who may be named as the intended recipient (not another living donor).
+    RECIPIENT_CATEGORIES = ('liver_patient', 'recipient')
 
     donor = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='donor_applications')
     recipient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='received_donor_applications')
@@ -235,7 +246,138 @@ class DonorApplication(models.Model):
     def is_open(self):
         return self.status in self.OPEN_STATUSES
 
+    def next_screening_statuses(self):
+        return self.SCREENING_TRANSITIONS.get(self.status, ())
+
+    def apply_screening(self, new_status, staff, notes=None):
+        """Move to `new_status` (must be an allowed transition) and record the screener."""
+        if new_status not in self.next_screening_statuses():
+            raise ValidationError({'status': f'An application that is {self.get_status_display().lower()} '
+                                             f'cannot be moved to {new_status}.'})
+        self.status = new_status
+        self.screened_by = staff
+        self.screened_at = timezone.now()
+        if notes is not None:
+            self.screening_notes = notes
+        self.save(update_fields=['status', 'screened_by', 'screened_at', 'screening_notes', 'updated_at'])
+
+    def withdraw(self):
+        """Withdraw an open application (by the donor, or by staff on the donor's behalf)."""
+        if not self.is_open:
+            raise ValidationError({'status': f'An application that is {self.get_status_display().lower()} '
+                                             'cannot be withdrawn.'})
+        self.status = self.Status.WITHDRAWN
+        self.save(update_fields=['status', 'updated_at'])
+
     def clean(self):
         super().clean()
         if self.donor_id and self.donor_id == self.recipient_id:
             raise ValidationError({'recipient': 'The donor and the recipient must be different people.'})
+
+
+class ConsentQuerySet(models.QuerySet):
+    """Consent history is kept: bulk deletes are refused (withdrawal is a status change)."""
+
+    def delete(self):
+        raise PermissionError('Consent records cannot be deleted; withdraw them instead.')
+
+
+class Consent(models.Model):
+    """
+    A staff member's record that a patient or donor signed an informed consent form (spec §4.7).
+
+    Recording "signed" means the staff member states that a signed form exists; the system does
+    not verify the signature's legal validity. History is preserved: a consent is never deleted,
+    a withdrawal only changes its status (with when/by whom), and signing again after a
+    withdrawal creates a new row.
+
+    Stage 6 scope: donor_surgery and transplant_surgery. ct_contrast and data_use (spec §4.7)
+    are deferred and will be added to `ConsentType` with a migration. The scanned copy is an
+    optional EMR Document (`document`, type consent_form, same patient).
+    """
+
+    class ConsentType(models.TextChoices):
+        DONOR_SURGERY = 'donor_surgery', 'Donor surgery'
+        TRANSPLANT_SURGERY = 'transplant_surgery', 'Transplant surgery'
+
+    class Status(models.TextChoices):
+        SIGNED = 'signed', 'Signed'
+        WITHDRAWN = 'withdrawn', 'Withdrawn'
+
+    # Who a consent type may be recorded for (the patient's current category).
+    ELIGIBLE_CATEGORIES = {
+        'donor_surgery': ('donor',),
+        'transplant_surgery': ('recipient',),
+    }
+
+    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='consents',
+                                help_text='Person who signed.')
+    document = models.OneToOneField(
+        'emr.Document', null=True, blank=True, on_delete=models.PROTECT, related_name='consent',
+        help_text='Scanned copy of the signed form (optional).')
+    consent_type = models.CharField(max_length=30, choices=ConsentType.choices)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.SIGNED)
+    signed_at = models.DateTimeField(help_text='When the form was signed.')
+    witnessed_by = models.ForeignKey(
+        'accounts.Staff', null=True, blank=True, on_delete=models.PROTECT, related_name='witnessed_consents',
+        help_text='Staff member who witnessed the signature (optional).')
+    recorded_by = models.ForeignKey(
+        'accounts.Staff', on_delete=models.PROTECT, related_name='recorded_consents',
+        help_text='Staff member who entered the consent in LiverLink.')
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    withdrawn_by = models.ForeignKey(
+        'accounts.Staff', null=True, blank=True, on_delete=models.PROTECT, related_name='withdrawn_consents',
+        help_text='Staff member who recorded the withdrawal.')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = ConsentQuerySet.as_manager()
+
+    class Meta:
+        indexes = [models.Index(fields=['patient', 'consent_type', 'status'], name='registry_consent_lookup_idx')]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(consent_type__in=['donor_surgery', 'transplant_surgery']),
+                name='registry_consent_type_valid'),
+            models.CheckConstraint(condition=Q(status__in=['signed', 'withdrawn']), name='registry_consent_status_valid'),
+            # A withdrawal always records when and by whom; a signed consent has neither.
+            models.CheckConstraint(
+                condition=(Q(status='signed', withdrawn_at__isnull=True, withdrawn_by__isnull=True)
+                           | Q(status='withdrawn', withdrawn_at__isnull=False, withdrawn_by__isnull=False)),
+                name='registry_consent_withdrawal_tracked'),
+            models.CheckConstraint(
+                condition=Q(withdrawn_at__isnull=True) | Q(withdrawn_at__gte=F('signed_at')),
+                name='registry_consent_withdrawn_after_signed'),
+            models.UniqueConstraint(
+                fields=['patient', 'consent_type'], condition=Q(status='signed'),
+                name='registry_consent_one_active_per_type',
+                violation_error_message='This person already has an active consent of this type.'),
+        ]
+
+    def __str__(self):
+        return f'Consent #{self.pk}: {self.patient.mrn} {self.consent_type} ({self.status})'
+
+    @property
+    def is_active(self):
+        return self.status == self.Status.SIGNED
+
+    @classmethod
+    def has_active(cls, patient, consent_type):
+        """For later modules (e.g. surgery scheduling): is there a signed, not-withdrawn consent?"""
+        return cls.objects.filter(patient=patient, consent_type=consent_type, status=cls.Status.SIGNED).exists()
+
+    def clean(self):
+        super().clean()
+        if self.signed_at and self.signed_at > timezone.now():
+            raise ValidationError({'signed_at': 'The signing date cannot be in the future.'})
+
+    def withdraw(self, staff, when=None):
+        """Record a withdrawal (final). The row is kept as history."""
+        if not self.is_active:
+            raise ValidationError({'status': 'This consent has already been withdrawn.'})
+        self.status = self.Status.WITHDRAWN
+        self.withdrawn_at = when or timezone.now()
+        self.withdrawn_by = staff
+        self.save(update_fields=['status', 'withdrawn_at', 'withdrawn_by'])
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError('Consent records cannot be deleted; withdraw them instead.')

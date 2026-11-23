@@ -38,7 +38,12 @@ export async function loadPatientOverview() {
   return { summary, recent: recent.results }
 }
 
-/** The signed-in patient's own record. */
+/** Dashboard card: own MRN, category and phone only. Not audited (a dashboard visit is not a record view). */
+export function getMyRecordSummary() {
+  return authRequest('/patients/me/summary/')
+}
+
+/** The signed-in patient's own record (My Health Record page). Audited as a profile view. */
 export function getMyRecord() {
   return authRequest('/patients/me/')
 }

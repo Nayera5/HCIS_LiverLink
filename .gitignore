@@ -22,6 +22,7 @@ env/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+Backend/media/
 
 # Python testing / coverage
 .pytest_cache/
@@ -68,3 +69,7 @@ CLAUDE.md
 # Personal notes
 LAB_MODULE_NOTES.md
 PRESCRIPTIONS_MODULE_NOTES.md
+# =========================
+# Project notes
+# =========================
+decisions.md

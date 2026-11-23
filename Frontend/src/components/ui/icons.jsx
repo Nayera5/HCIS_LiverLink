@@ -211,3 +211,25 @@ export const TargetIcon = (p) => (
     <circle cx="12" cy="12" r="1" />
   </Svg>
 )
+
+export const ReceiptIcon = (p) => (
+  <Svg {...p}>
+    <path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5Z" />
+    <path d="M9 8h6M9 12h6M9 16h4" />
+  </Svg>
+)
+
+export const CreditCardIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="5.5" width="18" height="13" rx="2" />
+    <path d="M3 10h18" />
+    <path d="M7 14.5h4" />
+  </Svg>
+)
+
+export const BellIcon = (p) => (
+  <Svg {...p}>
+    <path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6Z" />
+    <path d="M10 19a2 2 0 0 0 4 0" />
+  </Svg>
+)

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { getMyRecord } from '../../api/patients'
+import { getMyRecordSummary } from '../../api/patients'
 import { useAuth } from '../../auth/authContext'
 import { describeCapabilities } from '../../auth/capabilities'
 import { greetingName } from '../../auth/roles'
@@ -16,7 +16,7 @@ import { categoryBadge } from '../Patients/patientDisplay'
 export default function PatientDashboard() {
   const { user } = useAuth()
   const services = describeCapabilities(user.capabilities)
-  const { data: record, error, loading } = useApi(getMyRecord)
+  const { data: record, error, loading } = useApi(getMyRecordSummary)
 
   return (
     <>

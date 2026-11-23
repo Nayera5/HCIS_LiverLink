@@ -77,6 +77,7 @@ describe('entry display', () => {
   test('describes the record touched', () => {
     assert.equal(describeRecord({ entity_type: 'registry.patient', entity_id: 12 }), 'Patient record #12')
     assert.equal(describeRecord({ entity_type: 'accounts.user', entity_id: 4 }), 'User account #4')
+    assert.equal(describeRecord({ entity_type: 'registry.consent', entity_id: 3 }), 'Consent #3')
     assert.equal(describeRecord({ entity_type: 'labs.result', entity_id: null }), 'labs.result')
   })
 

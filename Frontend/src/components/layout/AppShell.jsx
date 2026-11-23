@@ -1,12 +1,36 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigate } from 'react-router-dom'
+import { getMyNotifications } from '../../api/notifications'
 import { useAuth } from '../../auth/authContext'
 import { displayName, initials, roleLine } from '../../auth/roles'
+import { useApi } from '../../hooks/useApi'
 import Button from '../ui/Button'
 import { ConfirmDialog } from '../ui/Feedback'
-import { CloseIcon, LogOutIcon, MenuIcon, PlusIcon, SearchIcon } from '../ui/icons'
+import { BellIcon, CloseIcon, LogOutIcon, MenuIcon, PlusIcon, SearchIcon } from '../ui/icons'
 import { navigationFor, primaryActionFor } from './navigation'
 import './AppShell.css'
+import '../../pages/Notifications/Notifications.css'
+
+/** Unread-count bell in the top bar. Refetches when the user leaves the notifications page. */
+function NotificationBell() {
+  const location = useLocation()
+  const { data, reload } = useApi(getMyNotifications)
+  const wasOnNotifications = useRef(false)
+
+  useEffect(() => {
+    const onNotifications = location.pathname === '/notifications'
+    if (wasOnNotifications.current && !onNotifications) reload()
+    wasOnNotifications.current = onNotifications
+  }, [location.pathname, reload])
+
+  const unread = data?.unread_count || 0
+  return (
+    <Link to="/notifications" className="topbar__bell" aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}>
+      <BellIcon size={18} />
+      {unread > 0 && <span className="topbar__bell-badge">{unread > 99 ? '99+' : unread}</span>}
+    </Link>
+  )
+}
 
 /** Design reference: "Search patient by name, MRN or national ID" (users who may view patients). */
 function PatientSearch() {
@@ -153,6 +177,7 @@ export default function AppShell() {
             <p className="topbar__context">{current?.label || 'LiverLink'}</p>
           )}
           <div className="topbar__actions">
+            <NotificationBell />
             {primary && (
               <Button as={Link} to={primary.to} icon={PlusIcon} size="sm" className="topbar__primary"
                 aria-label={primary.label}>

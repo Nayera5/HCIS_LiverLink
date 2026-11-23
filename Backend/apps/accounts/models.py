@@ -194,6 +194,8 @@ class AuditLog(models.Model):
         CATEGORY_CHANGE = 'category_change', 'Category change'
         ACTIVATE = 'activate', 'Activate'                    # account re-enabled
         DEACTIVATE = 'deactivate', 'Deactivate'              # account disabled
+        STATUS_CHANGE = 'status_change', 'Status change'     # e.g. donor application screened
+        WITHDRAW = 'withdraw', 'Withdraw'                    # e.g. donor application withdrawn
 
     # Actions that only read data; every other action is a write or session event.
     READ_ACTIONS = frozenset({Action.VIEW, Action.PROFILE_VIEW, Action.EXPORT})
@@ -236,7 +238,8 @@ class AuditLog(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=Q(action__in=['view', 'create', 'update', 'delete', 'login', 'logout', 'export',
-                                        'profile_view', 'category_change', 'activate', 'deactivate']),
+                                        'profile_view', 'category_change', 'activate', 'deactivate',
+                                        'status_change', 'withdraw']),
                 name='accounts_auditlog_action_valid'),
             # Every entry must say who acted: a linked user, or an actor identifier.
             models.CheckConstraint(

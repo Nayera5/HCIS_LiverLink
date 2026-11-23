@@ -1,0 +1,42 @@
+/* Inline table-row edit fields (service catalog): the column header already names the field,
+   so the field's own label is visually hidden but stays for screen readers. */
+.field--compact {
+  min-width: 100px;
+  margin: 0;
+}
+
+.field--compact .field__label-row {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.invoice-items-table input[type='number'] {
+  width: 90px;
+}
+
+.invoice-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin: -6px 0 18px;
+}
+
+.invoice-summary__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.invoice-summary__label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.invoice-summary__value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}

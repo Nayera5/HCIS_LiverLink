@@ -34,21 +34,30 @@ class RBACUnitTests(TestCase):
 
     EXPECTED = {
         T.SUPER_ADMIN: {'users.manage', 'audit.view', 'patients.register', 'patients.view', 'patients.edit',
-                        'patients.change_category', 'donor_applications.view', 'consents.view',
-                        'labs.view', 'labs.enter_result', 'prescriptions.view', 'treatment_plans.view', 'drugs.manage'},
-        T.BILLING_ADMIN: {'patients.view'},
+                        'patients.change_category', 'donor_applications.view', 'labs.view', 'labs.enter_result',
+                        'prescriptions.view', 'treatment_plans.view', 'drugs.manage', 'billing.manage_services',
+                        'billing.view', 'billing.create_invoice', 'billing.record_payment', 'emr.view',
+                        'schedules.manage_all', 'appointments.view', 'appointments.book_any'},
+        T.BILLING_ADMIN: {'patients.view', 'billing.manage_services', 'billing.view',
+                          'billing.create_invoice', 'billing.record_payment'},
         T.TRANSPLANT_COORDINATOR: {'patients.register', 'patients.view', 'patients.edit',
                                    'patients.change_category', 'donor_applications.submit_on_behalf',
-                                   'donor_applications.screen', 'donor_applications.view',
-                                   'consents.record', 'consents.view', 'labs.view', 'labs.enter_result',
-                                   'prescriptions.view', 'treatment_plans.view'},
+                                   'donor_applications.screen', 'donor_applications.view', 'consents.record',
+                                   'consents.view', 'labs.view', 'labs.enter_result', 'prescriptions.view',
+                                   'treatment_plans.view', 'emr.view', 'appointments.view',
+                                   'appointments.book_any', 'appointments.check_in'},
         T.HEPATOLOGIST: {'patients.view', 'patients.change_category', 'donor_applications.view',
                          'consents.record', 'consents.view', 'labs.view', 'labs.order', 'labs.enter_result',
-                         'labs.release', 'prescriptions.view', 'prescriptions.prescribe', 'treatment_plans.view', 'treatment_plans.manage', 'drugs.manage'},
+                         'labs.release', 'prescriptions.view', 'prescriptions.prescribe', 'treatment_plans.view',
+                         'treatment_plans.manage', 'drugs.manage', 'emr.view', 'emr.write', 'schedules.manage_own',
+                         'appointments.view'},
         T.RADIOLOGIST: {'patients.view', 'donor_applications.view', 'consents.view', 'labs.view',
-                        'prescriptions.view', 'treatment_plans.view'},
+                        'prescriptions.view', 'treatment_plans.view', 'emr.view', 'schedules.manage_own',
+                        'appointments.view'},
         T.TRANSPLANT_SURGEON: {'patients.view', 'donor_applications.view', 'consents.view', 'labs.view',
-                               'labs.order', 'labs.release', 'prescriptions.view', 'prescriptions.prescribe', 'treatment_plans.view', 'treatment_plans.manage', 'drugs.manage'},
+                               'labs.order', 'labs.release', 'prescriptions.view', 'prescriptions.prescribe',
+                               'treatment_plans.view', 'treatment_plans.manage', 'drugs.manage', 'emr.view',
+                               'emr.write', 'schedules.manage_own', 'appointments.view'},
     }
 
     def test_matrix_per_job_title(self):
@@ -56,23 +65,24 @@ class RBACUnitTests(TestCase):
             with self.subTest(title=title):
                 user = make_staff(f'u_{title}', title)
                 self.assertEqual(effective_job_title(user), title)
-                self.assertEqual(capabilities_for(user), expected | {'self.profile'})
+                self.assertEqual(capabilities_for(user), expected | {'self.profile', 'self.notifications'})
 
     def test_patient_only_self_service(self):
         user = make_user('pat', User.Role.PATIENT)
         self.assertEqual(capabilities_for(user), {'self.profile', 'self.patient_record',
                                                   'self.donor_applications', 'self.consents',
-                                                  'self.lab_results', 'self.medications'})
+                                                  'self.lab_results', 'self.medications', 'self.medical_records',
+                                                  'self.appointments', 'self.invoices', 'self.notifications'})
         self.assertIsNone(effective_job_title(user))
 
     def test_clinical_staff_without_job_title_has_no_clinical_permissions(self):
         user = make_user('nojob', User.Role.CLINICAL_STAFF)
         self.assertIsNone(effective_job_title(user))
-        self.assertEqual(capabilities_for(user), {'self.profile'})
+        self.assertEqual(capabilities_for(user), {'self.profile', 'self.notifications'})
 
     def test_admin_role_without_profile_and_not_superuser_has_nothing(self):
         user = make_user('plainadmin', User.Role.ADMIN)
-        self.assertEqual(capabilities_for(user), {'self.profile'})
+        self.assertEqual(capabilities_for(user), {'self.profile', 'self.notifications'})
 
     def test_superuser_without_profile_counts_as_super_admin(self):
         user = User.objects.create_superuser('root', '', PW)
@@ -84,7 +94,7 @@ class RBACUnitTests(TestCase):
         User.objects.filter(pk=user.pk).update(role=User.Role.ADMIN)  # bypass validation on purpose
         user.refresh_from_db()
         self.assertIsNone(effective_job_title(user))
-        self.assertEqual(capabilities_for(user), {'self.profile'})
+        self.assertEqual(capabilities_for(user), {'self.profile', 'self.notifications'})
 
     def test_inactive_user_has_nothing(self):
         user = make_staff('gone', T.SUPER_ADMIN, is_active=False)
@@ -169,7 +179,7 @@ class AuthFlowTests(APITestCase):
         self.auth(self.login('nojob').data['access'])
         r = self.client.get('/api/auth/me/')
         self.assertIsNone(r.data['job_title'])
-        self.assertEqual(r.data['capabilities'], ['self.profile'])
+        self.assertEqual(r.data['capabilities'], ['self.notifications', 'self.profile'])
 
     def test_me_update_contact_details(self):
         self.auth(self.login().data['access'])

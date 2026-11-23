@@ -1,0 +1,104 @@
+/* EMR pages (medical record, encounter, portal). Builds on ui.css, AppShell.css and Patients.css. */
+
+.emr-textarea {
+  height: auto;
+  min-height: 96px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.5;
+}
+
+/* Inline add forms at the top of a panel */
+.emr-form {
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.panel__body--flush .emr-form {
+  padding: 18px 20px;
+  margin-bottom: 0;
+}
+
+.emr-addendum-form {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Lists (history items, diagnoses, addenda) */
+.emr-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.emr-list__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.emr-list__item--stacked {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.emr-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.emr-group__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.emr-group--allergy .emr-list__item {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-soft);
+}
+
+.emr-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.emr-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+}
+
+.emr-badges,
+.emr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.emr-actions {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+
+.emr-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}

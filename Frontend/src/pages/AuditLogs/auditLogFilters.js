@@ -10,6 +10,8 @@ export const ACTION_LABELS = {
   category_change: 'Category change',
   activate: 'Activate',
   deactivate: 'Deactivate',
+  status_change: 'Status change',
+  withdraw: 'Withdraw',
   delete: 'Delete',
   login: 'Login',
   logout: 'Logout',
@@ -20,7 +22,7 @@ export const READ_ACTIONS = new Set(['view', 'profile_view', 'export'])
 
 export const ACTION_OPTIONS = [
   { group: 'Reads', options: ['profile_view', 'view', 'export'] },
-  { group: 'Writes', options: ['create', 'update', 'category_change', 'activate', 'deactivate', 'delete'] },
+  { group: 'Writes', options: ['create', 'update', 'category_change', 'status_change', 'withdraw', 'activate', 'deactivate', 'delete'] },
   { group: 'Sessions', options: ['login', 'logout'] },
 ].map(({ group, options }) => ({
   group,
@@ -45,6 +47,7 @@ const ENTITY_LABELS = {
   'prescriptions.prescription': 'Prescription',
   'prescriptions.treatmentplan': 'Treatment plan',
   'prescriptions.drug': 'Drug catalog entry',
+  'registry.consent': 'Consent',
 }
 
 /** Filters kept in the page URL. `page` is handled separately by the page. */

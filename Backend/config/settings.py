@@ -51,6 +51,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'password_reset': '5/hour',
         'registration': '10/hour',
+        'donor_application': '20/hour',  # submissions only (limits recipient-MRN guessing)
     },
 }
 
@@ -191,6 +192,11 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Uploaded files (EMR documents). Not served publicly: downloads go through the
+# authenticated /api/emr/documents/<id>/download/ endpoint.
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
@@ -198,5 +204,25 @@ STATIC_URL = 'static/'
 MAILERS = {
     'default': {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+    },
+}
+
+
+# Celery (spec: "Background Services: Celery workers with Redis handle notifications,
+# reminders, invoices and AI jobs outside the main request"). See config/celery.py.
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+# check_due_reminders is currently a no-op (apps.notifications.tasks): the Appointment and
+# FollowUpVisit models it would query don't exist yet. Fill in its logic once they do.
+CELERY_BEAT_SCHEDULE = {
+    'check-due-reminders-every-15-minutes': {
+        'task': 'apps.notifications.tasks.check_due_reminders',
+        'schedule': timedelta(minutes=15),
     },
 }

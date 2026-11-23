@@ -10,8 +10,9 @@ enforced here, server-side (apps/accounts/rbac.py):
     self.patient_record       own record (portal)   patients (incl. donors)
 
 Audited (AuditLog), without storing field values or search terms: every write (create, update,
-category_change) and every opening of an individual profile (profile_view). List, search, filter
-and dashboard reads are deliberately not logged.
+category_change) and every opening of an individual profile (profile_view), including the
+portal's own record page. List, search, filter and dashboard reads (incl. /patients/me/summary/)
+are deliberately not logged.
 """
 from django.db.models import Count, Q
 from rest_framework import generics, status
@@ -181,6 +182,21 @@ class MyPatientRecordView(APIView):
         serializer.save()
         audit(request, A.UPDATE, ENTITY, entity_id=patient.pk, patient=patient)
         return Response(OwnPatientRecordSerializer(patient).data)
+
+
+class MyPatientSummaryView(MyPatientRecordView):
+    """
+    GET /api/patients/me/summary/   own MRN, category and phone for the portal dashboard.
+    Not audited: a dashboard visit is not opening the record (that is GET /api/patients/me/).
+    """
+
+    http_method_names = ['get', 'head', 'options']
+
+    def get(self, request):
+        patient = self.get_record(request)
+        if patient is None:
+            return self.not_linked()
+        return Response({'mrn': patient.mrn, 'category': patient.category, 'phone': patient.phone})
 
 
 class SelfRegistrationView(APIView):

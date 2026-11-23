@@ -30,4 +30,10 @@ urlpatterns = [
     path('api/', include('apps.labs.urls')),
     # Prescriptions & treatment plans (Module 6): drug catalog, e-prescriptions, medication lists, plans.
     path('api/', include('apps.prescriptions.urls')),
+    # EMR (module 4): encounters, history, diagnoses, vitals, documents.
+    path('api/emr/', include('apps.emr.urls')),
+    # Appointment & scheduling (module 3): doctor schedules, free slots, appointments.
+    path('api/scheduling/', include('apps.scheduling.urls')),
+    path('api/', include('apps.billing.urls')),
+    path('api/', include('apps.notifications.urls')),
 ]

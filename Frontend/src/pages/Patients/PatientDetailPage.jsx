@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
 import { changePatientCategory, getPatient, updatePatient } from '../../api/patients'
 import { useAuth } from '../../auth/authContext'
@@ -16,6 +16,7 @@ import { formatDate, formatDateTime } from '../../utils/format'
 import PatientLabResultsPanel from '../Labs/PatientLabResultsPanel'
 import PatientMedicationsPanel from '../Prescriptions/PatientMedicationsPanel'
 import PatientTreatmentPlansPanel from '../Prescriptions/PatientTreatmentPlansPanel'
+import ConsentsPanel from '../Consents/ConsentsPanel'
 import PatientForm from './PatientForm'
 import { ageSex, CATEGORY_LABELS, CATEGORY_OPTIONS, categoryBadge, patientName } from './patientDisplay'
 import './Patients.css'
@@ -85,6 +86,7 @@ export default function PatientDetailPage() {
 
   const canEdit = can('patients.edit')
   const canChangeCategory = can('patients.change_category')
+  const canViewConsents = can('consents.view') // not Super Admin or Billing Admin
 
   const save = async (payload) => {
     const updated = await updatePatient(patient.id, payload)
@@ -99,8 +101,15 @@ export default function PatientDetailPage() {
         back={{ to: '/patients', label: 'Patients' }}
         eyebrow="Patient profile"
         title={patientName(patient)}
-        actions={canEdit && !editing && (
-          <Button variant="secondary" onClick={() => { setEditing(true); setFlash('') }}>Edit demographics</Button>
+        actions={!editing && (canEdit || can('emr.view')) && (
+          <>
+            {can('emr.view') && (
+              <Button as={Link} to={`/patients/${patient.id}/medical-record`}>Open medical record</Button>
+            )}
+            {canEdit && (
+              <Button variant="secondary" onClick={() => { setEditing(true); setFlash('') }}>Edit demographics</Button>
+            )}
+          </>
         )}
       />
       <div className="patient-summary">
@@ -158,6 +167,7 @@ export default function PatientDetailPage() {
                     setFlash(message)
                   }} />
               )}
+              {canViewConsents && <ConsentsPanel patient={patient} />}
               <Panel title="Registration">
                 <dl className="detail-list">
                   <div>
