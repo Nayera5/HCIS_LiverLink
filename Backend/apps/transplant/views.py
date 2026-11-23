@@ -1,18 +1,17 @@
 """Views for the transplant module (Modules 11 & 12)."""
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
-from rest_framework import generics, status, viewsets
-from rest_framework.decorators import action
+from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.accounts.audit import audit
 from apps.accounts.models import AuditLog
-from apps.accounts.rbac import effective_job_title, get_staff_profile
+from apps.accounts.rbac import get_staff_profile
 
 from .models import (
-    CaseDonor, ChecklistItem, CommitteeDecision, CommitteeMember,
+    CaseDonor, ChecklistItem, CommitteeDecision,
     FollowUpPlan, FollowUpVisit, Surgery, SurgeryTeamMember, TransplantCase,
 )
 from .permissions import (
