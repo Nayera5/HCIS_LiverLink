@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('accounts', '0006_auditlog_changes_auditlog_reason'),
+        ('accounts', '0007_auditlog_reason_changes'),
         ('registry', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]

@@ -32,7 +32,6 @@ STAFF_CAPABILITIES = {
     'donor_applications.screen': frozenset({T.TRANSPLANT_COORDINATOR}),
     'donor_applications.view': CLINICAL_READERS,
     'consents.record': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
-    'consents.view': CLINICAL_READERS,
     # Laboratory (Module 5)
     'labs.view': CLINICAL_READERS,
     'labs.order': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),

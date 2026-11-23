@@ -164,6 +164,7 @@ function App() {
               <Route element={<RequireCapability capability="self.medications" />}>
                 <Route path="my-medications" element={<MyMedicationsPage />} />
                 <Route path="my-treatment-plans" element={<MyTreatmentPlansPage />} />
+              </Route>
               <Route element={<RequireCapability capability={REPORT_CAPABILITIES} />}>
                 <Route path="reports" element={<ReportsPage />} />
               </Route>
