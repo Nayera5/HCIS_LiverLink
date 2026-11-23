@@ -1,7 +1,7 @@
 // Thin fetch wrapper for the Django REST backend.
 // Base URL comes from VITE_API_URL (see Frontend/.env.example).
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '')
+export const API_URL = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '')
 
 export class ApiError extends Error {
   /**

@@ -1,7 +1,7 @@
 // Authenticated requests: adds the access token, and on a 401 refreshes it once and retries.
 // Refresh tokens rotate (the backend returns a new one each time), so the new pair is saved.
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '../auth/tokenStorage'
-import { ApiError, apiRequest } from './client'
+import { API_URL, ApiError, apiRequest } from './client'
 
 let refreshing = null
 let sessionExpiredHandler = () => {}
@@ -47,6 +47,41 @@ export async function authRequest(path, options = {}) {
       throw error
     }
     return send(freshAccess)
+  }
+}
+
+/**
+ * Raw authenticated fetch for non-JSON responses (e.g. a PDF download), where apiRequest's
+ * JSON parsing doesn't apply. Same 401-refresh-and-retry behaviour as authRequest. Returns the
+ * fetch Response (not parsed), or throws ApiError on a network failure or a non-401 error.
+ */
+export async function authFetch(path, options = {}) {
+  const send = (token) =>
+    fetch(`${API_URL}${path}`, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } })
+
+  const access = getAccessToken()
+  if (!access) throw new ApiError('Not signed in', { status: 401 })
+
+  let response
+  try {
+    response = await send(access)
+  } catch {
+    throw new ApiError('Network request failed', { status: 0 })
+  }
+  if (response.status !== 401) return response
+
+  let freshAccess
+  try {
+    freshAccess = await refreshAccessToken()
+  } catch {
+    clearTokens()
+    sessionExpiredHandler('expired')
+    return response
+  }
+  try {
+    return await send(freshAccess)
+  } catch {
+    throw new ApiError('Network request failed', { status: 0 })
   }
 }
 

@@ -32,6 +32,10 @@ STAFF_CAPABILITIES = {
     'donor_applications.screen': frozenset({T.TRANSPLANT_COORDINATOR}),
     'donor_applications.view': CLINICAL_READERS,
     'consents.record': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
+    'billing.manage_services': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
+    'billing.view': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
+    'billing.create_invoice': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
+    'billing.record_payment': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
     # Super Admin does not see consent records; consent actions are monitored via the audit log.
     'consents.view': CLINICAL_READERS - {T.SUPER_ADMIN},
     # EMR (module 4): clinical readers view; only the treating doctors write and sign.
@@ -58,9 +62,10 @@ PATIENT_CAPABILITIES = frozenset({
     'self.consents',            # view own consents
     'self.medical_records',     # view own released EMR records (read-only)
     'self.appointments',        # book / view / reschedule / cancel own appointments
+    'self.invoices',            # view own invoices, balance & payment history
 })
 
-EVERYONE = frozenset({'self.profile'})  # own account profile + password
+EVERYONE = frozenset({'self.profile', 'self.notifications'})  # own account profile + password, own notifications
 
 
 def get_staff_profile(user):
