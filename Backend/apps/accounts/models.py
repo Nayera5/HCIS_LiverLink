@@ -215,6 +215,10 @@ class AuditLog(models.Model):
     entity_type = models.CharField(max_length=100, help_text='Table the action was on, e.g. registry.patient.')
     entity_id = models.BigIntegerField(null=True, blank=True, help_text='ID of the row the action was on.')
     ip_address = models.GenericIPAddressField(null=True, blank=True)
+    changes = models.JSONField(
+        null=True, blank=True,
+        help_text='Changed values: {field: {"from": old, "to": new}} (clinical edits only).')
+    reason = models.TextField(blank=True, default='', help_text='Reason given for the change.')
     timestamp = models.DateTimeField(default=timezone.now, editable=False)
 
     objects = AuditLogQuerySet.as_manager()
@@ -253,7 +257,7 @@ class AuditLog(models.Model):
 
     @classmethod
     def record(cls, action, entity_type, *, user=None, actor='', entity_id=None, patient=None,
-               ip_address=None):
+               ip_address=None, changes=None, reason=''):
         """
         Append one entry. `entity_type` is a model label such as 'registry.patient'.
         With a user, `actor` defaults to their current username. Anonymous events must pass
@@ -265,4 +269,6 @@ class AuditLog(models.Model):
         return cls.objects.create(
             user=user, actor=actor, action=action, entity_type=entity_type, entity_id=entity_id,
             patient=patient, ip_address=ip_address,
+            changes=changes,
+            reason=(reason or '').strip(),
         )
