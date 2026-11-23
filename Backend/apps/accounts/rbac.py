@@ -47,6 +47,14 @@ STAFF_CAPABILITIES = {
     'appointments.view': CLINICAL_READERS,
     'appointments.book_any': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR}),  # on behalf of patients
     'appointments.check_in': frozenset({T.TRANSPLANT_COORDINATOR}),                 # check-in and no-show
+    # Transplant (modules 11-12): case management, committee, surgery and follow-up.
+    'transplant.view': CLINICAL_READERS,
+    'transplant.manage': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    'transplant.refer': frozenset({T.HEPATOLOGIST}),
+    'transplant.committee_decide': frozenset({T.HEPATOLOGIST}),
+    'transplant.record_surgery': frozenset({T.TRANSPLANT_SURGEON}),
+    'transplant.view_followup': CLINICAL_READERS,
+    'transplant.manage_followup': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
 }
 
 # Job titles that can be the treating doctor of an encounter (holders of 'emr.write').

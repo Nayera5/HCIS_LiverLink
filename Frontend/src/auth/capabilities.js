@@ -18,6 +18,13 @@ export const CAPABILITY_DESCRIPTIONS = {
   'self.donor_applications': 'Apply to become a living donor and follow your application',
   'self.consents': 'View the consents you have signed',
   'self.profile': 'Manage your own account and password',
+  'transplant.view': 'View transplant cases and donor evaluations',
+  'transplant.manage': 'Manage transplant case workflow, donors, and checklists',
+  'transplant.refer': 'Refer patients for transplant evaluation',
+  'transplant.committee_decide': 'Record transplant committee decisions',
+  'transplant.record_surgery': 'Schedule and record transplant surgeries',
+  'transplant.view_followup': 'View post-transplant follow-up plans and visits',
+  'transplant.manage_followup': 'Manage follow-up visits and recovery records',
 }
 
 // Capabilities whose pages exist today. Capabilities of later stages are added here when
@@ -27,6 +34,8 @@ export const IMPLEMENTED_CAPABILITIES = new Set([
   'donor_applications.view', 'donor_applications.screen', 'donor_applications.submit_on_behalf',
   'consents.view', 'consents.record', 'emr.view', 'emr.write',
   'self.patient_record', 'self.donor_applications', 'self.consents', 'self.medical_records', 'self.profile',
+  'transplant.view', 'transplant.manage', 'transplant.refer', 'transplant.committee_decide',
+  'transplant.record_surgery', 'transplant.view_followup', 'transplant.manage_followup',
 ])
 
 export function describeCapabilities(capabilities = []) {

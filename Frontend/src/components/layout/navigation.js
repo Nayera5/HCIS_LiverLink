@@ -14,6 +14,8 @@ export const NAV_SECTIONS = [
     items: [
       { to: '/patients', label: 'Patients', icon: ClipboardIcon, capability: 'patients.view' },
       { to: '/donor-applications', label: 'Donor applications', icon: UserPlusIcon, capability: 'donor_applications.view' },
+      { to: '/transplant', label: 'Transplant cases', icon: HeartPulseIcon, capability: 'transplant.view' },
+      { to: '/followup', label: 'Follow-up', icon: CheckCircleIcon, capability: 'transplant.view_followup' },
     ],
   },
   {
