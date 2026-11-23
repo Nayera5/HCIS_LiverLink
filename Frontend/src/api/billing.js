@@ -1,6 +1,5 @@
 // Billing & Payments API (backend: apps/billing). Permissions are enforced server-side.
-import { ApiError } from './client'
-import { authFetch, authRequest, toQuery } from './http'
+import { authRequest, downloadFile, toQuery } from './http'
 
 // --------------------------------------------------------------------------- service catalog
 
@@ -58,26 +57,6 @@ export function getMyInvoice(id) {
 }
 
 // --------------------------------------------------------------------------- receipts (PDF)
-
-/** Downloads the PDF and triggers a save in the browser (no JSON body, so authRequest doesn't apply). */
-async function downloadFile(path, fallbackFilename) {
-  const response = await authFetch(path)
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    throw new ApiError(data?.detail || `Request failed with status ${response.status}`, { status: response.status, data })
-  }
-  const blob = await response.blob()
-  const disposition = response.headers.get('Content-Disposition') || ''
-  const filename = disposition.match(/filename="?([^";]+)"?/)?.[1] || fallbackFilename
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
 
 export function downloadReceipt(paymentId) {
   return downloadFile(`/payments/${paymentId}/receipt/`, `receipt-${paymentId}.pdf`)

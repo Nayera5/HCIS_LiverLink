@@ -2,7 +2,15 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AuthProvider from './auth/AuthProvider'
 import { PublicOnly, RequireAuth, RequireCapability } from './auth/guards'
 import AppShell from './components/layout/AppShell'
+import AppointmentsPage from './pages/Appointments/AppointmentsPage'
+import BookAppointmentPage from './pages/Appointments/BookAppointmentPage'
+import SchedulePage from './pages/Appointments/SchedulePage'
 import AuditLogsPage from './pages/AuditLogs/AuditLogsPage'
+import TransplantCasesPage from './pages/Transplant/TransplantCasesPage'
+import TransplantCaseDetailPage from './pages/Transplant/TransplantCaseDetailPage'
+import TransplantReferralPage from './pages/Transplant/TransplantReferralPage'
+import FollowUpDashboard from './pages/FollowUp/FollowUpDashboard'
+import FollowUpPlanDetailPage from './pages/FollowUp/FollowUpPlanDetailPage'
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage'
 import RegisterPage from './pages/Auth/RegisterPage'
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage'
@@ -28,6 +36,7 @@ import LabOrdersPage from './pages/Labs/LabOrdersPage'
 import MyLabOrdersPage from './pages/Labs/MyLabOrdersPage'
 import MyLabResultsPage from './pages/Labs/MyLabResultsPage'
 import PendingTestsPage from './pages/Labs/PendingTestsPage'
+import MyAppointmentsPage from './pages/Portal/MyAppointmentsPage'
 import MyConsentsPage from './pages/Portal/MyConsentsPage'
 import MyDonorApplicationsPage from './pages/Portal/MyDonorApplicationsPage'
 import MyMedicalRecordPage from './pages/Portal/MyMedicalRecordPage'
@@ -39,6 +48,8 @@ import MyTreatmentPlansPage from './pages/Prescriptions/MyTreatmentPlansPage'
 import PlanReviewsPage from './pages/Prescriptions/PlanReviewsPage'
 import PrescribePage from './pages/Prescriptions/PrescribePage'
 import ProfilePage from './pages/Profile/ProfilePage'
+import ReportsPage from './pages/Reports/ReportsPage'
+import { REPORT_CAPABILITIES } from './pages/Reports/reportDisplay'
 import UserCreatePage from './pages/Users/UserCreatePage'
 import UserDetailPage from './pages/Users/UserDetailPage'
 import UsersPage from './pages/Users/UsersPage'
@@ -90,6 +101,21 @@ function App() {
                 <Route path="my-medical-record/encounters/:id" element={<EncounterPage portal />} />
               </Route>
 
+              <Route element={<RequireCapability capability="self.appointments" />}>
+                <Route path="my-appointments" element={<MyAppointmentsPage />} />
+                <Route path="my-appointments/new" element={<BookAppointmentPage />} />
+              </Route>
+
+              <Route element={<RequireCapability capability="appointments.view" />}>
+                <Route path="appointments" element={<AppointmentsPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="appointments.book_any" />}>
+                <Route path="appointments/new" element={<BookAppointmentPage />} />
+              </Route>
+              <Route element={<RequireCapability capability={['schedules.manage_own', 'schedules.manage_all']} />}>
+                <Route path="schedule" element={<SchedulePage />} />
+              </Route>
+
               <Route element={<RequireCapability capability="emr.view" />}>
                 <Route path="patients/:id/medical-record" element={<MedicalRecordPage />} />
                 <Route path="encounters/:id" element={<EncounterPage />} />
@@ -134,6 +160,8 @@ function App() {
               <Route element={<RequireCapability capability="self.medications" />}>
                 <Route path="my-medications" element={<MyMedicationsPage />} />
                 <Route path="my-treatment-plans" element={<MyTreatmentPlansPage />} />
+              <Route element={<RequireCapability capability={REPORT_CAPABILITIES} />}>
+                <Route path="reports" element={<ReportsPage />} />
               </Route>
 
               <Route element={<RequireCapability capability="users.manage" />}>
@@ -144,6 +172,19 @@ function App() {
               <Route element={<RequireCapability capability="audit.view" />}>
                 <Route path="admin/audit-logs" element={<AuditLogsPage />} />
               </Route>
+
+              <Route element={<RequireCapability capability="transplant.view" />}>
+                <Route path="transplant" element={<TransplantCasesPage />} />
+                <Route path="transplant/cases/:id" element={<TransplantCaseDetailPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="transplant.refer" />}>
+                <Route path="transplant/new" element={<TransplantReferralPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="transplant.view_followup" />}>
+                <Route path="followup" element={<FollowUpDashboard />} />
+                <Route path="followup/plans/:id" element={<FollowUpPlanDetailPage />} />
+              </Route>
+
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Route>

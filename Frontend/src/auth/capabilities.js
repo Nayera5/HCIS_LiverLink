@@ -22,6 +22,15 @@ export const CAPABILITY_DESCRIPTIONS = {
   'consents.view': 'View patients’ surgery consent records',
   'emr.view': 'View patients’ medical records (encounters, history, diagnoses, vitals, documents)',
   'emr.write': 'Write encounters, diagnoses, vital signs and history; sign encounters; upload and release documents',
+  'reports.patients': 'View patient & donor statistics (diagnoses, categories, donor applications) and export them',
+  'reports.financial': 'View financial reports (revenue by service and month, unpaid invoices) and export them',
+  'reports.system_usage': 'View system usage reports (signed-in users, new accounts, appointment no-show rate)',
+  'schedules.manage_own': 'Set your working days and hours so patients can book appointments',
+  'schedules.manage_all': 'Set the working days and hours of any doctor',
+  'appointments.view': 'View the appointment calendar of every doctor and patient',
+  'appointments.book_any': 'Book, reschedule and cancel appointments on behalf of patients',
+  'appointments.check_in': 'Check patients in for their appointments and mark no-shows',
+  'self.appointments': 'Book, reschedule and cancel your own appointments',
   'self.patient_record': 'View your own record and update your contact details',
   'self.medical_records': 'View your own signed visits, medical history and released documents',
   'self.donor_applications': 'Apply to become a living donor and follow your application',
@@ -29,6 +38,13 @@ export const CAPABILITY_DESCRIPTIONS = {
   'self.lab_results': 'View your lab results and how they change over time',
   'self.medications': 'View your medications and treatment plans',
   'self.profile': 'Manage your own account and password',
+  'transplant.view': 'View transplant cases and donor evaluations',
+  'transplant.manage': 'Manage transplant case workflow, donors, and checklists',
+  'transplant.refer': 'Refer patients for transplant evaluation',
+  'transplant.committee_decide': 'Record transplant committee decisions',
+  'transplant.record_surgery': 'Schedule and record transplant surgeries',
+  'transplant.view_followup': 'View post-transplant follow-up plans and visits',
+  'transplant.manage_followup': 'Manage follow-up visits and recovery records',
 }
 
 // Capabilities whose pages exist today. Capabilities of later stages are added here when
@@ -41,6 +57,12 @@ export const IMPLEMENTED_CAPABILITIES = new Set([
   'consents.view', 'consents.record', 'emr.view', 'emr.write',
   'self.patient_record', 'self.donor_applications', 'self.consents', 'self.medical_records',
   'self.lab_results', 'self.medications', 'self.profile',
+  'reports.patients', 'reports.financial', 'reports.system_usage',
+  'self.patient_record', 'self.donor_applications', 'self.consents', 'self.medical_records', 'self.profile',
+  'schedules.manage_own', 'schedules.manage_all', 'appointments.view', 'appointments.book_any', 'appointments.check_in',
+  'self.patient_record', 'self.appointments', 'self.donor_applications', 'self.consents', 'self.medical_records', 'self.profile',
+  'transplant.view', 'transplant.manage', 'transplant.refer', 'transplant.committee_decide',
+  'transplant.record_surgery', 'transplant.view_followup', 'transplant.manage_followup',
 ])
 
 export function describeCapabilities(capabilities = []) {

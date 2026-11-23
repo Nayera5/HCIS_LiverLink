@@ -59,6 +59,23 @@ STAFF_CAPABILITIES = {
     'appointments.view': CLINICAL_READERS,
     'appointments.book_any': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR}),  # on behalf of patients
     'appointments.check_in': frozenset({T.TRANSPLANT_COORDINATOR}),                 # check-in and no-show
+    # Transplant (modules 11-12): case management, committee, surgery and follow-up.
+    'transplant.view': CLINICAL_READERS,
+    'transplant.manage': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    'transplant.refer': frozenset({T.HEPATOLOGIST}),
+    'transplant.committee_decide': frozenset({T.HEPATOLOGIST}),
+    'transplant.record_surgery': frozenset({T.TRANSPLANT_SURGEON}),
+    'transplant.view_followup': CLINICAL_READERS,
+    'transplant.manage_followup': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    # Reporting & analytics (module 15). Super admin sees every report.
+    'reports.patients': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
+    'reports.financial': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
+    'reports.system_usage': frozenset({T.SUPER_ADMIN}),
+    # Transplant and imaging/AI reports: UI placeholders only until modules 7, 9 and 11 exist.
+    'reports.transplant': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST,
+                                     T.TRANSPLANT_SURGEON}),
+    'reports.imaging': frozenset({T.SUPER_ADMIN, T.HEPATOLOGIST, T.RADIOLOGIST}),
+    'reports.imaging_patient': frozenset({T.HEPATOLOGIST}),  # one patient's imaging & AI reports
 }
 
 # Job titles that can be the treating doctor of an encounter (holders of 'emr.write').
@@ -77,6 +94,7 @@ PATIENT_CAPABILITIES = frozenset({
     'self.medical_records',     # view own released EMR records (read-only)
     'self.appointments',        # book / view / reschedule / cancel own appointments
     'self.invoices',            # view own invoices, balance & payment history
+    'self.imaging_reports',     # own imaging & AI reports (UI placeholder until module 9 exists)
 })
 
 EVERYONE = frozenset({'self.profile', 'self.notifications'})  # own account profile + password, own notifications

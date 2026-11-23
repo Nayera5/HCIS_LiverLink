@@ -11,7 +11,7 @@ from rest_framework.test import APIClient, APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import AuditLog, Staff, User
-from .rbac import capabilities_for, effective_job_title
+from .rbac import EVERYONE, capabilities_for, effective_job_title
 
 PW = 'Str0ng-Pass!2026'
 T = Staff.JobTitle
@@ -37,27 +37,28 @@ class RBACUnitTests(TestCase):
                         'patients.change_category', 'donor_applications.view', 'labs.view', 'labs.enter_result',
                         'prescriptions.view', 'treatment_plans.view', 'drugs.manage', 'billing.manage_services',
                         'billing.view', 'billing.create_invoice', 'billing.record_payment', 'emr.view',
-                        'schedules.manage_all', 'appointments.view', 'appointments.book_any'},
+                        'schedules.manage_all', 'appointments.view', 'appointments.book_any', 'reports.patients', 'reports.financial', 'reports.system_usage', 'reports.transplant', 'reports.imaging'},
         T.BILLING_ADMIN: {'patients.view', 'billing.manage_services', 'billing.view',
-                          'billing.create_invoice', 'billing.record_payment'},
+                          'billing.create_invoice', 'billing.record_payment','reports.financial'},
         T.TRANSPLANT_COORDINATOR: {'patients.register', 'patients.view', 'patients.edit',
                                    'patients.change_category', 'donor_applications.submit_on_behalf',
                                    'donor_applications.screen', 'donor_applications.view', 'consents.record',
                                    'consents.view', 'labs.view', 'labs.enter_result', 'prescriptions.view',
                                    'treatment_plans.view', 'emr.view', 'appointments.view',
-                                   'appointments.book_any', 'appointments.check_in'},
+                                   'appointments.book_any', 'appointments.check_in',  'reports.patients', 'reports.transplant'},
         T.HEPATOLOGIST: {'patients.view', 'patients.change_category', 'donor_applications.view',
                          'consents.record', 'consents.view', 'labs.view', 'labs.order', 'labs.enter_result',
                          'labs.release', 'prescriptions.view', 'prescriptions.prescribe', 'treatment_plans.view',
                          'treatment_plans.manage', 'drugs.manage', 'emr.view', 'emr.write', 'schedules.manage_own',
-                         'appointments.view'},
+                         'appointments.view','reports.patients',
+                         'reports.transplant', 'reports.imaging', 'reports.imaging_patient'},
         T.RADIOLOGIST: {'patients.view', 'donor_applications.view', 'consents.view', 'labs.view',
                         'prescriptions.view', 'treatment_plans.view', 'emr.view', 'schedules.manage_own',
-                        'appointments.view'},
+                        'appointments.view', 'reports.imaging'},
         T.TRANSPLANT_SURGEON: {'patients.view', 'donor_applications.view', 'consents.view', 'labs.view',
                                'labs.order', 'labs.release', 'prescriptions.view', 'prescriptions.prescribe',
                                'treatment_plans.view', 'treatment_plans.manage', 'drugs.manage', 'emr.view',
-                               'emr.write', 'schedules.manage_own', 'appointments.view'},
+                               'emr.write', 'schedules.manage_own', 'appointments.view','reports.transplant'},
     }
 
     def test_matrix_per_job_title(self):
@@ -69,7 +70,7 @@ class RBACUnitTests(TestCase):
 
     def test_patient_only_self_service(self):
         user = make_user('pat', User.Role.PATIENT)
-        self.assertEqual(capabilities_for(user), {'self.profile', 'self.patient_record',
+        self.assertEqual(capabilities_for(user), EVERYONE | {'self.patient_record', 'self.invoices',
                                                   'self.donor_applications', 'self.consents',
                                                   'self.lab_results', 'self.medications', 'self.medical_records',
                                                   'self.appointments', 'self.invoices', 'self.notifications'})
@@ -593,6 +594,15 @@ class AuditLogModelTests(TestCase):
 
     def test_actor_defaults_to_username_snapshot(self):
         self.assertEqual(self.entry().actor, 'coord')
+
+    def test_record_defaults_optional_audit_details(self):
+        log = self.entry()
+        self.assertEqual(log.reason, '')
+        self.assertIsNone(log.changes)
+        log = AuditLog.record('update', 'accounts.user', user=self.user, reason='Approval granted',
+                              changes={'active': {'from': False, 'to': True}})
+        self.assertEqual(log.reason, 'Approval granted')
+        self.assertEqual(log.changes['active']['to'], True)
 
     def test_anonymous_event_with_actor(self):
         from django.contrib.auth.models import AnonymousUser

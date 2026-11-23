@@ -36,4 +36,8 @@ urlpatterns = [
     path('api/scheduling/', include('apps.scheduling.urls')),
     path('api/', include('apps.billing.urls')),
     path('api/', include('apps.notifications.urls')),
+    # Transplant case management and follow-up (modules 11-12, Person 4).
+    path('api/transplant/', include('apps.transplant.urls')),
+    # Reporting & analytics (module 15): read-only reports with CSV/PDF export.
+    path('api/', include('apps.reporting.urls')),
 ]

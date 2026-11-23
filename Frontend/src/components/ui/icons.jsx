@@ -44,6 +44,13 @@ export const ClockIcon = (p) => (
   </Svg>
 )
 
+export const CalendarIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M3 10h18M8 3v4M16 3v4" />
+  </Svg>
+)
+
 export const AlertCircleIcon = (p) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="9" />
@@ -231,5 +238,12 @@ export const BellIcon = (p) => (
   <Svg {...p}>
     <path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6Z" />
     <path d="M10 19a2 2 0 0 0 4 0" />
+  </Svg>
+)
+
+export const BarChartIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4 20h16" />
+    <path d="M7 16v-5M12 16V6M17 16v-8" />
   </Svg>
 )
