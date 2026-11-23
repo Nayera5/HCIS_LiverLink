@@ -1,5 +1,4 @@
 """Serializers for the transplant module (Modules 11 & 12)."""
-from django.utils import timezone
 from rest_framework import serializers
 
 from apps.registry.models import Patient
