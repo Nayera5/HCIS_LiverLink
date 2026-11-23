@@ -8,9 +8,9 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.accounts.audit import audit
-from apps.accounts.models import AuditLog
-from apps.accounts.rbac import get_staff_profile
+from apps.accounts.audit import audit  # type: ignore
+from apps.accounts.models import AuditLog  # type: ignore
+from apps.accounts.rbac import get_staff_profile  # type: ignore
 
 from .models import (
     CaseDonor, ChecklistItem, CommitteeDecision,

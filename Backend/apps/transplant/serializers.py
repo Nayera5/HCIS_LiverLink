@@ -1,7 +1,7 @@
 """Serializers for the transplant module (Modules 11 & 12)."""
 from rest_framework import serializers
 
-from apps.registry.models import Patient
+from apps.registry.models import Patient  # type: ignore
 
 from .models import (
     CaseDonor, ChecklistItem, CommitteeDecision, CommitteeMember,

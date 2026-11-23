@@ -1,12 +1,13 @@
 {
-    "python-envs.defaultEnvManager": "ms-python.python:system",
     "python.defaultInterpreterPath": "C:/Users/modyw/AppData/Local/Programs/Python/Python313/python.exe",
     "python.analysis.extraPaths": [
         "${workspaceFolder}/Backend",
-        "${workspaceFolder}/HCIS_LiverLink/Backend"
+        "${workspaceFolder}/HCIS_LiverLink/Backend",
+        "E:/HCIS Project/HCIS_LiverLink/Backend"
     ],
     "python.autoComplete.extraPaths": [
         "${workspaceFolder}/Backend",
-        "${workspaceFolder}/HCIS_LiverLink/Backend"
+        "${workspaceFolder}/HCIS_LiverLink/Backend",
+        "E:/HCIS Project/HCIS_LiverLink/Backend"
     ]
 }
