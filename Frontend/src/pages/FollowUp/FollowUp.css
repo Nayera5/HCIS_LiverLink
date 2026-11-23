@@ -1,0 +1,182 @@
+/* Follow-up module styles – scoped to .followup-page */
+@import '../Transplant/Transplant.css';
+
+.followup-page {
+  padding: 0;
+}
+
+/* Plan cards grid */
+.followup-page .plan-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
+.followup-page .plan-card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e1e7ed);
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.followup-page .plan-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.followup-page .plan-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.followup-page .plan-card__header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.followup-page .plan-card__meta {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #5b6b79);
+  line-height: 1.6;
+}
+.followup-page .plan-card__meta span {
+  display: block;
+}
+.followup-page .plan-card__stats {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border, #e1e7ed);
+  font-size: 0.8125rem;
+}
+.followup-page .plan-card__stats .stat-label {
+  color: var(--color-text-muted, #5b6b79);
+}
+.followup-page .plan-card__stats .stat-value {
+  font-weight: 600;
+}
+
+/* Visit timeline */
+.followup-page .visit-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.followup-page .visit-card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e1e7ed);
+  border-radius: var(--radius-md, 8px);
+  padding: 1rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+.followup-page .visit-card:hover {
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+.followup-page .visit-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.followup-page .visit-card__date {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.followup-page .visit-card__detail {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #5b6b79);
+}
+.followup-page .visit-card__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Recovery chart */
+.followup-page .recovery-section {
+  margin-top: 1rem;
+}
+.followup-page .chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 768px) {
+  .followup-page .chart-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.followup-page .mini-chart {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e1e7ed);
+  border-radius: var(--radius-md, 8px);
+  padding: 1rem;
+}
+.followup-page .mini-chart h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.followup-page .bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 120px;
+}
+.followup-page .bar-chart .bar {
+  flex: 1;
+  background: var(--color-primary, #11707b);
+  border-radius: 3px 3px 0 0;
+  min-width: 8px;
+  position: relative;
+}
+.followup-page .bar-chart .bar.alert {
+  background: var(--color-danger, #c63b3b);
+}
+.followup-page .bar-chart .bar-label {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.625rem;
+  color: var(--color-text-subtle, #8a97a3);
+  white-space: nowrap;
+}
+.followup-page .chart-empty {
+  text-align: center;
+  color: var(--color-text-subtle, #8a97a3);
+  padding: 2rem;
+  font-size: 0.875rem;
+}
+
+/* Modal / overlay form for new visit */
+.followup-page .modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 34, 51, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.followup-page .modal-box {
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-lg, 14px);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+.followup-page .modal-box h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+}

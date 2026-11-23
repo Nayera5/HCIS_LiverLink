@@ -47,6 +47,14 @@ STAFF_CAPABILITIES = {
     'appointments.view': CLINICAL_READERS,
     'appointments.book_any': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR}),  # on behalf of patients
     'appointments.check_in': frozenset({T.TRANSPLANT_COORDINATOR}),                 # check-in and no-show
+    # Transplant (modules 11-12): case management, committee, surgery and follow-up.
+    'transplant.view': CLINICAL_READERS,
+    'transplant.manage': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    'transplant.refer': frozenset({T.HEPATOLOGIST}),
+    'transplant.committee_decide': frozenset({T.HEPATOLOGIST}),
+    'transplant.record_surgery': frozenset({T.TRANSPLANT_SURGEON}),
+    'transplant.view_followup': CLINICAL_READERS,
+    'transplant.manage_followup': frozenset({T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
     # Reporting & analytics (module 15). Super admin sees every report.
     'reports.patients': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
     'reports.financial': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),

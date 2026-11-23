@@ -6,6 +6,11 @@ import AppointmentsPage from './pages/Appointments/AppointmentsPage'
 import BookAppointmentPage from './pages/Appointments/BookAppointmentPage'
 import SchedulePage from './pages/Appointments/SchedulePage'
 import AuditLogsPage from './pages/AuditLogs/AuditLogsPage'
+import TransplantCasesPage from './pages/Transplant/TransplantCasesPage'
+import TransplantCaseDetailPage from './pages/Transplant/TransplantCaseDetailPage'
+import TransplantReferralPage from './pages/Transplant/TransplantReferralPage'
+import FollowUpDashboard from './pages/FollowUp/FollowUpDashboard'
+import FollowUpPlanDetailPage from './pages/FollowUp/FollowUpPlanDetailPage'
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage'
 import RegisterPage from './pages/Auth/RegisterPage'
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage'
@@ -135,6 +140,19 @@ function App() {
               <Route element={<RequireCapability capability="audit.view" />}>
                 <Route path="admin/audit-logs" element={<AuditLogsPage />} />
               </Route>
+
+              <Route element={<RequireCapability capability="transplant.view" />}>
+                <Route path="transplant" element={<TransplantCasesPage />} />
+                <Route path="transplant/cases/:id" element={<TransplantCaseDetailPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="transplant.refer" />}>
+                <Route path="transplant/new" element={<TransplantReferralPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="transplant.view_followup" />}>
+                <Route path="followup" element={<FollowUpDashboard />} />
+                <Route path="followup/plans/:id" element={<FollowUpPlanDetailPage />} />
+              </Route>
+
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Route>

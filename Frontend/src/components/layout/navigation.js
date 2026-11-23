@@ -18,6 +18,8 @@ export const NAV_SECTIONS = [
       { to: '/appointments', label: 'Appointments', icon: CalendarIcon, capability: 'appointments.view' },
       { to: '/schedule', label: 'My schedule', icon: ClockIcon, capability: 'schedules.manage_own' },
       { to: '/donor-applications', label: 'Donor applications', icon: UserPlusIcon, capability: 'donor_applications.view' },
+      { to: '/transplant', label: 'Transplant cases', icon: HeartPulseIcon, capability: 'transplant.view' },
+      { to: '/followup', label: 'Follow-up', icon: CheckCircleIcon, capability: 'transplant.view_followup' },
     ],
   },
   {

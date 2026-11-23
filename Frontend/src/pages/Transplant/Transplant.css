@@ -1,0 +1,294 @@
+/* Transplant module styles – strictly scoped to .transplant-page and .followup-page */
+
+.transplant-page {
+  padding: 0;
+}
+
+.transplant-page .filters-row,
+.followup-page .filters-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.transplant-page .filters-row .input,
+.followup-page .filters-row .input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border-strong, #d3dbe3);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.875rem;
+  min-width: 200px;
+  background: var(--color-surface, #fff);
+  color: var(--color-text-strong, #0f2a3b);
+}
+
+.transplant-page .data-table,
+.followup-page .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.transplant-page .data-table th,
+.followup-page .data-table th {
+  text-align: left;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 2px solid var(--color-border, #e1e7ed);
+  font-weight: 600;
+  color: var(--color-text-muted, #5b6b79);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.transplant-page .data-table td,
+.followup-page .data-table td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--color-border, #e1e7ed);
+}
+.transplant-page .data-table tr:hover td,
+.followup-page .data-table tr:hover td {
+  background: var(--color-row-selected, #eef6f7);
+}
+.transplant-page .empty-row,
+.followup-page .empty-row {
+  text-align: center;
+  color: var(--color-text-subtle, #8a97a3);
+  padding: 2rem !important;
+}
+
+.transplant-page .error-text,
+.followup-page .error-text {
+  color: var(--color-danger, #c63b3b);
+  margin-bottom: 1rem;
+}
+
+/* Case detail layout */
+.transplant-page.case-detail,
+.transplant-page .case-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.transplant-page .case-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.transplant-page .case-info-grid,
+.followup-page .case-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.transplant-page .info-card,
+.followup-page .info-card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e1e7ed);
+  border-radius: var(--radius-md, 8px);
+  padding: 1rem;
+}
+.transplant-page .info-card label,
+.followup-page .info-card label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #5b6b79);
+  margin-bottom: 0.25rem;
+}
+.transplant-page .info-card .value,
+.followup-page .info-card .value {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.transplant-page .section-panel,
+.followup-page .section-panel {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e1e7ed);
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
+}
+.transplant-page .section-panel h3,
+.followup-page .section-panel h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.transplant-page .abo-result {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.transplant-page .abo-result.compatible {
+  background: var(--color-success-soft, #eef8f2);
+  color: var(--color-success-strong, #1d6b45);
+}
+.transplant-page .abo-result.incompatible {
+  background: var(--color-danger-soft, #fdf1f1);
+  color: var(--color-danger-strong, #9f2b2b);
+}
+.transplant-page .abo-result.unknown {
+  background: var(--color-surface-muted, #f1f5f8);
+  color: var(--color-text-muted, #5b6b79);
+}
+
+.transplant-page .checklist-progress-bar {
+  height: 8px;
+  background: var(--color-border, #e1e7ed);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+.transplant-page .checklist-progress-fill {
+  height: 100%;
+  background: var(--color-primary, #11707b);
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+/* Status transition buttons - STRICTLY SCOPED to transplant and followup pages */
+.transplant-page .status-actions,
+.followup-page .status-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.transplant-page .btn,
+.followup-page .btn {
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border-strong, #d3dbe3);
+  cursor: pointer;
+  background: var(--color-surface, #fff);
+  color: var(--color-text-strong, #0f2a3b);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+  min-height: auto;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.transplant-page .btn:hover,
+.followup-page .btn:hover {
+  background: var(--color-surface-muted, #f1f5f8);
+  border-color: var(--color-border-hover, #aebbc7);
+}
+.transplant-page .btn-primary,
+.followup-page .btn-primary {
+  background: var(--color-primary, #11707b) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+.transplant-page .btn-primary:hover,
+.followup-page .btn-primary:hover {
+  background: var(--color-primary-hover, #0d5d67) !important;
+  color: #fff !important;
+}
+.transplant-page .btn-danger,
+.followup-page .btn-danger {
+  background: var(--color-danger, #c63b3b) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+.transplant-page .btn-danger:hover,
+.followup-page .btn-danger:hover {
+  background: var(--color-danger-strong, #9f2b2b) !important;
+  color: #fff !important;
+}
+.transplant-page .btn-success,
+.followup-page .btn-success {
+  background: var(--color-success, #2e9a62) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+.transplant-page .btn-success:hover,
+.followup-page .btn-success:hover {
+  background: var(--color-success-strong, #1d6b45) !important;
+  color: #fff !important;
+}
+
+/* Tabs */
+.transplant-page .tabs,
+.followup-page .tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--color-border, #e1e7ed);
+  margin-bottom: 1.25rem;
+}
+.transplant-page .tab-btn,
+.followup-page .tab-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  color: var(--color-text-muted, #5b6b79);
+}
+.transplant-page .tab-btn.active,
+.followup-page .tab-btn.active {
+  color: var(--color-primary, #11707b);
+  border-bottom-color: var(--color-primary, #11707b);
+  font-weight: 600;
+}
+
+/* Form layout */
+.transplant-page .form-grid,
+.followup-page .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+.transplant-page .form-group,
+.followup-page .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.transplant-page .form-group label,
+.followup-page .form-group label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-strong, #0f2a3b);
+}
+.transplant-page .form-group input,
+.transplant-page .form-group select,
+.transplant-page .form-group textarea,
+.followup-page .form-group input,
+.followup-page .form-group select,
+.followup-page .form-group textarea {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border-strong, #d3dbe3);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.875rem;
+  background: var(--color-surface, #fff);
+  color: var(--color-text-strong, #0f2a3b);
+}
+.transplant-page .form-actions,
+.followup-page .form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* Charts placeholder */
+.transplant-page .chart-container,
+.followup-page .chart-container {
+  min-height: 200px;
+  padding: 1rem;
+}
