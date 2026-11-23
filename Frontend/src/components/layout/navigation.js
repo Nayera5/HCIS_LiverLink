@@ -2,12 +2,23 @@
 // means any of them); the backend enforces the same rules. Later stages add their pages here.
 import { REPORT_CAPABILITIES } from '../../pages/Reports/reportDisplay'
 import {
-  CheckCircleIcon, ClipboardIcon, ClockIcon, CreditCardIcon, FlaskIcon, GridIcon, HeartPulseIcon, PillIcon,
-  ReceiptIcon, ShieldIcon, TargetIcon, UserIcon, UserPlusIcon, UsersIcon,
-  BarChartIcon, CalendarIcon, CheckCircleIcon, ClipboardIcon, ClockIcon, CreditCardIcon,
-  GridIcon, HeartPulseIcon, ReceiptIcon, ShieldIcon, UserIcon, UserPlusIcon, UsersIcon,
+  CheckCircleIcon,
+  ClipboardIcon,
+  ClockIcon,
+  CreditCardIcon,
+  FlaskIcon,
+  GridIcon,
+  HeartPulseIcon,
+  PillIcon,
+  ReceiptIcon,
+  ShieldIcon,
+  TargetIcon,
+  UserIcon,
+  UserPlusIcon,
+  UsersIcon,
+  BarChartIcon,
+  CalendarIcon,
 } from '../ui/icons'
-
 export const NAV_SECTIONS = [
   {
     label: 'Overview',
