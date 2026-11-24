@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
 import { getMyInvoices } from '../../api/billing'
 import { EmptyState, LoadingBlock } from '../../components/ui/Feedback'
@@ -8,12 +8,14 @@ import Panel from '../../components/ui/Panel'
 import { useApi } from '../../hooks/useApi'
 import { formatDate } from '../../utils/format'
 import Alert from '../../components/ui/Alert'
-import { formatMoney, invoiceStatusBadge } from '../Billing/billingDisplay'
+import { formatMoney, invoiceStatusBadge, paymentResultMessage } from '../Billing/billingDisplay'
 import '../Patients/Patients.css'
 
 /** Patient portal: own invoices, balance and payment history (self.invoices). */
 export default function MyInvoicesPage() {
   const { data, error, loading } = useApi(getMyInvoices)
+  const [searchParams] = useSearchParams()
+  const paymentResult = paymentResultMessage(searchParams.get('payment'))
 
   if (loading && !data) return <LoadingBlock label="Loading your invoices" />
   if (error && !data) {
@@ -28,6 +30,7 @@ export default function MyInvoicesPage() {
   return (
     <>
       <PageHeader eyebrow="Patient portal" title="My invoices" />
+      {paymentResult && <Alert variant={paymentResult[0]} className="form-alert">{paymentResult[1]}</Alert>}
       <div className="patient-summary">
         <span className="muted-text">Outstanding balance</span>
         <strong>{formatMoney(data.outstanding_balance)}</strong>

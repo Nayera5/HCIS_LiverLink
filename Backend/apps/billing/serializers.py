@@ -57,11 +57,15 @@ class InvoiceItemSerializer(serializers.ModelSerializer):
 
 class PaymentSerializer(serializers.ModelSerializer):
     received_by_name = serializers.SerializerMethodField()
+    has_receipt = serializers.SerializerMethodField()
+
+    def get_has_receipt(self, payment):
+        return payment.status in Payment.RECEIPT_STATUSES
 
     class Meta:
         model = Payment
         fields = ['id', 'receipt_no', 'amount', 'method', 'status', 'paid_at',
-                  'received_by', 'received_by_name']
+                  'received_by', 'received_by_name', 'gateway_txn_id', 'has_receipt']
         read_only_fields = fields
 
     def get_received_by_name(self, payment):
@@ -167,7 +171,8 @@ class PaymentCreateSerializer(serializers.Serializer):
     """Desk payment (cash or card) recorded by billing staff against an invoice."""
 
     amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
-    method = serializers.ChoiceField(choices=Payment.Method.choices)
+    # Desk only: online payments are started by the patient through Paymob.
+    method = serializers.ChoiceField(choices=[c for c in Payment.Method.choices if c[0] in Payment.DESK_METHODS])
 
     @staticmethod
     def check_open(invoice):

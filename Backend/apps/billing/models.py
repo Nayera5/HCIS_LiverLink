@@ -4,16 +4,20 @@ Billing & Payments (spec §13 and entity dictionary §4.38–§4.41).
 - Service: catalog of billable services and their prices.
 - Invoice: a bill issued to a patient, with its line items.
 - InvoiceItem: one billed service on an invoice (price is snapshotted at billing time).
-- Payment: a desk payment (cash or card) against an invoice.
+- Payment: a payment against an invoice, at the desk (cash/card) or online through Paymob.
 
 Invoices are created by billing staff, or automatically (apps.billing.services) when an
 appointment is completed or a lab order is fully resulted.
 
+Online payments (apps.billing.paymob) start as `pending` and become `succeeded` or `failed`
+when Paymob reports the transaction. Only succeeded payments count towards the invoice.
+
 Deviations from the spec:
-- Online payment is dropped: Payment.method is cash/card only, and there is no gateway_txn_id.
+- Addition: Payment.gateway_order_id stores Paymob's order id, used to match its callbacks.
 - Addition: InvoiceItem.lab_order links a charge to the lab order it came from, so a resulted
   order is never billed twice. Lab services are matched to lab tests by LOINC code.
 """
+import datetime
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -25,6 +29,8 @@ from django.utils import timezone
 INVOICE_NO_PREFIX = 'INV-'
 RECEIPT_NO_PREFIX = 'RCT-'
 SEQUENCE_MIN_DIGITS = 6
+# An online payment still pending after this long is treated as abandoned (the patient left Paymob).
+ONLINE_PAYMENT_PENDING_WINDOW = datetime.timedelta(minutes=30)
 
 
 class _NumberSequence(models.Model):
@@ -209,6 +215,10 @@ class Invoice(models.Model):
             locked = Invoice.objects.select_for_update().get(pk=self.pk)
             if locked.paid_amount() > 0:
                 raise ValidationError({'status': 'An invoice with recorded payments cannot be cancelled.'})
+            if locked.payments.filter(status='pending',
+                                      paid_at__gte=timezone.now() - ONLINE_PAYMENT_PENDING_WINDOW).exists():
+                raise ValidationError({'status': 'The patient is paying this invoice online right now. '
+                                                 'Try again in a few minutes.'})
             locked.status = self.Status.CANCELLED
             locked.save(update_fields=['status', 'updated_at'])
         self.status, self.updated_at = locked.status, locked.updated_at
@@ -251,34 +261,49 @@ class InvoiceItem(models.Model):
 
 
 class Payment(models.Model):
-    """A desk payment (cash or card) against an invoice (§4.41, online payment dropped)."""
+    """A payment against an invoice, at the desk or online through the gateway (§4.41)."""
 
     class Method(models.TextChoices):
+        ONLINE = 'online', 'Online'
         CASH = 'cash', 'Cash'
         CARD = 'card', 'Card'
 
+    DESK_METHODS = ('cash', 'card')
+
     class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
         SUCCEEDED = 'succeeded', 'Succeeded'
+        FAILED = 'failed', 'Failed'
         REFUNDED = 'refunded', 'Refunded'
+
+    # Payments that have a receipt (money actually moved).
+    RECEIPT_STATUSES = ('succeeded', 'refunded')
 
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='payments')
     received_by = models.ForeignKey(
         'accounts.Staff', null=True, blank=True, on_delete=models.SET_NULL, related_name='payments_received',
-        help_text='Billing staff who took the payment.',
+        help_text='Billing staff who took a desk payment (empty for online).',
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
     method = models.CharField(max_length=10, choices=Method.choices)
     receipt_no = models.CharField(max_length=20, unique=True, editable=False)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.SUCCEEDED)
+    gateway_txn_id = models.CharField(
+        max_length=64, blank=True, help_text='Transaction id from the payment gateway (online payments).')
+    gateway_order_id = models.CharField(
+        max_length=64, blank=True, db_index=True,
+        help_text='Order id the gateway gave this online payment; its callbacks refer to it.')
     paid_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ['-paid_at', '-id']
         constraints = [
             models.CheckConstraint(condition=Q(amount__gt=0), name='billing_payment_amount_positive'),
-            models.CheckConstraint(condition=Q(method__in=['cash', 'card']), name='billing_payment_method_valid'),
             models.CheckConstraint(
-                condition=Q(status__in=['succeeded', 'refunded']), name='billing_payment_status_valid'),
+                condition=Q(method__in=['online', 'cash', 'card']), name='billing_payment_method_valid'),
+            models.CheckConstraint(
+                condition=Q(status__in=['pending', 'succeeded', 'failed', 'refunded']),
+                name='billing_payment_status_valid'),
         ]
 
     def __str__(self):

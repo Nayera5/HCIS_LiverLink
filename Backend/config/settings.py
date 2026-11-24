@@ -69,6 +69,21 @@ SIMPLE_JWT = {
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'LiverLink <no-reply@liverlink.local>')
 
+# Online payment: Paymob (Egypt), test mode. Keys come from the Paymob dashboard (test mode on);
+# see apps/billing/paymob.py. Online payment stays switched off until all four values are set.
+PAYMOB = {
+    'SECRET_KEY': os.getenv('PAYMOB_SECRET_KEY', ''),
+    'PUBLIC_KEY': os.getenv('PAYMOB_PUBLIC_KEY', ''),
+    'HMAC_SECRET': os.getenv('PAYMOB_HMAC_SECRET', ''),
+    # Card integration id(s), comma-separated.
+    'INTEGRATION_IDS': [int(i) for i in os.getenv('PAYMOB_INTEGRATION_IDS', '').replace(' ', '').split(',') if i],
+    'API_URL': os.getenv('PAYMOB_API_URL', 'https://accept.paymob.com'),
+    'CHECKOUT_URL': os.getenv('PAYMOB_CHECKOUT_URL', 'https://eg.checkout.paymob.com/'),
+    # Public URL of this backend (e.g. an ngrok tunnel) so Paymob's server can POST its callback.
+    # Optional: without it, the browser redirect back from Paymob records the result.
+    'CALLBACK_BASE_URL': os.getenv('PAYMOB_CALLBACK_BASE_URL', ''),
+}
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -208,21 +223,28 @@ MAILERS = {
 }
 
 
-# Celery (spec: "Background Services: Celery workers with Redis handle notifications,
-# reminders, invoices and AI jobs outside the main request"). See config/celery.py.
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = REDIS_URL
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE
+# Reminders without Celery: apps.notifications.tasks.check_due_reminders runs at most once per
+# REMINDER_CHECK_INTERVAL, triggered when a user opens their notifications, or on demand with
+# `python manage.py send_reminders` (add --loop to keep it running every interval).
+REMINDER_CHECK_INTERVAL = timedelta(minutes=15)
 
-# check_due_reminders (apps.notifications.tasks): appointment and follow-up reminders, and
-# pending-checklist alerts for the transplant coordinator. It never sends the same reminder twice.
-CELERY_BEAT_SCHEDULE = {
-    'check-due-reminders-every-15-minutes': {
-        'task': 'apps.notifications.tasks.check_due_reminders',
-        'schedule': timedelta(minutes=15),
-    },
-}
+# Celery + Redis: SWITCHED OFF FOR NOW (no Redis available). Uncomment this block, the import in
+# config/__init__.py and config/celery.py to bring them back.
+# # Celery (spec: "Background Services: Celery workers with Redis handle notifications,
+# # reminders, invoices and AI jobs outside the main request"). See config/celery.py.
+# REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+# CELERY_BROKER_URL = REDIS_URL
+# CELERY_RESULT_BACKEND = REDIS_URL
+# CELERY_ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+# CELERY_RESULT_SERIALIZER = 'json'
+# CELERY_TIMEZONE = TIME_ZONE
+
+# # check_due_reminders (apps.notifications.tasks): appointment and follow-up reminders, and
+# # pending-checklist alerts for the transplant coordinator. It never sends the same reminder twice.
+# CELERY_BEAT_SCHEDULE = {
+#     'check-due-reminders-every-15-minutes': {
+#         'task': 'apps.notifications.tasks.check_due_reminders',
+#         'schedule': timedelta(minutes=15),
+#     },
+# }

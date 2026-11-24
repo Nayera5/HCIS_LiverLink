@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
-import { downloadMyReceipt, getMyInvoice } from '../../api/billing'
+import { downloadMyReceipt, getMyInvoice, payInvoiceOnline } from '../../api/billing'
 import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
 import { LoadingBlock } from '../../components/ui/Feedback'
@@ -9,18 +9,28 @@ import PageHeader from '../../components/ui/PageHeader'
 import Panel from '../../components/ui/Panel'
 import { useApi } from '../../hooks/useApi'
 import { formatDate, formatDateTime } from '../../utils/format'
-import { formatMoney, invoiceStatusBadge, PAYMENT_METHOD_LABELS } from '../Billing/billingDisplay'
+import {
+  formatMoney, invoiceStatusBadge, PAYMENT_METHOD_LABELS, paymentResultMessage, paymentStatusBadge,
+} from '../Billing/billingDisplay'
 import '../Patients/Patients.css'
 
 const BACK = { to: '/my-invoices', label: 'My invoices' }
 
-/** Patient portal: one own invoice, its items and payment history (self.invoices). */
+/**
+ * Patient portal: one own invoice, its items and payment history (self.invoices).
+ * "Pay online" sends the patient to Paymob's checkout; Paymob sends them back here with
+ * ?payment=succeeded|failed|pending (see Backend/apps/billing/paymob.py).
+ */
 export default function MyInvoiceDetailPage() {
   const { id } = useParams()
   const loader = useCallback(() => getMyInvoice(id), [id])
   const { data: invoice, error, loading } = useApi(loader)
   const [downloadingId, setDownloadingId] = useState(null)
   const [downloadError, setDownloadError] = useState('')
+  const [paying, setPaying] = useState(false)
+  const [payError, setPayError] = useState('')
+  const [searchParams] = useSearchParams()
+  const paymentResult = paymentResultMessage(searchParams.get('payment'))
 
   if (loading && !invoice) return <LoadingBlock label="Loading invoice" />
   if (error && !invoice) {
@@ -44,15 +54,36 @@ export default function MyInvoiceDetailPage() {
     }
   }
 
+  const balance = Number(invoice.total_amount) - Number(invoice.paid_amount)
+  const canPayOnline = invoice.online_payment_available && balance > 0
+    && ['unpaid', 'partially_paid'].includes(invoice.status)
+
+  const payOnline = async () => {
+    setPaying(true)
+    setPayError('')
+    try {
+      const { checkout_url: checkoutUrl } = await payInvoiceOnline(invoice.id)
+      window.location.assign(checkoutUrl)
+    } catch (err) {
+      setPayError(getErrorMessage(err, 'Could not start the online payment.'))
+      setPaying(false)
+    }
+  }
+
   return (
     <>
-      <PageHeader back={BACK} eyebrow={`Invoice ${invoice.invoice_no}`} title="Invoice details" />
+      <PageHeader back={BACK} eyebrow={`Invoice ${invoice.invoice_no}`} title="Invoice details"
+        actions={canPayOnline ? (
+          <Button loading={paying} onClick={payOnline}>Pay {formatMoney(balance)} online</Button>
+        ) : null} />
       <div className="patient-summary">
         {invoiceStatusBadge(invoice.status)}
         <span className="muted-text">Issued {formatDate(invoice.issue_date)} · Due {formatDate(invoice.due_date)}</span>
       </div>
 
       <div className="content-stack">
+        {paymentResult && <Alert variant={paymentResult[0]}>{paymentResult[1]}</Alert>}
+        {payError && <Alert variant="error">{payError}</Alert>}
         {downloadError && <Alert variant="error">{downloadError}</Alert>}
 
         <Panel title="Items" flush>
@@ -97,6 +128,7 @@ export default function MyInvoiceDetailPage() {
                     <th scope="col">Receipt</th>
                     <th scope="col">Amount</th>
                     <th scope="col">Method</th>
+                    <th scope="col">Status</th>
                     <th scope="col" className="hide-sm">Paid at</th>
                     <th scope="col"><span className="visually-hidden">Actions</span></th>
                   </tr>
@@ -107,12 +139,15 @@ export default function MyInvoiceDetailPage() {
                       <td>{payment.receipt_no}</td>
                       <td>{formatMoney(payment.amount)}</td>
                       <td>{PAYMENT_METHOD_LABELS[payment.method] || payment.method}</td>
+                      <td>{paymentStatusBadge(payment.status)}</td>
                       <td className="hide-sm">{formatDateTime(payment.paid_at)}</td>
                       <td className="cell-actions">
-                        <Button variant="link" size="sm" loading={downloadingId === payment.id}
-                          onClick={() => download(payment.id)}>
-                          Download receipt
-                        </Button>
+                        {payment.has_receipt && (
+                          <Button variant="link" size="sm" loading={downloadingId === payment.id}
+                            onClick={() => download(payment.id)}>
+                            Download receipt
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}

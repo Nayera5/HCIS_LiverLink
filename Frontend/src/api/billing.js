@@ -56,6 +56,11 @@ export function getMyInvoice(id) {
   return authRequest(`/invoices/me/${id}/`)
 }
 
+/** Starts a Paymob payment of the invoice balance. Returns { checkout_url, payment }. */
+export function payInvoiceOnline(id) {
+  return authRequest(`/invoices/me/${id}/pay-online/`, { method: 'POST' })
+}
+
 // --------------------------------------------------------------------------- receipts (PDF)
 
 export function downloadReceipt(paymentId) {

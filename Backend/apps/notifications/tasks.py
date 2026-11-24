@@ -1,5 +1,12 @@
 """
-Celery tasks for Notifications. Registered in config/settings.py CELERY_BEAT_SCHEDULE (every 15 min).
+Periodic reminders for Notifications.
+
+Celery is switched off for now (no Redis), so `check_due_reminders` is a plain function. It runs:
+- automatically, at most once per settings.REMINDER_CHECK_INTERVAL, when a user opens their
+  notifications (run_due_reminders_if_due, called by the notifications API);
+- on demand: `python manage.py send_reminders` (or `--loop` to repeat every interval).
+To go back to Celery: uncomment the shared_task import and decorator below, and the Celery setup
+(config/__init__.py, config/celery.py, CELERY_* in config/settings.py).
 
 `check_due_reminders` sends, without duplicates:
 - appointment reminders for booked appointments starting in the next 24 hours;
@@ -10,7 +17,9 @@ Celery tasks for Notifications. Registered in config/settings.py CELERY_BEAT_SCH
 import datetime
 import logging
 
-from celery import shared_task
+# from celery import shared_task  # Celery switched off for now
+from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Prefetch
 from django.utils import timezone
@@ -57,9 +66,9 @@ def send_pending_task_alerts(now):
     return sum(events.pending_tasks(case, case.pending_items, since=start_of_day) for case in cases)
 
 
-@shared_task
+# @shared_task  # Celery switched off for now
 def check_due_reminders():
-    """Periodic beat task. Returns the number of notifications created."""
+    """Send every due reminder / alert. Returns the number of notifications created."""
     now = timezone.now()
     total = 0
     for name, step in (('appointment reminders', lambda: send_appointment_reminders(now)),
@@ -75,3 +84,22 @@ def check_due_reminders():
         logger.info('check_due_reminders: %d %s', count, name)
         total += count
     return total
+
+
+LAST_RUN_KEY = 'notifications:reminders-last-run'
+
+
+def run_due_reminders_if_due():
+    """
+    Run check_due_reminders unless it already ran within REMINDER_CHECK_INTERVAL. Safe to call on
+    every request: cache.add only succeeds for the first caller in each interval. Never raises.
+    Returns the number of notifications created, or None when it was not due.
+    """
+    interval = settings.REMINDER_CHECK_INTERVAL.total_seconds()
+    if not cache.add(LAST_RUN_KEY, timezone.now().isoformat(), timeout=interval):
+        return None
+    try:
+        return check_due_reminders()
+    except Exception:
+        logger.exception('Reminder check failed')
+        return None

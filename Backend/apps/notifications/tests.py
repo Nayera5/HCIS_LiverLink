@@ -137,3 +137,39 @@ class InboxTests(NotificationTestBase):
         r = self.client.get('/api/notifications/me/')
         self.assertEqual(r.data['unread_count'], 1)
         self.assertEqual(r.data['notifications'][0]['related_type'], 'transplant.transplantcase')
+
+
+class NoCeleryTriggerTests(NotificationTestBase):
+    """Celery is off: opening the inbox runs the reminder check, at most once per interval."""
+
+    def setUp(self):
+        super().setUp()
+        start = timezone.now() + datetime.timedelta(hours=2)
+        Appointment.objects.create(patient=self.own, staff=self.hep.staff_profile, booked_by=self.coord,
+                                   appointment_type='consultation', start_time=start,
+                                   end_time=start + datetime.timedelta(minutes=30))
+
+    def test_opening_notifications_sends_due_reminders(self):
+        self.as_(self.pat_user)
+        r = self.client.get('/api/notifications/me/')
+        self.assertEqual(r.data['unread_count'], 1)
+        self.assertEqual(r.data['notifications'][0]['type'], T.APPOINTMENT_REMINDER)
+
+    def test_check_is_throttled(self):
+        from unittest import mock
+
+        from .tasks import run_due_reminders_if_due
+
+        with mock.patch('apps.notifications.tasks.check_due_reminders', return_value=0) as check:
+            run_due_reminders_if_due()
+            run_due_reminders_if_due()
+        self.assertEqual(check.call_count, 1)
+
+    def test_management_command(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command('send_reminders', stdout=out)
+        self.assertIn('1 notification(s) sent.', out.getvalue())

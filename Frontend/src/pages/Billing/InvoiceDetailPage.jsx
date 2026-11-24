@@ -14,7 +14,7 @@ import TextField from '../../components/ui/TextField'
 import { useApi } from '../../hooks/useApi'
 import { formatDate, formatDateTime } from '../../utils/format'
 import {
-  formatMoney, invoiceStatusBadge, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_OPTIONS,
+  formatMoney, invoiceStatusBadge, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_OPTIONS, paymentStatusBadge,
 } from './billingDisplay'
 import './Billing.css'
 
@@ -223,14 +223,16 @@ export default function InvoiceDetailPage() {
                       <td>{payment.receipt_no}</td>
                       <td>{formatMoney(payment.amount)}</td>
                       <td>{PAYMENT_METHOD_LABELS[payment.method] || payment.method}</td>
-                      <td>{payment.status === 'refunded' ? 'Refunded' : 'Succeeded'}</td>
+                      <td>{paymentStatusBadge(payment.status)}</td>
                       <td className="hide-sm">{payment.received_by_name || '—'}</td>
                       <td className="hide-sm">{formatDateTime(payment.paid_at)}</td>
                       <td className="cell-actions">
-                        <Button variant="link" size="sm" loading={downloadingId === payment.id}
-                          onClick={() => download(payment.id)}>
-                          Download receipt
-                        </Button>
+                        {payment.has_receipt && (
+                          <Button variant="link" size="sm" loading={downloadingId === payment.id}
+                            onClick={() => download(payment.id)}>
+                            Download receipt
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -6,6 +6,10 @@ Billing & Payments API (spec §13). Permissions follow the same pattern as apps.
     billing.create_invoice    create/cancel invoices     super_admin, billing_admin
     billing.record_payment    record a desk payment      super_admin, billing_admin
     self.invoices             own invoices (portal)       patients (incl. donors)
+                              + pay own invoice online (Paymob)
+
+Paymob callbacks (/api/payments/paymob/...) need no login: they are trusted only when their HMAC
+signature checks out (apps.billing.paymob).
 
 No audit log entries are written for billing yet: AuditLog.patient is the only domain link it
 supports today, and billing's own records (Invoice/Payment) are themselves the record of who
@@ -14,11 +18,13 @@ issued an invoice or received a payment via `issued_by` / `received_by`.
 from io import BytesIO
 
 from django.db.models import Q
-from django.http import FileResponse, Http404
+from django.conf import settings
+from django.http import FileResponse, Http404, HttpResponseRedirect
+from django.urls import reverse
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -26,6 +32,7 @@ from apps.accounts.permissions import HasCapability
 from apps.accounts.rbac import get_staff_profile
 from apps.registry.models import Patient
 
+from . import paymob
 from .models import Invoice, Payment, Service
 from .serializers import (
     InvoiceCreateSerializer, InvoiceDetailSerializer, InvoiceListSerializer, PaymentCreateSerializer,
@@ -235,6 +242,75 @@ class MyInvoiceDetailView(generics.RetrieveAPIView):
         return Invoice.objects.filter(patient__user=self.request.user).prefetch_related(
             'items__service', 'payments')
 
+    def retrieve(self, request, *args, **kwargs):
+        response = super().retrieve(request, *args, **kwargs)
+        response.data['online_payment_available'] = paymob.is_configured()
+        return response
+
+
+# --------------------------------------------------------------------------- online payment (Paymob)
+
+class MyInvoicePayOnlineView(APIView):
+    """
+    POST /api/invoices/me/<id>/pay-online/ (self.invoices): start paying the balance of an own
+    invoice through Paymob. Returns {checkout_url}; the frontend sends the browser there.
+    """
+
+    permission_classes = [IsAuthenticated, HasCapability('self.invoices')]
+
+    def post(self, request, pk):
+        invoice = get_object_or_404(Invoice, pk=pk, patient__user=request.user)
+        callback_base = settings.PAYMOB['CALLBACK_BASE_URL'].rstrip('/')
+        try:
+            payment, url = paymob.start_online_payment(
+                invoice,
+                redirection_url=request.build_absolute_uri(reverse('paymob_return')),
+                notification_url=f"{callback_base}{reverse('paymob_callback')}" if callback_base else '',
+            )
+        except paymob.NotPayable as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except paymob.PaymobError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        return Response({'checkout_url': url, 'payment': PaymentSerializer(payment).data},
+                        status=status.HTTP_201_CREATED)
+
+
+class PaymobCallbackView(APIView):
+    """POST /api/payments/paymob/callback/?hmac=... : Paymob's server-to-server transaction callback."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        data = request.data if isinstance(request.data, dict) else {}
+        obj = data.get('obj')
+        if data.get('type') != 'TRANSACTION' or not isinstance(obj, dict):
+            return Response({'detail': 'Ignored.'})  # e.g. TOKEN callbacks: nothing to record
+        if not paymob.signature_ok(paymob.hmac_for_processed(obj), request.query_params.get('hmac')):
+            return Response({'detail': 'Invalid signature.'}, status=status.HTTP_403_FORBIDDEN)
+        paymob.apply_processed_callback(obj)
+        return Response({'detail': 'OK'})
+
+
+class PaymobReturnView(APIView):
+    """
+    GET /api/payments/paymob/return/?... : where Paymob sends the browser after checkout. Records the
+    (signed) result, then redirects to the invoice page with ?payment=succeeded|failed|pending.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        frontend = settings.FRONTEND_URL.rstrip('/')
+        params = request.query_params.dict()
+        if not paymob.signature_ok(paymob.hmac_for_response(params), params.get('hmac')):
+            return HttpResponseRedirect(f'{frontend}/my-invoices?payment=unverified')
+        payment = paymob.apply_response_callback(params)
+        if payment is None:
+            return HttpResponseRedirect(f'{frontend}/my-invoices?payment=unknown')
+        return HttpResponseRedirect(f'{frontend}/my-invoices/{payment.invoice_id}?payment={payment.status}')
+
 
 # --------------------------------------------------------------------------- receipts (PDF)
 
@@ -290,6 +366,8 @@ class _ReceiptViewMixin:
 
     def get(self, request, *args, **kwargs):
         payment = self.get_payment()
+        if payment.status not in Payment.RECEIPT_STATUSES:  # pending / failed online payments
+            raise Http404
         buffer = _render_receipt_pdf(payment)
         return FileResponse(buffer, as_attachment=True, filename=f'{payment.receipt_no}.pdf',
                             content_type='application/pdf')

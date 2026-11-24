@@ -12,6 +12,7 @@ from apps.accounts.permissions import HasCapability
 
 from .models import Notification
 from .serializers import NotificationSerializer
+from .tasks import run_due_reminders_if_due
 
 
 class MyNotificationsView(generics.ListAPIView):
@@ -27,6 +28,8 @@ class MyNotificationsView(generics.ListAPIView):
         return qs
 
     def list(self, request, *args, **kwargs):
+        # No Celery for now: opening notifications sends any due reminders (at most every 15 min).
+        run_due_reminders_if_due()
         notifications = self.get_queryset()
         unread_count = Notification.objects.filter(user=request.user, is_read=False).count()
         return Response({
