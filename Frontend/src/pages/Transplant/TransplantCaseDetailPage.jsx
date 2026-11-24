@@ -1,14 +1,15 @@
 /* Transplant Case Detail – the main case hub with tabs for donors, checklist, decisions, surgery. */
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import Badge from '../../components/ui/Badge'
 import PageHeader from '../../components/ui/PageHeader'
 import { useApi } from '../../hooks/useApi'
 import {
-  getCase, updateCaseStatus, listCaseDonors, addCaseDonor, updateDonorStatus, checkABO,
+  getCase, updateCase, updateCaseStatus, listCaseDonors, addCaseDonor, updateDonorStatus, checkABO,
   listChecklist, createChecklistItem, updateChecklistStatus, deleteChecklistItem,
   listDecisions, createDecision, listSurgeries, createSurgery, completeSurgery,
+  listTransplantStaff, addTeamMember, removeTeamMember,
 } from '../../api/transplant'
 import { listPatients } from '../../api/patients'
 import { fieldErrors } from '../../api/http'
@@ -106,6 +107,14 @@ export default function TransplantCaseDetailPage() {
         </div>
       </div>
 
+      {can('transplant.manage') && (
+        <CoordinatorAssignment
+          caseId={id}
+          currentCoordinator={c.coordinator_detail}
+          onSaved={reload}
+        />
+      )}
+
       {/* Status transitions */}
       {can('transplant.manage') && c.available_transitions?.length > 0 && (
         <div className="section-panel">
@@ -133,7 +142,7 @@ export default function TransplantCaseDetailPage() {
 
       {tab === 'overview' && <OverviewTab c={c} donorList={donorList} />}
       {tab === 'donors' && <DonorsTab caseId={id} donors={donorList} reload={reloadDonors} can={can} />}
-      {tab === 'checklist' && <ChecklistTab caseId={id} items={checklistItems} reload={reloadChecklist} can={can} />}
+      {tab === 'checklist' && <ChecklistTab caseId={id} recipient={c.recipient} donors={donorList} items={checklistItems} reload={reloadChecklist} can={can} />}
       {tab === 'decisions' && <DecisionsTab caseId={id} decisions={decisionList} reload={reloadDecisions} caseStatus={c.status} can={can} reloadCase={reload} />}
       {tab === 'surgery' && <SurgeryTab caseId={id} surgeries={surgeryList} donors={donorList} reload={reloadSurgeries} caseStatus={c.status} can={can} reloadCase={reload} />}
     </div>
@@ -141,6 +150,66 @@ export default function TransplantCaseDetailPage() {
 }
 
 /* ── Overview Tab ─────────────────────────────────────────────────────── */
+function CoordinatorAssignment({ caseId, currentCoordinator, onSaved }) {
+  const [coordinators, setCoordinators] = useState([])
+  const [selectedId, setSelectedId] = useState(currentCoordinator?.id ? String(currentCoordinator.id) : '')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    listTransplantStaff({ job_title: 'transplant_coordinator' }).then(
+      (results) => { if (active) { setCoordinators(results); setLoading(false) } },
+      (err) => { if (active) { setError(err.message || 'Could not load coordinators.'); setLoading(false) } },
+    )
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    setSelectedId(currentCoordinator?.id ? String(currentCoordinator.id) : '')
+  }, [currentCoordinator?.id])
+
+  const save = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      await updateCase(caseId, { coordinator: selectedId ? Number(selectedId) : null })
+      onSaved()
+    } catch (err) {
+      setError(err.message || 'Could not update the case coordinator.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="section-panel">
+      <h3>Case Coordinator</h3>
+      <div className="form-grid">
+        <div className="form-group">
+          <label htmlFor="case-coordinator-picker">Assign coordinator</label>
+          <select
+            id="case-coordinator-picker"
+            value={selectedId}
+            onChange={(e) => setSelectedId(e.target.value)}
+            disabled={loading || Boolean(error)}
+          >
+            <option value="">Unassigned</option>
+            {coordinators.map((member) => (
+              <option key={member.id} value={member.id}>{member.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {error && <p className="error-text">{error}</p>}
+      <button className="btn btn-primary" onClick={save} disabled={loading || saving || Boolean(error)}>
+        {saving ? 'Saving…' : 'Save Coordinator'}
+      </button>
+    </div>
+  )
+}
+
 function OverviewTab({ c, donorList }) {
   return (
     <div>
@@ -177,14 +246,19 @@ function DonorsTab({ caseId, donors, reload, can }) {
   const [donorSearch, setDonorSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [err, setErr] = useState('')
+  const [searchError, setSearchError] = useState('')
 
   const search = async (q) => {
     setDonorSearch(q)
+    setSearchError('')
     if (q.length < 2) { setSearchResults([]); return }
     try {
       const res = await listPatients({ search: q, category: 'donor', page_size: 10 })
       setSearchResults(res.results || [])
-    } catch { /* ignore */ }
+    } catch (e) {
+      setSearchResults([])
+      setSearchError(e.message || 'Could not search donors.')
+    }
   }
 
   const addDonor = async (patientId) => {
@@ -197,11 +271,15 @@ function DonorsTab({ caseId, donors, reload, can }) {
   }
 
   const handleStatusChange = async (donorId, newStatus) => {
-    try { await updateDonorStatus(donorId, newStatus); reload() } catch { /* ignore */ }
+    setErr('')
+    try { await updateDonorStatus(donorId, newStatus); reload() }
+    catch (e) { setErr(e.message || 'Could not update donor status.') }
   }
 
   const handleAboCheck = async (donorId) => {
-    try { await checkABO(donorId); reload() } catch { /* ignore */ }
+    setErr('')
+    try { await checkABO(donorId); reload() }
+    catch (e) { setErr(e.message || 'Could not check ABO compatibility.') }
   }
 
   return (
@@ -213,6 +291,7 @@ function DonorsTab({ caseId, donors, reload, can }) {
       {adding && (
         <div style={{ marginBottom: '1rem', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: 8 }}>
           <input type="text" placeholder="Search donors by name or MRN…" value={donorSearch} onChange={(e) => search(e.target.value)} className="input" style={{ width: '100%', marginBottom: 8 }} />
+          {searchError && <p className="error-text">{searchError}</p>}
           {searchResults.map((p) => (
             <div key={p.id} style={{ padding: '0.4rem 0.5rem', cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }} onClick={() => addDonor(p.id)}>
               {p.mrn} · {p.full_name}
@@ -221,6 +300,7 @@ function DonorsTab({ caseId, donors, reload, can }) {
           {err && <p className="error-text">{err}</p>}
         </div>
       )}
+      {err && !adding && <p className="error-text">{err}</p>}
       <table className="data-table">
         <thead><tr><th>Donor</th><th>MRN</th><th>Blood Group</th><th>ABO</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
@@ -254,25 +334,38 @@ function DonorsTab({ caseId, donors, reload, can }) {
 }
 
 /* ── Checklist Tab ───────────────────────────────────────────────────── */
-function ChecklistTab({ caseId, items, reload, can }) {
+function ChecklistTab({ caseId, recipient, donors, items, reload, can }) {
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ item_name: '', item_type: 'lab_test', patient: '', is_required: true })
+  const [err, setErr] = useState('')
+  const patientOptions = [
+    recipient,
+    ...donors.map((entry) => entry.donor_detail),
+  ].filter(Boolean)
 
   const handleAdd = async () => {
-    if (!form.item_name || !form.patient) return
+    setErr('')
+    if (!form.item_name || !form.patient) {
+      setErr('Enter an item name and select the recipient or a candidate donor.')
+      return
+    }
     try {
       await createChecklistItem(caseId, { ...form, case: caseId })
       setAdding(false); setForm({ item_name: '', item_type: 'lab_test', patient: '', is_required: true })
       reload()
-    } catch { /* ignore */ }
+    } catch (e) { setErr(e.message || 'Could not add the checklist item.') }
   }
 
   const toggleStatus = async (item, newStatus) => {
-    try { await updateChecklistStatus(item.id, newStatus); reload() } catch { /* ignore */ }
+    setErr('')
+    try { await updateChecklistStatus(item.id, newStatus); reload() }
+    catch (e) { setErr(e.message || 'Could not update the checklist item.') }
   }
 
   const handleDelete = async (id) => {
-    try { await deleteChecklistItem(id); reload() } catch { /* ignore */ }
+    setErr('')
+    try { await deleteChecklistItem(id); reload() }
+    catch (e) { setErr(e.message || 'Could not delete the checklist item.') }
   }
 
   const done = items.filter((i) => i.status !== 'pending').length
@@ -306,16 +399,30 @@ function ChecklistTab({ caseId, items, reload, can }) {
               </select>
             </div>
             <div className="form-group">
-              <label>Patient ID (recipient or donor)</label>
-              <input type="number" value={form.patient} onChange={(e) => setForm({ ...form, patient: e.target.value })} className="input" />
+              <label htmlFor="checklist-patient-picker">Recipient or Donor</label>
+              <select
+                id="checklist-patient-picker"
+                value={form.patient}
+                onChange={(e) => setForm({ ...form, patient: e.target.value })}
+                className="input"
+              >
+                <option value="">— Select a patient —</option>
+                {patientOptions.map((patient) => (
+                  <option key={patient.id} value={patient.id}>
+                    {patient.full_name} · {patient.mrn}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
               <label><input type="checkbox" checked={form.is_required} onChange={(e) => setForm({ ...form, is_required: e.target.checked })} /> Required</label>
             </div>
           </div>
+          {err && <p className="error-text">{err}</p>}
           <button className="btn btn-primary" onClick={handleAdd} style={{ marginTop: 8 }}>Add Item</button>
         </div>
       )}
+      {err && !adding && <p className="error-text">{err}</p>}
       <table className="data-table">
         <thead><tr><th>Item</th><th>Type</th><th>Patient</th><th>Required</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
@@ -349,15 +456,46 @@ function ChecklistTab({ caseId, items, reload, can }) {
 function DecisionsTab({ caseId, decisions, reload, caseStatus, can, reloadCase }) {
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ meeting_date: '', decision: '', reasons: '', extra_tests: '' })
+  const [members, setMembers] = useState([])
+  const [staffOptions, setStaffOptions] = useState([])
+  const [staffError, setStaffError] = useState('')
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    let active = true
+    listTransplantStaff().then(
+      (results) => active && setStaffOptions(results),
+      (error) => active && setStaffError(error.message || 'Could not load committee members.'),
+    )
+    return () => { active = false }
+  }, [])
 
   const submit = async () => {
+    setErr('')
+    const incompleteMember = members.some((member) => !member.staff_id)
+    if (incompleteMember) {
+      setErr('Choose a staff member for every committee vote row, or remove the empty row.')
+      return
+    }
     try {
-      await createDecision(caseId, form)
+      const payload = {
+        ...form,
+        members: members.map((member) => ({
+          staff_id: Number(member.staff_id),
+          vote: member.vote || null,
+        })),
+      }
+      await createDecision(caseId, payload)
       setAdding(false)
       setForm({ meeting_date: '', decision: '', reasons: '', extra_tests: '' })
+      setMembers([])
       reload(); reloadCase()
-    } catch { /* ignore */ }
+    } catch (e) { setErr(e.message || 'Could not save the committee decision.') }
   }
+
+  const committeeStaff = staffOptions.filter((staff) =>
+    !['super_admin', 'billing_admin'].includes(staff.job_title),
+  )
 
   return (
     <div className="section-panel">
@@ -393,10 +531,52 @@ function DecisionsTab({ caseId, decisions, reload, caseStatus, can, reloadCase }
                 <textarea rows={2} value={form.extra_tests} onChange={(e) => setForm({ ...form, extra_tests: e.target.value })} />
               </div>
             )}
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label>Committee Members and Votes</label>
+              {members.map((member, index) => (
+                <div className="form-grid" key={index} style={{ marginBottom: 8 }}>
+                  <select
+                    aria-label={`Committee member ${index + 1}`}
+                    value={member.staff_id}
+                    onChange={(e) => setMembers(members.map((row, rowIndex) => rowIndex === index ? { ...row, staff_id: e.target.value } : row))}
+                    disabled={Boolean(staffError)}
+                  >
+                    <option value="">— Select staff —</option>
+                    {committeeStaff.map((staff) => (
+                      <option key={staff.id} value={staff.id}>{staff.name} · {staff.job_title_display}</option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label={`Vote for committee member ${index + 1}`}
+                    value={member.vote}
+                    onChange={(e) => setMembers(members.map((row, rowIndex) => rowIndex === index ? { ...row, vote: e.target.value } : row))}
+                  >
+                    <option value="">No vote recorded</option>
+                    <option value="approve">Approve</option>
+                    <option value="reject">Reject</option>
+                    <option value="abstain">Abstain</option>
+                  </select>
+                  <button type="button" className="btn btn-danger" onClick={() => setMembers(members.filter((_, rowIndex) => rowIndex !== index))}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {staffError && <p className="error-text">{staffError}</p>}
+              <button
+                type="button"
+                className="btn"
+                disabled={Boolean(staffError)}
+                onClick={() => setMembers([...members, { staff_id: '', vote: '' }])}
+              >
+                Add Committee Member
+              </button>
+            </div>
           </div>
           <button className="btn btn-primary" onClick={submit} style={{ marginTop: 8 }}>Save Decision</button>
+          {err && <p className="error-text">{err}</p>}
         </div>
       )}
+      {err && !adding && <p className="error-text">{err}</p>}
       {decisions.map((d) => (
         <div key={d.id} style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -406,7 +586,7 @@ function DecisionsTab({ caseId, decisions, reload, caseStatus, can, reloadCase }
           <p style={{ margin: '0.5rem 0' }}>{d.reasons}</p>
           {d.extra_tests && <p><strong>Extra tests:</strong> {d.extra_tests}</p>}
           {d.members?.length > 0 && (
-            <small>Members: {d.members.map((m) => m.staff_detail?.name || m.staff).join(', ')}</small>
+            <small>Members: {d.members.map((m) => `${m.staff_detail?.name || `Staff #${m.staff}`} (${m.vote || 'no vote'})`).join(', ')}</small>
           )}
         </div>
       ))}
@@ -419,18 +599,104 @@ function DecisionsTab({ caseId, decisions, reload, caseStatus, can, reloadCase }
 function SurgeryTab({ caseId, surgeries, donors, reload, caseStatus, can, reloadCase }) {
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ case_donor: '', lead_surgeon: '', scheduled_at: '', operating_room: '', graft_type: '' })
+  const [surgeons, setSurgeons] = useState([])
+  const [surgeonError, setSurgeonError] = useState('')
+  const [staffOptions, setStaffOptions] = useState([])
+  const [staffError, setStaffError] = useState('')
+  const [err, setErr] = useState('')
+  const [teamForm, setTeamForm] = useState({ staff: '', team_role: '' })
+  const [teamError, setTeamError] = useState('')
+  const [completingId, setCompletingId] = useState(null)
+  const [completionForm, setCompletionForm] = useState({
+    graft_weight_g: '', duration_min: '', operative_notes: '', complications: '',
+  })
+  const [completing, setCompleting] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    listTransplantStaff({ job_title: 'transplant_surgeon' }).then(
+      (results) => active && setSurgeons(results),
+      (error) => active && setSurgeonError(error.message || 'Could not load transplant surgeons.'),
+    )
+    listTransplantStaff().then(
+      (results) => active && setStaffOptions(results),
+      (error) => active && setStaffError(error.message || 'Could not load staff members.'),
+    )
+    return () => { active = false }
+  }, [])
 
   const approvedDonors = donors.filter((d) => d.status === 'approved')
+  const eligibleTeamStaff = staffOptions.filter((staff) =>
+    !['super_admin', 'billing_admin'].includes(staff.job_title),
+  )
 
   const scheduleSurgery = async () => {
+    setErr('')
+    if (!form.case_donor || !form.lead_surgeon || !form.scheduled_at) {
+      setErr('Select an approved donor and lead surgeon, and enter a scheduled date and time.')
+      return
+    }
     try {
-      await createSurgery(caseId, form)
+      await createSurgery(caseId, {
+        ...form,
+        case: Number(caseId),
+        case_donor: Number(form.case_donor),
+        lead_surgeon: Number(form.lead_surgeon),
+      })
       setAdding(false); reload(); reloadCase()
-    } catch { /* ignore */ }
+    } catch (e) { setErr(e.message || 'Could not schedule surgery.') }
   }
 
-  const handleComplete = async (surgeryId) => {
-    try { await completeSurgery(surgeryId); reload(); reloadCase() } catch { /* ignore */ }
+  const handleComplete = (surgeryId) => {
+    setCompletionForm({ graft_weight_g: '', duration_min: '', operative_notes: '', complications: '' })
+    setErr('')
+    setCompletingId(surgeryId)
+  }
+
+  const submitCompletion = async (event) => {
+    event.preventDefault()
+    setCompleting(true)
+    setErr('')
+    const payload = { ...completionForm }
+    if (payload.graft_weight_g === '') delete payload.graft_weight_g
+    if (payload.duration_min === '') delete payload.duration_min
+    try {
+      await completeSurgery(completingId, payload)
+      setCompletingId(null)
+      reload(); reloadCase()
+    } catch (e) {
+      setErr(e.message || 'Could not complete the surgery.')
+    } finally {
+      setCompleting(false)
+    }
+  }
+
+  const handleAddTeamMember = async (surgeryId) => {
+    setTeamError('')
+    if (!teamForm.staff || !teamForm.team_role.trim()) {
+      setTeamError('Select a staff member and enter their surgical role.')
+      return
+    }
+    try {
+      await addTeamMember(surgeryId, {
+        staff: Number(teamForm.staff),
+        team_role: teamForm.team_role.trim(),
+      })
+      setTeamForm({ staff: '', team_role: '' })
+      reload()
+    } catch (e) {
+      setTeamError(e.message || 'Could not add the surgical team member.')
+    }
+  }
+
+  const handleRemoveTeamMember = async (memberId) => {
+    setTeamError('')
+    try {
+      await removeTeamMember(memberId)
+      reload()
+    } catch (e) {
+      setTeamError(e.message || 'Could not remove the surgical team member.')
+    }
   }
 
   return (
@@ -448,7 +714,7 @@ function SurgeryTab({ caseId, surgeries, donors, reload, caseStatus, can, reload
               <label>Approved Donor</label>
               <select value={form.case_donor} onChange={(e) => setForm({ ...form, case_donor: e.target.value })}>
                 <option value="">— Select —</option>
-                {approvedDonors.map((d) => <option key={d.id} value={d.id}>{d.donor_detail?.full_name}</option>)}
+                {approvedDonors.map((d) => <option key={d.id} value={d.id}>{d.donor_detail?.full_name} · {d.donor_detail?.mrn}</option>)}
               </select>
             </div>
             <div className="form-group">
@@ -469,13 +735,28 @@ function SurgeryTab({ caseId, surgeries, donors, reload, caseStatus, can, reload
               </select>
             </div>
             <div className="form-group">
-              <label>Lead Surgeon (Staff ID)</label>
-              <input type="number" value={form.lead_surgeon} onChange={(e) => setForm({ ...form, lead_surgeon: e.target.value })} />
+              <label htmlFor="lead-surgeon-picker">Lead Surgeon</label>
+              <select
+                id="lead-surgeon-picker"
+                value={form.lead_surgeon}
+                onChange={(e) => setForm({ ...form, lead_surgeon: e.target.value })}
+                disabled={Boolean(surgeonError)}
+              >
+                <option value="">— Select a surgeon —</option>
+                {surgeons.map((surgeon) => (
+                  <option key={surgeon.id} value={surgeon.id}>
+                    {surgeon.name}{surgeon.department ? ` · ${surgeon.department}` : ''}
+                  </option>
+                ))}
+              </select>
+              {surgeonError && <small className="error-text">{surgeonError}</small>}
             </div>
           </div>
+          {err && <p className="error-text">{err}</p>}
           <button className="btn btn-primary" onClick={scheduleSurgery} style={{ marginTop: 8 }}>Schedule Surgery</button>
         </div>
       )}
+      {err && !adding && <p className="error-text">{err}</p>}
       {surgeries.map((s) => (
         <div key={s.id} style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -489,15 +770,102 @@ function SurgeryTab({ caseId, surgeries, donors, reload, caseStatus, can, reload
           {s.duration_min && <p>Duration: {s.duration_min} min</p>}
           {s.operative_notes && <p>Notes: {s.operative_notes}</p>}
           {s.complications && <p>Complications: {s.complications}</p>}
+          <div className="section-panel" style={{ marginTop: 12 }}>
+            <h4>Surgical Team</h4>
+            {s.team_members?.length > 0 ? (
+              <ul>
+                {s.team_members.map((member) => (
+                  <li key={member.id}>
+                    {member.staff_detail?.name || 'Staff member'} — {member.team_role}
+                    {can('transplant.record_surgery') && (
+                      <button className="btn btn-danger" onClick={() => handleRemoveTeamMember(member.id)} style={{ marginLeft: 8 }}>
+                        Remove
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : <p>No surgical team members assigned.</p>}
+            {can('transplant.record_surgery') && !['completed', 'cancelled'].includes(s.status) && (
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor={`team-staff-${s.id}`}>Staff Member</label>
+                  <select
+                    id={`team-staff-${s.id}`}
+                    value={teamForm.staff}
+                    onChange={(e) => setTeamForm({ ...teamForm, staff: e.target.value })}
+                    disabled={Boolean(staffError)}
+                  >
+                    <option value="">— Select staff —</option>
+                    {eligibleTeamStaff.map((member) => (
+                      <option key={member.id} value={member.id}>{member.name} · {member.job_title_display}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor={`team-role-${s.id}`}>Surgical Role</label>
+                  <input
+                    id={`team-role-${s.id}`}
+                    value={teamForm.team_role}
+                    onChange={(e) => setTeamForm({ ...teamForm, team_role: e.target.value })}
+                    placeholder="Assistant surgeon, anesthesiologist…"
+                  />
+                </div>
+                <button className="btn" onClick={() => handleAddTeamMember(s.id)} disabled={Boolean(staffError)}>
+                  Add Team Member
+                </button>
+              </div>
+            )}
+            {staffError && <p className="error-text">{staffError}</p>}
+            {teamError && <p className="error-text">{teamError}</p>}
+          </div>
           {can('transplant.record_surgery') && s.status === 'scheduled' && (
-            <button className="btn btn-success" onClick={() => handleComplete(s.id)} style={{ marginTop: 8 }}>Mark Completed</button>
+            <button className="btn btn-success" onClick={() => handleComplete(s.id)} style={{ marginTop: 8 }}>Complete Surgery</button>
           )}
           {can('transplant.record_surgery') && s.status === 'in_progress' && (
-            <button className="btn btn-success" onClick={() => handleComplete(s.id)} style={{ marginTop: 8 }}>Mark Completed</button>
+            <button className="btn btn-success" onClick={() => handleComplete(s.id)} style={{ marginTop: 8 }}>Complete Surgery</button>
           )}
         </div>
       ))}
       {surgeries.length === 0 && <p>No surgery records yet.</p>}
+      {completingId && (
+        <div className="modal-overlay" onClick={() => setCompletingId(null)}>
+          <div className="modal-box" onClick={(event) => event.stopPropagation()}>
+            <h3>Record Surgery Completion</h3>
+            <form onSubmit={submitCompletion}>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Graft weight (g)</label>
+                  <input type="number" min="0.01" step="0.01" value={completionForm.graft_weight_g}
+                    onChange={(e) => setCompletionForm({ ...completionForm, graft_weight_g: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Duration (minutes)</label>
+                  <input type="number" min="1" step="1" value={completionForm.duration_min}
+                    onChange={(e) => setCompletionForm({ ...completionForm, duration_min: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Operative Notes</label>
+                  <textarea rows={3} value={completionForm.operative_notes}
+                    onChange={(e) => setCompletionForm({ ...completionForm, operative_notes: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Complications</label>
+                  <textarea rows={3} value={completionForm.complications}
+                    onChange={(e) => setCompletionForm({ ...completionForm, complications: e.target.value })} />
+                </div>
+              </div>
+              {err && <p className="error-text">{err}</p>}
+              <div className="form-actions">
+                <button type="submit" className="btn btn-success" disabled={completing}>
+                  {completing ? 'Saving…' : 'Save and Complete'}
+                </button>
+                <button type="button" className="btn" onClick={() => setCompletingId(null)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

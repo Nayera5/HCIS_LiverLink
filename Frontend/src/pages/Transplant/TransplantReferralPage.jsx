@@ -1,8 +1,8 @@
 /* New Transplant Referral – create a new case. */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
-import { createReferral } from '../../api/transplant'
+import { createReferral, listTransplantStaff } from '../../api/transplant'
 import { listPatients } from '../../api/patients'
 import { fieldErrors } from '../../api/http'
 import './Transplant.css'
@@ -15,16 +15,34 @@ export default function TransplantReferralPage() {
   const [patientSearch, setPatientSearch] = useState('')
   const [patients, setPatients] = useState([])
   const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [coordinators, setCoordinators] = useState([])
+  const [coordinatorError, setCoordinatorError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    listTransplantStaff({ job_title: 'transplant_coordinator' }).then(
+      (results) => active && setCoordinators(results),
+      (err) => active && setCoordinatorError(err.message || 'Could not load coordinators.'),
+    )
+    return () => { active = false }
+  }, [])
 
   const searchPatients = async (q) => {
     setPatientSearch(q)
+    setForm((current) => ({ ...current, recipient: '' }))
+    setSearchError('')
     if (q.length < 2) { setPatients([]); return }
     setSearching(true)
     try {
       const res = await listPatients({ search: q, page_size: 10 })
       setPatients(res.results || [])
-    } catch { /* ignore */ }
-    setSearching(false)
+    } catch (err) {
+      setPatients([])
+      setSearchError(err.message || 'Could not search patients.')
+    } finally {
+      setSearching(false)
+    }
   }
 
   const submit = async (e) => {
@@ -34,7 +52,7 @@ export default function TransplantReferralPage() {
     setErrors({})
     try {
       const data = { recipient: form.recipient, referral_date: form.referral_date }
-      if (form.coordinator) data.coordinator = form.coordinator
+      if (form.coordinator) data.coordinator = Number(form.coordinator)
       const result = await createReferral(data)
       navigate(`/transplant/cases/${result.id}`)
     } catch (err) {
@@ -57,6 +75,7 @@ export default function TransplantReferralPage() {
                 className="input"
               />
               {searching && <small>Searching…</small>}
+              {searchError && <small className="error-text">{searchError}</small>}
               {patients.length > 0 && (
                 <div style={{ border: '1px solid #e5e7eb', borderRadius: 6, maxHeight: 200, overflow: 'auto', marginTop: 4 }}>
                   {patients.map((p) => (
@@ -75,6 +94,23 @@ export default function TransplantReferralPage() {
             <div className="form-group">
               <label>Referral Date</label>
               <input type="date" value={form.referral_date} onChange={(e) => setForm({ ...form, referral_date: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label htmlFor="coordinator-picker">Coordinator (optional)</label>
+              <select
+                id="coordinator-picker"
+                value={form.coordinator}
+                onChange={(e) => setForm({ ...form, coordinator: e.target.value })}
+                disabled={Boolean(coordinatorError)}
+              >
+                <option value="">Unassigned</option>
+                {coordinators.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}{member.department ? ` · ${member.department}` : ''}
+                  </option>
+                ))}
+              </select>
+              {coordinatorError && <small className="error-text">{coordinatorError}</small>}
             </div>
           </div>
           {errors.form && <p className="error-text">{errors.form}</p>}

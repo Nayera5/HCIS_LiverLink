@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.accounts.audit import audit  # type: ignore
-from apps.accounts.models import AuditLog  # type: ignore
+from apps.accounts.models import AuditLog, Staff  # type: ignore
 from apps.accounts.rbac import get_staff_profile  # type: ignore
 
 from .models import (
@@ -24,7 +24,7 @@ from .serializers import (
     CaseDonorSerializer, CaseDonorStatusSerializer, ChecklistItemSerializer,
     ChecklistItemStatusSerializer, CommitteeDecisionCreateSerializer,
     CommitteeDecisionSerializer, FollowUpPlanSerializer,
-    FollowUpVisitCreateSerializer, FollowUpVisitSerializer,
+    FollowUpPlanUpdateSerializer, FollowUpVisitCreateSerializer, FollowUpVisitSerializer,
     SurgeryCompleteSerializer, SurgeryCreateSerializer, SurgerySerializer,
     SurgeryTeamMemberSerializer, TransplantCaseCreateSerializer,
     TransplantCaseDetailSerializer, TransplantCaseListSerializer,
@@ -52,6 +52,43 @@ class PositiveIdMixin:
                         raise DRFValidationError({key: 'ID must be positive and start from 1.'})
                 except (ValueError, TypeError):
                     raise DRFValidationError({key: 'ID must be an integer.'})
+
+
+class StaffPickerView(generics.GenericAPIView):
+    """Search active staff for transplant forms without exposing account records."""
+
+    permission_classes = [IsAuthenticated, CanViewTransplant]
+
+    def get(self, request):
+        job_title = request.query_params.get('job_title', '').strip()
+        if job_title and job_title not in Staff.JobTitle.values:
+            raise DRFValidationError({
+                'job_title': 'Choose a valid staff job title.',
+            })
+
+        staff = Staff.objects.select_related('user').filter(
+            user__is_active=True,
+        )
+        if job_title:
+            staff = staff.filter(job_title=job_title)
+        search = request.query_params.get('search', '').strip()
+        if search:
+            staff = staff.filter(
+                Q(user__first_name__icontains=search)
+                | Q(user__last_name__icontains=search)
+                | Q(user__username__icontains=search)
+            )
+
+        return Response([
+            {
+                'id': member.pk,
+                'name': member.user.get_full_name() or member.user.username,
+                'job_title': member.job_title,
+                'job_title_display': member.get_job_title_display(),
+                'department': member.department,
+            }
+            for member in staff.order_by('user__last_name', 'user__first_name', 'pk')[:100]
+        ])
 
 
 def _staff(request):
@@ -87,6 +124,14 @@ class TransplantCaseListCreateView(generics.ListCreateAPIView):
             )
         if st := params.get('status'):
             qs = qs.filter(status=st)
+        if coordinator := params.get('coordinator'):
+            try:
+                coordinator_id = int(coordinator)
+                if coordinator_id < 1:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise DRFValidationError({'coordinator': 'Choose a valid coordinator.'})
+            qs = qs.filter(coordinator_id=coordinator_id)
         return qs
 
     def get_serializer_class(self):
@@ -165,9 +210,32 @@ class TransplantCaseUpdateView(PositiveIdMixin, generics.UpdateAPIView):
         case = self.get_object()
         allowed = {'coordinator'}
         data = {k: v for k, v in request.data.items() if k in allowed}
+        previous_coordinator_id = case.coordinator_id
         if 'coordinator' in data:
-            case.coordinator_id = data['coordinator']
-            case.save(update_fields=['coordinator_id', 'updated_at'])
+            raw_id = data['coordinator']
+            if raw_id in (None, ''):
+                case.coordinator = None
+            else:
+                try:
+                    coordinator_id = int(raw_id)
+                except (TypeError, ValueError):
+                    raise DRFValidationError({'coordinator': 'Choose a valid coordinator.'})
+                coordinator = Staff.objects.filter(
+                    pk=coordinator_id,
+                    job_title=Staff.JobTitle.TRANSPLANT_COORDINATOR,
+                    user__is_active=True,
+                ).first()
+                if coordinator is None:
+                    raise DRFValidationError({
+                        'coordinator': 'Choose an active transplant coordinator.',
+                    })
+                case.coordinator = coordinator
+            if case.coordinator_id != previous_coordinator_id:
+                case.save(update_fields=['coordinator_id', 'updated_at'])
+                audit(
+                    request, AuditLog.Action.UPDATE, ENTITY,
+                    entity_id=case.pk, patient=case.recipient,
+                )
         return Response(TransplantCaseDetailSerializer(case).data)
 
 
@@ -197,7 +265,11 @@ class CaseDonorListCreateView(PositiveIdMixin, generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_create(self, serializer):
-        serializer.save()
+        case_donor = serializer.save()
+        audit(
+            self.request, AuditLog.Action.CREATE, 'transplant.casedonor',
+            entity_id=case_donor.pk, patient=case_donor.case.recipient,
+        )
 
 
 class CaseDonorDetailView(PositiveIdMixin, generics.RetrieveAPIView):
@@ -221,6 +293,10 @@ class CaseDonorStatusView(PositiveIdMixin, generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         cd.status = serializer.validated_data['status']
         cd.save(update_fields=['status'])
+        audit(
+            request, AuditLog.Action.STATUS_CHANGE, 'transplant.casedonor',
+            entity_id=cd.pk, patient=cd.case.recipient,
+        )
         return Response(CaseDonorSerializer(cd).data)
 
 
@@ -267,7 +343,11 @@ class ChecklistItemListCreateView(PositiveIdMixin, generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_create(self, serializer):
-        serializer.save()
+        item = serializer.save()
+        audit(
+            self.request, AuditLog.Action.CREATE, 'transplant.checklistitem',
+            entity_id=item.pk, patient=item.patient,
+        )
 
 
 class ChecklistItemDetailView(PositiveIdMixin, generics.RetrieveUpdateDestroyAPIView):
@@ -276,6 +356,20 @@ class ChecklistItemDetailView(PositiveIdMixin, generics.RetrieveUpdateDestroyAPI
     permission_classes = [IsAuthenticated, CanManageTransplant]
     serializer_class = ChecklistItemSerializer
     queryset = ChecklistItem.objects.all()
+
+    def perform_update(self, serializer):
+        item = serializer.save()
+        audit(
+            self.request, AuditLog.Action.UPDATE, 'transplant.checklistitem',
+            entity_id=item.pk, patient=item.patient,
+        )
+
+    def perform_destroy(self, instance):
+        audit(
+            self.request, AuditLog.Action.DELETE, 'transplant.checklistitem',
+            entity_id=instance.pk, patient=instance.patient,
+        )
+        instance.delete()
 
 
 class ChecklistItemStatusView(PositiveIdMixin, generics.GenericAPIView):
@@ -298,6 +392,10 @@ class ChecklistItemStatusView(PositiveIdMixin, generics.GenericAPIView):
             item.status = 'pending'
             item.completed_at = None
             item.save(update_fields=['status', 'completed_at'])
+        audit(
+            request, AuditLog.Action.STATUS_CHANGE, 'transplant.checklistitem',
+            entity_id=item.pk, patient=item.patient,
+        )
         return Response(ChecklistItemSerializer(item).data)
 
 
@@ -399,6 +497,20 @@ class SurgeryDetailView(PositiveIdMixin, generics.RetrieveUpdateAPIView):
     ).prefetch_related('team_members__staff__user')
     http_method_names = ['get', 'patch', 'head', 'options']
 
+    def partial_update(self, request, *args, **kwargs):
+        surgery = self.get_object()
+        allowed = {'scheduled_at', 'operating_room', 'graft_type'}
+        data = {key: value for key, value in request.data.items() if key in allowed}
+        serializer = self.get_serializer(surgery, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        surgery = serializer.save()
+        if data:
+            audit(
+                request, AuditLog.Action.UPDATE, 'transplant.surgery',
+                entity_id=surgery.pk, patient=surgery.case.recipient,
+            )
+        return Response(SurgerySerializer(surgery).data)
+
 
 class SurgeryCompleteView(PositiveIdMixin, generics.GenericAPIView):
     """POST /api/transplant/surgeries/<id>/complete/"""
@@ -444,7 +556,11 @@ class SurgeryTeamMemberView(PositiveIdMixin, generics.ListCreateAPIView):
         ).select_related('staff__user')
 
     def perform_create(self, serializer):
-        serializer.save(surgery_id=self.kwargs['surgery_pk'])
+        member = serializer.save(surgery_id=self.kwargs['surgery_pk'])
+        audit(
+            self.request, AuditLog.Action.CREATE, 'transplant.surgeryteammember',
+            entity_id=member.pk, patient=member.surgery.case.recipient,
+        )
 
 
 class SurgeryTeamMemberDeleteView(PositiveIdMixin, generics.DestroyAPIView):
@@ -452,6 +568,13 @@ class SurgeryTeamMemberDeleteView(PositiveIdMixin, generics.DestroyAPIView):
 
     permission_classes = [IsAuthenticated, CanRecordSurgery]
     queryset = SurgeryTeamMember.objects.all()
+
+    def perform_destroy(self, instance):
+        audit(
+            self.request, AuditLog.Action.DELETE, 'transplant.surgeryteammember',
+            entity_id=instance.pk, patient=instance.surgery.case.recipient,
+        )
+        instance.delete()
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -482,25 +605,42 @@ class FollowUpPlanListView(generics.ListAPIView):
 class FollowUpPlanDetailView(PositiveIdMixin, generics.RetrieveUpdateAPIView):
     """GET/PATCH /api/transplant/followup/plans/<id>/"""
 
-    permission_classes = [IsAuthenticated, CanViewFollowUp]
+    def get_permissions(self):
+        if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return [IsAuthenticated(), CanViewFollowUp()]
+        return [IsAuthenticated(), CanManageFollowUp()]
+
     serializer_class = FollowUpPlanSerializer
     queryset = FollowUpPlan.objects.select_related('patient', 'case')
     http_method_names = ['get', 'patch', 'head', 'options']
 
     def partial_update(self, request, *args, **kwargs):
         plan = self.get_object()
+        previous_status = plan.status
+        previous_end_date = plan.end_date
+        serializer = FollowUpPlanUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        changes = serializer.validated_data
         update_fields = []
-        if 'status' in request.data:
-            plan.status = request.data['status']
+        if 'status' in changes:
+            plan.status = changes['status']
             update_fields.append('status')
             if plan.status == FollowUpPlan.Status.COMPLETED and not plan.end_date:
-                plan.end_date = request.data.get('end_date') or timezone.now().date()
+                plan.end_date = changes.get('end_date') or timezone.localdate()
                 update_fields.append('end_date')
-        if 'end_date' in request.data and 'end_date' not in update_fields:
-            plan.end_date = request.data['end_date']
+        if 'end_date' in changes and 'end_date' not in update_fields:
+            plan.end_date = changes['end_date']
             update_fields.append('end_date')
         if update_fields:
             plan.save(update_fields=update_fields)
+            if plan.status != previous_status or plan.end_date != previous_end_date:
+                action = (AuditLog.Action.STATUS_CHANGE
+                          if plan.status != previous_status
+                          else AuditLog.Action.UPDATE)
+                audit(
+                    request, action, 'transplant.followupplan',
+                    entity_id=plan.pk, patient=plan.patient,
+                )
         return Response(FollowUpPlanSerializer(plan).data)
 
 
@@ -537,7 +677,11 @@ class FollowUpVisitListCreateView(PositiveIdMixin, generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_create(self, serializer):
-        serializer.save()
+        visit = serializer.save()
+        audit(
+            self.request, AuditLog.Action.CREATE, 'transplant.followupvisit',
+            entity_id=visit.pk, patient=visit.plan.patient,
+        )
 
 
 class FollowUpVisitDetailView(PositiveIdMixin, generics.RetrieveUpdateAPIView):
@@ -547,6 +691,13 @@ class FollowUpVisitDetailView(PositiveIdMixin, generics.RetrieveUpdateAPIView):
     serializer_class = FollowUpVisitSerializer
     queryset = FollowUpVisit.objects.all()
     http_method_names = ['get', 'patch', 'head', 'options']
+
+    def perform_update(self, serializer):
+        visit = serializer.save()
+        audit(
+            self.request, AuditLog.Action.UPDATE, 'transplant.followupvisit',
+            entity_id=visit.pk, patient=visit.plan.patient,
+        )
 
 
 class RecoveryStatsView(PositiveIdMixin, generics.GenericAPIView):

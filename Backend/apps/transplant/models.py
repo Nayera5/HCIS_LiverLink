@@ -245,10 +245,11 @@ class CaseDonor(models.Model):
     def clean(self):
         super().clean()
         if self.donor_id and self.case_id:
-            try:
-                recipient_id = self.case.recipient_id
-            except TransplantCase.DoesNotExist:
-                return
+            recipient_id = TransplantCase.objects.filter(
+                pk=self.case_id,
+            ).values_list('recipient_id', flat=True).first()
+            if recipient_id is None:
+                raise ValidationError({'case': 'The transplant case does not exist.'})
             if self.donor_id == recipient_id:
                 raise ValidationError({
                     'donor': 'The donor and the recipient must be different people.',
@@ -256,12 +257,8 @@ class CaseDonor(models.Model):
 
     def calculate_abo(self):
         """Calculate and store ABO compatibility from both blood groups."""
-        try:
-            donor_bg = self.donor.blood_group
-            recipient_bg = self.case.recipient.blood_group
-        except Exception:
-            self.abo_compatible = None
-            return
+        donor_bg = self.donor.blood_group
+        recipient_bg = self.case.recipient.blood_group
         self.abo_compatible = check_abo_compatibility(donor_bg, recipient_bg)
 
 

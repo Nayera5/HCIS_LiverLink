@@ -7,8 +7,7 @@ Linked modules:
 - module 2 (registry): Patient (the patient or donor of the visit);
 - module 4 (EMR): Encounter.appointment points here (one encounter per appointment).
 
-Deferred: Appointment.case_id (→ transplant.TransplantCase, spec §4.9) is added with a
-migration once the transplant module has a TransplantCase model.
+Appointment may optionally link to a transplant.TransplantCase (spec §4.9).
 
 Times: schedule times and slot dates use the server time zone (settings.TIME_ZONE).
 """
@@ -109,6 +108,12 @@ class Appointment(models.Model):
     patient = models.ForeignKey(
         "registry.Patient", on_delete=models.PROTECT,
         related_name="appointments", db_column="patient_id",
+    )
+    case = models.ForeignKey(
+        "transplant.TransplantCase", on_delete=models.SET_NULL,
+        related_name="appointments", db_column="case_id",
+        null=True, blank=True,
+        help_text="Transplant case this evaluation or follow-up appointment supports.",
     )
     staff = models.ForeignKey(
         "accounts.Staff", on_delete=models.PROTECT,

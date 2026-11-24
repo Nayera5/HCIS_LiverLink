@@ -1,6 +1,11 @@
 """Serializers for the transplant module (Modules 11 & 12)."""
+from decimal import Decimal
+
+from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
+from apps.accounts.models import Staff
 from apps.registry.models import Patient  # type: ignore
 
 from .models import (
@@ -125,8 +130,9 @@ class TransplantCaseCreateSerializer(serializers.ModelSerializer):
         return patient
 
     def validate_coordinator(self, staff):
-        if staff and staff.pk < 1:
-            raise serializers.ValidationError('ID must be positive and start from 1.')
+        if staff and (staff.pk < 1 or staff.job_title != 'transplant_coordinator'
+                      or not staff.user.is_active):
+            raise serializers.ValidationError('Choose an active transplant coordinator.')
         return staff
 
     def create(self, validated_data):
@@ -194,6 +200,18 @@ class ChecklistItemSerializer(serializers.ModelSerializer):
     def get_patient_name(self, obj):
         return obj.patient.full_name
 
+    def validate(self, attrs):
+        case = attrs.get('case') or (self.instance and self.instance.case)
+        patient = attrs.get('patient') or (self.instance and self.instance.patient)
+        if case and patient:
+            case_patient_ids = {case.recipient_id}
+            case_patient_ids.update(case.case_donors.values_list('donor_id', flat=True))
+            if patient.pk not in case_patient_ids:
+                raise serializers.ValidationError({
+                    'patient': 'Choose the recipient or a donor linked to this case.',
+                })
+        return attrs
+
 
 class ChecklistItemStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=[
@@ -203,7 +221,17 @@ class ChecklistItemStatusSerializer(serializers.Serializer):
 
 # ─── CommitteeDecision ───────────────────────────────────────────────────
 class CommitteeMemberWriteSerializer(serializers.Serializer):
-    staff_id = serializers.IntegerField()
+    staff_id = serializers.PrimaryKeyRelatedField(
+        source='staff', queryset=Staff.objects.filter(
+            user__is_active=True,
+            job_title__in=[
+                Staff.JobTitle.HEPATOLOGIST,
+                Staff.JobTitle.RADIOLOGIST,
+                Staff.JobTitle.TRANSPLANT_SURGEON,
+                Staff.JobTitle.TRANSPLANT_COORDINATOR,
+            ],
+        ),
+    )
     vote = serializers.ChoiceField(
         choices=CommitteeMember.Vote.choices, required=False, allow_null=True,
     )
@@ -245,6 +273,13 @@ class CommitteeDecisionCreateSerializer(serializers.ModelSerializer):
             )
         return case
 
+    def validate_members(self, members):
+        staff_ids = [member['staff'].pk for member in members]
+        if len(staff_ids) != len(set(staff_ids)):
+            raise serializers.ValidationError('A staff member can only be listed once per decision.')
+        return members
+
+    @transaction.atomic
     def create(self, validated_data):
         members_data = validated_data.pop('members', [])
         validated_data['recorded_by'] = self.context['staff']
@@ -252,7 +287,7 @@ class CommitteeDecisionCreateSerializer(serializers.ModelSerializer):
         for member_data in members_data:
             CommitteeMember.objects.create(
                 decision=decision,
-                staff_id=member_data['staff_id'],
+                staff=member_data['staff'],
                 vote=member_data.get('vote'),
             )
         # Apply decision to case status
@@ -268,11 +303,12 @@ class SurgeryTeamMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = SurgeryTeamMember
         fields = ['id', 'surgery', 'staff', 'staff_detail', 'team_role']
-        read_only_fields = ['id']
+        # The surgery is taken from the URL by SurgeryTeamMemberView, not the POST body.
+        read_only_fields = ['id', 'surgery']
 
     def validate_staff(self, staff):
-        if staff.pk < 1:
-            raise serializers.ValidationError('ID must be positive and start from 1.')
+        if staff.pk < 1 or not staff.user.is_active or staff.job_title in Staff.ADMIN_TITLES:
+            raise serializers.ValidationError('Choose an active clinical staff member.')
         return staff
 
 
@@ -309,8 +345,14 @@ class SurgeryCreateSerializer(serializers.ModelSerializer):
         case = attrs['case']
         case_donor = attrs['case_donor']
         lead_surgeon = attrs.get('lead_surgeon')
-        if lead_surgeon and lead_surgeon.pk < 1:
-            raise serializers.ValidationError({'lead_surgeon': 'ID must be positive and start from 1.'})
+        if lead_surgeon and (
+            lead_surgeon.pk < 1
+            or lead_surgeon.job_title != 'transplant_surgeon'
+            or not lead_surgeon.user.is_active
+        ):
+            raise serializers.ValidationError({
+                'lead_surgeon': 'Choose an active transplant surgeon.',
+            })
 
         if case.status != TransplantCase.Status.APPROVED:
             raise serializers.ValidationError({
@@ -343,7 +385,9 @@ class SurgeryCreateSerializer(serializers.ModelSerializer):
 
 class SurgeryCompleteSerializer(serializers.Serializer):
     graft_type = serializers.ChoiceField(choices=Surgery.GraftType.choices, required=False)
-    graft_weight_g = serializers.DecimalField(max_digits=7, decimal_places=2, required=False)
+    graft_weight_g = serializers.DecimalField(
+        max_digits=7, decimal_places=2, required=False, min_value=Decimal('0.01'),
+    )
     duration_min = serializers.IntegerField(required=False, min_value=1)
     operative_notes = serializers.CharField(required=False, allow_blank=True)
     complications = serializers.CharField(required=False, allow_blank=True)
@@ -354,12 +398,13 @@ class FollowUpPlanSerializer(serializers.ModelSerializer):
     patient_detail = _PatientBriefSerializer(source='patient', read_only=True)
     visit_count = serializers.SerializerMethodField()
     end_date = serializers.SerializerMethodField()
+    next_due_date = serializers.SerializerMethodField()
 
     class Meta:
         model = FollowUpPlan
         fields = [
             'id', 'case', 'patient', 'patient_detail', 'patient_role',
-            'start_date', 'end_date', 'status', 'visit_count', 'created_at',
+            'start_date', 'end_date', 'next_due_date', 'status', 'visit_count', 'created_at',
         ]
         read_only_fields = [
             'id', 'case', 'patient', 'patient_detail', 'patient_role',
@@ -368,6 +413,15 @@ class FollowUpPlanSerializer(serializers.ModelSerializer):
 
     def get_visit_count(self, obj):
         return obj.visits.count()
+
+    def get_next_due_date(self, obj):
+        today = timezone.localdate()
+        scheduled_visits = [
+            visit for visit in obj.visits.all()
+            if visit.status == FollowUpVisit.Status.SCHEDULED and visit.due_date >= today
+        ]
+        next_visit = min(scheduled_visits, key=lambda visit: visit.due_date, default=None)
+        return next_visit.due_date if next_visit else None
 
     def get_end_date(self, obj):
         if obj.end_date:
@@ -379,6 +433,11 @@ class FollowUpPlanSerializer(serializers.ModelSerializer):
             if obj.start_date:
                 return obj.start_date.isoformat() if hasattr(obj.start_date, 'isoformat') else str(obj.start_date)
         return None
+
+
+class FollowUpPlanUpdateSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=FollowUpPlan.Status.choices, required=False)
+    end_date = serializers.DateField(required=False, allow_null=True)
 
 
 # ─── FollowUpVisit ───────────────────────────────────────────────────────
@@ -396,7 +455,7 @@ class FollowUpVisitSerializer(serializers.ModelSerializer):
 class FollowUpVisitCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = FollowUpVisit
-        fields = ['plan', 'appointment', 'due_date']
+        fields = ['plan', 'appointment', 'due_date', 'notes']
 
     def validate_plan(self, plan):
         if plan.status != FollowUpPlan.Status.ACTIVE:
