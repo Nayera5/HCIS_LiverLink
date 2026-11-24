@@ -1,18 +1,23 @@
 """EMR tests: links to module 1 (RBAC, Staff, audit) and module 2 (Patient, Consent)."""
 import shutil
 import tempfile
+from io import StringIO
 
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.test import override_settings
 
 from apps.accounts.models import AuditLog, User
 from apps.registry.models import Consent
 from apps.registry.test_api import PW, PatientAPITestBase, make_patient
 
-from .models import Document, Encounter
+from .models import Diagnosis, Document, Encounter, Icd10Code, VitalSigns
 
 ENC = '/api/emr/encounters/'
 DOCS = '/api/emr/documents/'
+DIAG = '/api/emr/diagnoses/'
+ICD = '/api/emr/icd10/'
 MEDIA = tempfile.mkdtemp()
 
 
@@ -81,9 +86,10 @@ class EncounterTests(EMRTestBase):
         self.assertEqual(self.client.post(f'{ENC}{enc.pk}/sign/').status_code, 200)
         self.assertEqual(self.client.patch(f'{ENC}{enc.pk}/', {'clinical_notes': 'x'}, format='json').status_code, 400)
         self.assertEqual(self.client.delete(f'{ENC}{enc.pk}/').status_code, 400)
-        r = self.client.post('/api/emr/diagnoses/', {'encounter': enc.pk, 'icd10_code': 'K74.6',
-                                                     'description': 'Cirrhosis'}, format='json')
+        call_command('seed_icd10', stdout=StringIO())
+        r = self.client.post(DIAG, {'encounter': enc.pk, 'icd10_code': 'K74.60'}, format='json')
         self.assertEqual(r.status_code, 400)
+        self.assertIn('encounter', r.data)  # refused because it is signed, not because of the code
         r = self.client.post(f'{ENC}{enc.pk}/addenda/', {'text': 'Correction'}, format='json')
         self.assertEqual(r.status_code, 201)
         self.assertEqual(r.data['author_name'], 'Hep Staff')
@@ -105,6 +111,86 @@ class EncounterTests(EMRTestBase):
                                                            'description': 'Penicillin'}, format='json')
         self.assertEqual(r.status_code, 201)
         self.assertEqual(r.data['recorded_by'], self.hep.staff_profile.pk)
+
+
+class Icd10Tests(EMRTestBase):
+    def setUp(self):
+        super().setUp()
+        call_command('seed_icd10', stdout=StringIO())
+
+    def search(self, q):
+        self.as_(self.hep)
+        return [row['code'] for row in self.client.get(ICD, {'q': q}).data]
+
+    def add(self, **data):
+        self.as_(self.hep)
+        return self.client.post(DIAG, data, format='json')
+
+    def test_search_by_code_and_by_name(self):
+        for q in ('K74.6', 'k74.6', 'K746'):
+            self.assertEqual(self.search(q), ['K74.60', 'K74.69'])
+        for q in ('C22.0', 'liver cell', 'HCC', 'hepatocellular carcinoma'):
+            self.assertIn('C22.0', self.search(q))
+        self.assertIn('B18.2', self.search('chronic viral hepatitis C'))
+        for q in ('', '.', 'no such disease'):
+            self.assertEqual(self.search(q), [])
+
+    def test_search_permissions(self):
+        for user, code in ((self.hep, 200), (self.surg, 200), (self.coord, 200), (self.rad, 200),
+                           (self.billing, 403), (self.nojob, 403), (self.pat_user, 403)):
+            with self.subTest(user=user.username):
+                self.as_(user)
+                self.assertEqual(self.client.get(ICD, {'q': 'C22'}).status_code, code)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(ICD, {'q': 'C22'}).status_code, 401)
+
+    def test_name_always_comes_from_the_catalog(self):
+        enc = self.encounter()
+        r = self.add(encounter=enc.pk, icd10_code='c22.0', description='typed by hand')
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual((r.data['icd10_code'], r.data['description']), ('C22.0', 'Liver cell carcinoma'))
+        url = f"{DIAG}{r.data['diagnosis_id']}/"
+        r = self.client.patch(url, {'icd10_code': 'B18.2'}, format='json')
+        self.assertEqual(r.data['description'], 'Chronic viral hepatitis C')
+        r = self.client.patch(url, {'description': 'typed by hand'}, format='json')
+        self.assertEqual(r.data['description'], 'Chronic viral hepatitis C')
+
+    def test_code_outside_the_catalog_rejected(self):
+        enc = self.encounter()
+        for code in ('K74.6', 'A00.0', 'cirrhosis', ''):  # K74.6 is only a heading in ICD-10-CM
+            with self.subTest(code=code):
+                r = self.add(encounter=enc.pk, icd10_code=code, description='Cirrhosis')
+                self.assertEqual(r.status_code, 400)
+                self.assertIn('icd10_code', r.data)
+        self.assertFalse(Diagnosis.objects.exists())
+
+    def test_model_validation_uses_the_catalog(self):  # Django admin
+        enc = self.encounter()
+        diagnosis = Diagnosis(encounter=enc, patient=self.own, icd10_code='c22.0')
+        diagnosis.full_clean(exclude=['description'])
+        self.assertEqual(diagnosis.description, 'Liver cell carcinoma')
+        with self.assertRaises(ValidationError):
+            Diagnosis(encounter=enc, patient=self.own, icd10_code='A00.0').full_clean(exclude=['description'])
+
+    def test_seed_can_run_twice(self):
+        self.assertEqual(Icd10Code.objects.count(), 143)
+        call_command('seed_icd10', stdout=StringIO())
+        self.assertEqual(Icd10Code.objects.count(), 143)
+
+    def test_records_cannot_be_moved_to_another_encounter(self):
+        signed, other = self.encounter(), self.encounter()
+        diagnosis = Diagnosis.objects.create(encounter=signed, icd10_code='C22.0', description='Liver cell carcinoma')
+        vitals = VitalSigns.objects.create(encounter=signed, pulse=70)
+        Encounter.objects.filter(pk=signed.pk).update(status=Encounter.Status.SIGNED)
+        self.as_(self.hep)
+        for url in (f'{DIAG}{diagnosis.pk}/', f'/api/emr/vital-signs/{vitals.pk}/'):
+            with self.subTest(url=url):
+                r = self.client.patch(url, {'encounter': other.pk}, format='json')
+                self.assertEqual(r.status_code, 400)
+                self.assertIn('encounter', r.data)
+        # Resolving a diagnosis after signing is still allowed.
+        r = self.client.patch(f'{DIAG}{diagnosis.pk}/', {'status': 'resolved'}, format='json')
+        self.assertEqual(r.status_code, 200)
 
 
 class PortalTests(EMRTestBase):

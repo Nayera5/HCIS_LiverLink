@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Diagnosis, Document, Encounter, EncounterAddendum, MedicalHistory, VitalSigns
+from .models import Diagnosis, Document, Encounter, EncounterAddendum, Icd10Code, MedicalHistory, VitalSigns
 
 
 class AddendumInline(admin.TabularInline):
@@ -12,6 +12,7 @@ class AddendumInline(admin.TabularInline):
 class DiagnosisInline(admin.TabularInline):
     model = Diagnosis
     extra = 0
+    readonly_fields = ("description",)  # filled from the ICD-10 catalog
 
 
 class VitalSignsInline(admin.TabularInline):
@@ -39,6 +40,13 @@ class DiagnosisAdmin(admin.ModelAdmin):
     list_display = ("diagnosis_id", "patient", "icd10_code", "description", "is_primary", "status")
     list_filter = ("status", "is_primary")
     search_fields = ("icd10_code", "description")
+    readonly_fields = ("description",)  # filled from the ICD-10 catalog
+
+
+@admin.register(Icd10Code)
+class Icd10CodeAdmin(admin.ModelAdmin):
+    list_display = ("code", "description", "keywords")
+    search_fields = ("code", "description", "keywords")
 
 
 @admin.register(VitalSigns)

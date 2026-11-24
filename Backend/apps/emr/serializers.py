@@ -5,7 +5,7 @@ from rest_framework import serializers
 from apps.accounts.models import Staff, User
 from apps.accounts.rbac import EMR_DOCTOR_TITLES
 
-from .models import Diagnosis, Document, Encounter, EncounterAddendum, MedicalHistory, VitalSigns
+from .models import Diagnosis, Document, Encounter, EncounterAddendum, Icd10Code, MedicalHistory, VitalSigns
 from .permissions import staff_profile
 
 ALLOWED_DOCUMENT_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"]
@@ -30,6 +30,18 @@ def _reject_if_signed(encounter):
         )
 
 
+def _reject_move(instance, attrs):
+    """A diagnosis or reading stays on its encounter (moving it would bypass the signed lock)."""
+    if instance and "encounter" in attrs and attrs["encounter"].pk != instance.encounter_id:
+        raise serializers.ValidationError({"encounter": "This record cannot be moved to another encounter."})
+
+
+class Icd10CodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Icd10Code
+        fields = ["code", "description"]
+
+
 class VitalSignsSerializer(serializers.ModelSerializer):
     class Meta:
         model = VitalSigns
@@ -40,6 +52,7 @@ class VitalSignsSerializer(serializers.ModelSerializer):
         read_only_fields = ["vitals_id", "bmi"]
 
     def validate(self, attrs):
+        _reject_move(self.instance, attrs)
         encounter = attrs.get("encounter") or getattr(self.instance, "encounter", None)
         _reject_if_signed(encounter)
         sys_ = attrs.get("bp_systolic", getattr(self.instance, "bp_systolic", None))
@@ -50,18 +63,24 @@ class VitalSignsSerializer(serializers.ModelSerializer):
 
 
 class DiagnosisSerializer(serializers.ModelSerializer):
+    """The code must be in the ICD-10 catalog; the name is always taken from it."""
+
     class Meta:
         model = Diagnosis
         fields = [
             "diagnosis_id", "encounter", "patient", "icd10_code", "description",
             "is_primary", "status", "diagnosed_at",
         ]
-        read_only_fields = ["diagnosis_id", "patient"]
+        read_only_fields = ["diagnosis_id", "patient", "description"]
 
     def validate_icd10_code(self, value):
-        return value.strip().upper()
+        code = value.strip().upper()
+        if not Icd10Code.objects.filter(pk=code).exists():
+            raise serializers.ValidationError("Choose a diagnosis from the ICD-10 catalog.")
+        return code
 
     def validate(self, attrs):
+        _reject_move(self.instance, attrs)
         encounter = attrs.get("encounter") or getattr(self.instance, "encounter", None)
         # Status changes (active -> resolved) are allowed later; new/edited coding on a signed visit is not.
         if self.instance is None or set(attrs) - {"status"}:
@@ -74,6 +93,8 @@ class DiagnosisSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"is_primary": "This encounter already has a primary diagnosis."}
                 )
+        if "icd10_code" in attrs:
+            attrs["description"] = Icd10Code.objects.get(pk=attrs["icd10_code"]).description
         return attrs
 
     def create(self, validated_data):

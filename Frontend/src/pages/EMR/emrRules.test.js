@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
-  diagnosisPayload, downloadName, encounterPayload, formatBp, groupHistory, historyPayload, normaliseIcd10,
+  diagnosisPayload, downloadName, encounterPayload, formatBp, groupHistory, historyPayload,
   validateDiagnosis, validateDocument, validateEncounter, validateHistory, validateVitals, vitalsPayload,
 } from './emrRules.js'
 
@@ -36,22 +36,22 @@ describe('medical history', () => {
 })
 
 describe('diagnosis', () => {
-  test('ICD-10 codes are normalised and checked', () => {
-    assert.equal(normaliseIcd10(' k74.6 '), 'K74.6')
-    assert.deepEqual(validateDiagnosis({ icd10_code: 'c22.0', description: 'HCC' }), {})
-    assert.ok(validateDiagnosis({ icd10_code: '74.6', description: 'x' }).icd10_code)
-    assert.ok(validateDiagnosis({ icd10_code: '', description: '' }).description)
+  const HCC = { code: 'C22.0', description: 'Liver cell carcinoma' }
+
+  test('a diagnosis must be chosen from the ICD-10 list', () => {
+    assert.deepEqual(validateDiagnosis({ icd10: HCC }), {})
+    assert.ok(validateDiagnosis({ icd10: null }).icd10_code)
   })
 
   test('only one primary diagnosis per encounter', () => {
-    const errors = validateDiagnosis({ icd10_code: 'K74.6', description: 'Cirrhosis', is_primary: true },
+    const errors = validateDiagnosis({ icd10: HCC, is_primary: true },
       [{ is_primary: true }])
     assert.ok(errors.is_primary)
   })
 
   test('payload', () => {
-    assert.deepEqual(diagnosisPayload({ icd10_code: 'k74.6', description: ' Cirrhosis ', is_primary: true }, 3),
-      { encounter: 3, icd10_code: 'K74.6', description: 'Cirrhosis', is_primary: true })
+    assert.deepEqual(diagnosisPayload({ icd10: HCC, is_primary: true }, 3),
+      { encounter: 3, icd10_code: 'C22.0', is_primary: true })
   })
 })
 

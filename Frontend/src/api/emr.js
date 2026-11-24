@@ -36,7 +36,12 @@ export function addAddendum(encounterId, text) {
 }
 
 // --- Diagnoses and vital signs (belong to an encounter) ----------------------
-/** data: { encounter, icd10_code, description, is_primary, status } */
+/** ICD-10 catalog search by code or name: [{ code, description }] (emr.view). */
+export function searchIcd10(q) {
+  return authRequest(`/emr/icd10/${toQuery({ q })}`)
+}
+
+/** data: { encounter, icd10_code, is_primary }. The name is filled from the ICD-10 catalog. */
 export function createDiagnosis(data) {
   return authRequest('/emr/diagnoses/', { method: 'POST', body: data })
 }

@@ -132,6 +132,25 @@ class MedicalHistory(models.Model):
 
 
 # ---------------------------------------------------------------------------
+# ICD-10 catalog (filled by `python manage.py seed_icd10`)
+# ---------------------------------------------------------------------------
+class Icd10Code(models.Model):
+    """A diagnosis doctors can choose. Diagnosis keeps its own copy of the code and name."""
+
+    code = models.CharField("ICD-10 code", max_length=10, primary_key=True)
+    description = models.CharField(max_length=255)
+    keywords = models.CharField(max_length=255, blank=True, help_text="Extra search words, e.g. HCC.")
+
+    class Meta:
+        db_table = "emr_icd10_code"
+        verbose_name = "ICD-10 code"
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.code} – {self.description}"
+
+
+# ---------------------------------------------------------------------------
 # 4.12 Diagnosis
 # ---------------------------------------------------------------------------
 class Diagnosis(models.Model):
@@ -178,6 +197,12 @@ class Diagnosis(models.Model):
     def clean(self):
         if self.encounter_id and self.patient_id and self.encounter.patient_id != self.patient_id:
             raise ValidationError("Diagnosis patient must match the encounter's patient.")
+        # The code must be in the catalog, and the name always comes from it.
+        self.icd10_code = (self.icd10_code or "").strip().upper()
+        entry = Icd10Code.objects.filter(pk=self.icd10_code).first()
+        if entry is None:
+            raise ValidationError({"icd10_code": "This code is not in the ICD-10 catalog."})
+        self.description = entry.description
 
     def save(self, *args, **kwargs):
         self.icd10_code = self.icd10_code.strip().upper()
