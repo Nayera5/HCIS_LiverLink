@@ -217,11 +217,31 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+# SMTP when EMAIL_HOST_USER is set in .env (e.g. Gmail with an app password, or Mailtrap's
+# sandbox); otherwise emails are printed in the runserver terminal (console backend).
+# EMAIL_BACKEND in .env overrides the choice.
+_EMAIL_USER = os.getenv('EMAIL_HOST_USER', '')
+_EMAIL_BACKEND = os.getenv('EMAIL_BACKEND') or (
+    'django.core.mail.backends.smtp.EmailBackend' if _EMAIL_USER
+    else 'django.core.mail.backends.console.EmailBackend')
+MAILERS = {'default': {'BACKEND': _EMAIL_BACKEND}}
+if _EMAIL_BACKEND.endswith('smtp.EmailBackend'):
+    MAILERS['default']['OPTIONS'] = {
+        'host': os.getenv('EMAIL_HOST', 'smtp.gmail.com'),
+        'port': int(os.getenv('EMAIL_PORT', '587')),
+        'username': _EMAIL_USER,
+        'password': os.getenv('EMAIL_HOST_PASSWORD', ''),
+        'use_tls': os.getenv('EMAIL_USE_TLS', 'True').lower() in ('1', 'true', 'yes'),
+        'timeout': 15,
+    }
+
+# Notification types also sent by email (module 14). The rest stay in-app only.
+NOTIFICATION_EMAIL_TYPES = frozenset({
+    'appointment_reminder', 'result_ready', 'case_update', 'follow_up_reminder',
+})
+# Send emails on a background thread so a slow mail server never slows a request.
+# Tests switch this off to send inline.
+NOTIFICATION_EMAIL_ASYNC = True
 
 
 # Reminders without Celery: apps.notifications.tasks.check_due_reminders runs at most once per

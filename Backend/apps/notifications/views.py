@@ -22,7 +22,7 @@ class MyNotificationsView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, HasCapability('self.notifications')]
 
     def get_queryset(self):
-        qs = Notification.objects.filter(user=self.request.user)
+        qs = Notification.objects.filter(user=self.request.user, channel=Notification.Channel.IN_APP)
         if self.request.query_params.get('unread') == 'true':
             qs = qs.filter(is_read=False)
         return qs
@@ -31,7 +31,8 @@ class MyNotificationsView(generics.ListAPIView):
         # No Celery for now: opening notifications sends any due reminders (at most every 15 min).
         run_due_reminders_if_due()
         notifications = self.get_queryset()
-        unread_count = Notification.objects.filter(user=request.user, is_read=False).count()
+        unread_count = Notification.objects.filter(
+            user=request.user, channel=Notification.Channel.IN_APP, is_read=False).count()
         return Response({
             'unread_count': unread_count,
             'notifications': NotificationSerializer(notifications, many=True).data,
@@ -44,7 +45,8 @@ class MarkNotificationReadView(APIView):
     permission_classes = [IsAuthenticated, HasCapability('self.notifications')]
 
     def post(self, request, pk):
-        notification = get_object_or_404(Notification, pk=pk, user=request.user)
+        notification = get_object_or_404(Notification, pk=pk, user=request.user,
+                                         channel=Notification.Channel.IN_APP)
         if not notification.is_read:
             notification.is_read = True
             notification.save(update_fields=['is_read'])
@@ -57,5 +59,6 @@ class MarkAllNotificationsReadView(APIView):
     permission_classes = [IsAuthenticated, HasCapability('self.notifications')]
 
     def post(self, request):
-        updated = Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        updated = Notification.objects.filter(
+            user=request.user, channel=Notification.Channel.IN_APP, is_read=False).update(is_read=True)
         return Response({'updated': updated}, status=status.HTTP_200_OK)

@@ -2,6 +2,8 @@
 import datetime
 from decimal import Decimal
 
+from django.core import mail
+from django.test import override_settings
 from django.utils import timezone
 
 from apps.labs import services as lab_services
@@ -173,3 +175,80 @@ class NoCeleryTriggerTests(NotificationTestBase):
         out = StringIO()
         call_command('send_reminders', stdout=out)
         self.assertIn('1 notification(s) sent.', out.getvalue())
+
+
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
+class EmailNotificationTests(NotificationTestBase):
+    """Emailed types go out after commit, once, and are recorded as channel='email' rows."""
+
+    def stage_change(self):
+        case = self.make_case(coordinator=self.coord.staff_profile)
+        with self.captureOnCommitCallbacks(execute=True):
+            case.transition_to('under_evaluation')
+        return case
+
+    def test_case_update_is_emailed_to_users_with_an_address(self):
+        self.stage_change()
+        # pat and the staff accounts all have addresses (test fixtures use @lh.test).
+        recipients = sorted(address for message in mail.outbox for address in message.to)
+        self.assertEqual(recipients, ['coord@lh.test', 'hep@lh.test', 'pat@lh.test'])
+        patient_mail = next(m for m in mail.outbox if m.to == ['pat@lh.test'])
+        self.assertEqual(patient_mail.subject, 'LiverLink: Your transplant case was updated')
+        self.assertIn('"Under evaluation" stage', patient_mail.body)
+        self.assertIn('/notifications', patient_mail.body)
+        email_rows = Notification.objects.filter(user=self.pat_user, channel='email')
+        self.assertEqual(email_rows.count(), 1)
+
+    def test_inbox_shows_only_in_app_rows(self):
+        self.stage_change()
+        self.as_(self.pat_user)
+        r = self.client.get('/api/notifications/me/')
+        self.assertEqual(r.data['unread_count'], 1)
+        self.assertEqual([n['channel'] for n in r.data['notifications']], ['in_app'])
+
+    def test_in_app_only_types_and_users_without_email(self):
+        self.pat_user.email = ''
+        self.pat_user.save(update_fields=['email'])
+        case = self.make_case(coordinator=self.coord.staff_profile)
+        ChecklistItem.objects.create(case=case, patient=self.own, item_name='Consent', item_type='document')
+        with self.captureOnCommitCallbacks(execute=True):
+            from .tasks import send_pending_task_alerts
+            send_pending_task_alerts(timezone.now())   # pending_task: in-app only
+            from . import events
+            events.case_stage_changed(case, 'referred')
+        self.assertNotIn(['pat@lh.test'], [m.to for m in mail.outbox])
+        self.assertFalse(any('missing items' in m.subject for m in mail.outbox))
+        self.assertTrue(self.notes(self.coord, T.PENDING_TASK).filter(channel='in_app').exists())
+
+    def test_rolled_back_change_sends_nothing(self):
+        from django.db import transaction
+
+        case = self.make_case(coordinator=self.coord.staff_profile)
+        with self.captureOnCommitCallbacks(execute=True):
+            try:
+                with transaction.atomic():
+                    case.transition_to('under_evaluation')
+                    raise RuntimeError('rollback')
+            except RuntimeError:
+                pass
+        self.assertEqual(mail.outbox, [])
+
+    def test_mail_server_error_keeps_in_app_notification(self):
+        from unittest import mock
+
+        with mock.patch('apps.notifications.emails.send_mail', side_effect=OSError('SMTP down')), \
+                self.assertLogs('apps.notifications.emails', 'ERROR'):
+            self.stage_change()
+        self.assertEqual(self.notes(self.pat_user, T.CASE_UPDATE).filter(channel='in_app').count(), 1)
+        self.assertFalse(Notification.objects.filter(channel='email').exists())
+
+    def test_reminder_is_not_resent_because_of_its_email_row(self):
+        start = timezone.now() + datetime.timedelta(hours=2)
+        Appointment.objects.create(patient=self.own, staff=self.hep.staff_profile, booked_by=self.coord,
+                                   appointment_type='consultation', start_time=start,
+                                   end_time=start + datetime.timedelta(minutes=30))
+        with self.captureOnCommitCallbacks(execute=True):
+            check_due_reminders()
+        with self.captureOnCommitCallbacks(execute=True):
+            check_due_reminders()
+        self.assertEqual(len([m for m in mail.outbox if m.to == ['pat@lh.test']]), 1)

@@ -10,9 +10,11 @@ Where notifications come from (see apps.notifications.events and .tasks):
 - pending_task: the periodic task tells the coordinator about open cases with pending
   required checklist items (missing tests or documents), at most once a day per case.
 
+Email: types in settings.NOTIFICATION_EMAIL_TYPES are also emailed to users who have an email
+address (apps.notifications.emails). Each channel gets its own row: the inbox shows `in_app`
+rows; an `email` row records that the email was sent.
+
 Deviations from the spec:
-- Email is not sent yet: the `channel` field is kept (matching the spec) but restricted to
-  `in_app` for now.
 - Addition: `related_type` / `related_id` name the record a notification is about (e.g.
   'scheduling.appointment', 42). They stop the periodic task from sending the same reminder twice.
 """
@@ -33,7 +35,7 @@ class Notification(models.Model):
 
     class Channel(models.TextChoices):
         IN_APP = 'in_app', 'In-app'
-        # EMAIL = 'email', 'Email'  # re-enable once SMTP is configured (spec §4.42).
+        EMAIL = 'email', 'Email'
 
     user = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='notifications')
     type = models.CharField(max_length=30, choices=Type.choices)
@@ -59,7 +61,7 @@ class Notification(models.Model):
                     'follow_up_reminder',
                 ]),
                 name='notif_type_valid'),
-            models.CheckConstraint(condition=Q(channel__in=['in_app']), name='notif_channel_valid'),
+            models.CheckConstraint(condition=Q(channel__in=['in_app', 'email']), name='notif_channel_valid'),
         ]
 
     def __str__(self):
@@ -75,21 +77,26 @@ def related_key(obj):
 
 def notify(user, notif_type, message, *, title='', related=None):
     """
-    Create an in-app notification for `user`. Does nothing (returns None) when there is nobody to
-    tell: no user (e.g. a patient without a portal account) or a deactivated account.
-    `related` is the model instance the notification is about.
+    Create an in-app notification for `user`, and email it too when its type is in
+    settings.NOTIFICATION_EMAIL_TYPES. Does nothing (returns None) when there is nobody to tell:
+    no user (e.g. a patient without a portal account) or a deactivated account.
+    `related` is the model instance the notification is about. Returns the in-app notification.
     """
     if user is None or not user.is_active:
         return None
     related_type, related_id = related_key(related)
-    return Notification.objects.create(user=user, type=notif_type, title=title, message=message,
-                                       related_type=related_type, related_id=related_id)
+    notification = Notification.objects.create(user=user, type=notif_type, title=title, message=message,
+                                               related_type=related_type, related_id=related_id)
+    from .emails import queue_email  # local import: emails imports this module
+    queue_email(notification)
+    return notification
 
 
 def already_notified(user, notif_type, related, *, since=None):
     """Whether `user` already got a `notif_type` notification about `related` (optionally since a time)."""
     related_type, related_id = related_key(related)
-    qs = Notification.objects.filter(user=user, type=notif_type, related_type=related_type, related_id=related_id)
+    qs = Notification.objects.filter(user=user, type=notif_type, related_type=related_type, related_id=related_id,
+                                     channel=Notification.Channel.IN_APP)
     if since is not None:
         qs = qs.filter(sent_at__gte=since)
     return qs.exists()
