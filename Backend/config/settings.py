@@ -75,8 +75,9 @@ PAYMOB = {
     'SECRET_KEY': os.getenv('PAYMOB_SECRET_KEY', ''),
     'PUBLIC_KEY': os.getenv('PAYMOB_PUBLIC_KEY', ''),
     'HMAC_SECRET': os.getenv('PAYMOB_HMAC_SECRET', ''),
-    # Card integration id(s), comma-separated.
-    'INTEGRATION_IDS': [int(i) for i in os.getenv('PAYMOB_INTEGRATION_IDS', '').replace(' ', '').split(',') if i],
+    # Card integration id(s), comma-separated. PAYMOB_INTEGRATION_ID (one id) is accepted too.
+    'INTEGRATION_IDS': [int(i) for i in (os.getenv('PAYMOB_INTEGRATION_IDS') or os.getenv('PAYMOB_INTEGRATION_ID', ''))
+                        .replace(' ', '').split(',') if i],
     'API_URL': os.getenv('PAYMOB_API_URL', 'https://accept.paymob.com'),
     'CHECKOUT_URL': os.getenv('PAYMOB_CHECKOUT_URL', 'https://eg.checkout.paymob.com/'),
     # Public URL of this backend (e.g. an ngrok tunnel) so Paymob's server can POST its callback.
