@@ -23,6 +23,7 @@ import {
   DIAGNOSIS_STATUS, ENCOUNTER_STATUS, diagnosisPayload, encounterPayload, formatBp, validateDiagnosis,
   validateEncounter, validateVitals, vitalsPayload,
 } from './emrRules'
+import Icd10Picker from './Icd10Picker'
 import '../Patients/Patients.css'
 import './EMR.css'
 
@@ -192,17 +193,13 @@ function VitalsPanel({ encounter, editable, onChanged }) {
 }
 
 // ---------------------------------------------------------------------------- Diagnoses
-const EMPTY_DIAGNOSIS = { icd10_code: '', description: '', is_primary: false }
+const EMPTY_DIAGNOSIS = { icd10: null, is_primary: false }
 
 function DiagnosesPanel({ encounter, editable, canWrite, onChanged }) {
   const [adding, setAdding] = useState(false)
   const [values, setValues] = useState(EMPTY_DIAGNOSIS)
   const [actionError, setActionError] = useState('')
   const { errors, saving, submit } = useSubmit('Could not save the diagnosis.')
-  const change = (event) => {
-    const { name, type, checked, value } = event.target
-    setValues((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
-  }
 
   const save = async (event) => {
     event.preventDefault()
@@ -232,14 +229,11 @@ function DiagnosesPanel({ encounter, editable, canWrite, onChanged }) {
       {adding && (
         <form onSubmit={save} noValidate className="form-stack emr-form">
           {errors.form && <Alert variant="error">{errors.form}</Alert>}
-          <div className="form-grid">
-            <TextField label="ICD-10 code" name="icd10_code" value={values.icd10_code} onChange={change}
-              error={errors.icd10_code} hint="For example K74.6 (cirrhosis) or C22.0 (HCC)." maxLength={10} />
-            <TextField label="Diagnosis" name="description" value={values.description} onChange={change}
-              error={errors.description} maxLength={255} />
-          </div>
+          <Icd10Picker value={values.icd10} error={errors.icd10_code}
+            onChange={(icd10) => setValues((prev) => ({ ...prev, icd10 }))} />
           <label className="emr-check">
-            <input type="checkbox" name="is_primary" checked={values.is_primary} onChange={change} />
+            <input type="checkbox" name="is_primary" checked={values.is_primary}
+              onChange={(event) => setValues((prev) => ({ ...prev, is_primary: event.target.checked }))} />
             Primary diagnosis of this visit
           </label>
           {errors.is_primary && <p className="field__error">{errors.is_primary}</p>}

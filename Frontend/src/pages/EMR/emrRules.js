@@ -30,9 +30,6 @@ export const DIAGNOSIS_STATUS = {
 export const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png']
 export const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20 MB, same as the backend
 
-// Letter, 2 characters, optional dot + 1–4 characters (e.g. K74.6, C22.0, B18.2).
-const ICD10 = /^[A-Z][0-9][0-9A-Z](\.[0-9A-Z]{1,4})?$/
-
 const blank = (value) => value === undefined || value === null || String(value).trim() === ''
 const trimmed = (value) => (blank(value) ? '' : String(value).trim())
 
@@ -80,16 +77,10 @@ export function historyPayload(values, patientId) {
 }
 
 // --- Diagnosis -------------------------------------------------------------------
-export function normaliseIcd10(code) {
-  return trimmed(code).toUpperCase()
-}
-
+/** values: { icd10: { code, description } chosen from the catalog or null, is_primary } */
 export function validateDiagnosis(values, diagnoses = []) {
   const errors = {}
-  const code = normaliseIcd10(values.icd10_code)
-  if (!code) errors.icd10_code = 'Enter the ICD-10 code.'
-  else if (!ICD10.test(code)) errors.icd10_code = 'Enter a valid ICD-10 code, for example K74.6.'
-  if (blank(values.description)) errors.description = 'Enter the diagnosis name.'
+  if (!values.icd10) errors.icd10_code = 'Choose a diagnosis from the ICD-10 list.'
   if (values.is_primary && diagnoses.some((d) => d.is_primary)) {
     errors.is_primary = 'This encounter already has a primary diagnosis.'
   }
@@ -99,8 +90,7 @@ export function validateDiagnosis(values, diagnoses = []) {
 export function diagnosisPayload(values, encounterId) {
   return {
     encounter: encounterId,
-    icd10_code: normaliseIcd10(values.icd10_code),
-    description: trimmed(values.description),
+    icd10_code: values.icd10.code,
     is_primary: Boolean(values.is_primary),
   }
 }

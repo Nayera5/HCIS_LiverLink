@@ -7,17 +7,20 @@ addendum and document release. Reads are not logged (per the audit policy).
 import os
 
 from django.db import transaction
+from django.db.models import Q
 from django.http import FileResponse
-from rest_framework import status, viewsets
+from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.accounts.audit import audit
 from apps.accounts.models import AuditLog
+from apps.accounts.permissions import HasCapability
 
-from .models import Diagnosis, Document, Encounter, MedicalHistory, VitalSigns
+from .models import Diagnosis, Document, Encounter, Icd10Code, MedicalHistory, VitalSigns
 from .permissions import EMRAccess, can_view_all, patient_profile, staff_profile
 from .serializers import (
     DiagnosisSerializer,
@@ -25,6 +28,7 @@ from .serializers import (
     EncounterAddendumSerializer,
     EncounterListSerializer,
     EncounterSerializer,
+    Icd10CodeSerializer,
     MedicalHistorySerializer,
     VitalSignsSerializer,
 )
@@ -171,6 +175,29 @@ class MedicalHistoryViewSet(EMRViewSet):
 
     def save_kwargs(self):
         return {"recorded_by": staff_profile(self.request.user)}
+
+
+class Icd10SearchView(generics.ListAPIView):
+    """
+    GET /api/emr/icd10/?q=   search the ICD-10 catalog (emr.view), at most 50 results.
+    Matches the start of a code (K74.6 or K746), or every word in the name / search words.
+    """
+
+    permission_classes = [IsAuthenticated, HasCapability("emr.view")]
+    serializer_class = Icd10CodeSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        q = self.request.query_params.get("q", "").strip()
+        code = q.replace(".", "")
+        if not code:
+            return Icd10Code.objects.none()
+        if len(code) > 3:
+            code = f"{code[:3]}.{code[3:]}"
+        match = Q()
+        for word in q.split():
+            match &= Q(description__icontains=word) | Q(keywords__icontains=word)
+        return Icd10Code.objects.filter(match | Q(code__istartswith=code))[:50]
 
 
 class DiagnosisViewSet(EncounterRecordMixin, EMRViewSet):
