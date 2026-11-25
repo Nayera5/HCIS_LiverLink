@@ -6,6 +6,10 @@ from . import views
 app_name = 'transplant'
 
 urlpatterns = [
+    path('staff-picker/',
+         views.StaffPickerView.as_view(),
+         name='staff-picker'),
+
     # ── Transplant Cases ──────────────────────────────────────────────────
     path('cases/',
          views.TransplantCaseListCreateView.as_view(),

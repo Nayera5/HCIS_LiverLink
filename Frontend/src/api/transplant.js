@@ -1,6 +1,11 @@
 // Transplant & follow-up API (backend: apps/transplant). Permissions enforced server-side.
 import { authRequest, toQuery } from './http'
 
+/** Active staff choices for transplant forms. */
+export function listTransplantStaff(params = {}) {
+  return authRequest(`/transplant/staff-picker/${toQuery(params)}`)
+}
+
 // ── Transplant Cases ────────────────────────────────────────────────────
 /** params: { search, status, page, page_size } */
 export function listCases(params = {}) {

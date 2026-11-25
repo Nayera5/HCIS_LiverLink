@@ -6,7 +6,7 @@ import Badge from '../../components/ui/Badge'
 import PageHeader from '../../components/ui/PageHeader'
 import { Pagination } from '../../components/ui/Feedback'
 import { useApi } from '../../hooks/useApi'
-import { listCases } from '../../api/transplant'
+import { listCases, listTransplantStaff } from '../../api/transplant'
 import './Transplant.css'
 
 const PAGE_SIZE = 10
@@ -27,11 +27,19 @@ export default function TransplantCasesPage() {
   const { can } = useAuth()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [coordinatorFilter, setCoordinatorFilter] = useState('')
   const [page, setPage] = useState(1)
 
+  const coordinatorsLoader = useCallback(
+    () => listTransplantStaff({ job_title: 'transplant_coordinator' }),
+    [],
+  )
+  const { data: coordinatorsData, loading: coordinatorsLoading, error: coordinatorsError } = useApi(coordinatorsLoader)
+  const coordinators = Array.isArray(coordinatorsData) ? coordinatorsData : []
+
   const loader = useCallback(
-    () => listCases({ search, status: statusFilter, page, page_size: PAGE_SIZE }),
-    [search, statusFilter, page],
+    () => listCases({ search, status: statusFilter, coordinator: coordinatorFilter, page, page_size: PAGE_SIZE }),
+    [search, statusFilter, coordinatorFilter, page],
   )
   const { data, loading, error } = useApi(loader)
   const cases = Array.isArray(data) ? data : data?.results || []
@@ -64,8 +72,20 @@ export default function TransplantCasesPage() {
             <option key={k} value={k}>{v}</option>
           ))}
         </select>
+        <select
+          value={coordinatorFilter}
+          onChange={(e) => { setCoordinatorFilter(e.target.value); setPage(1) }}
+          className="input"
+          disabled={coordinatorsLoading || Boolean(coordinatorsError)}
+        >
+          <option value="">All coordinators</option>
+          {coordinators.map((coordinator) => (
+            <option key={coordinator.id} value={coordinator.id}>{coordinator.name}</option>
+          ))}
+        </select>
       </div>
 
+      {coordinatorsError && <p className="error-text">Could not load coordinators: {coordinatorsError.message}</p>}
       {error && <p className="error-text">{error.message}</p>}
       {loading && <p>Loading…</p>}
 

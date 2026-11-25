@@ -190,7 +190,7 @@ export default function FollowUpPlanDetailPage() {
       <div className="case-info-grid" style={{ marginBottom: '1.5rem' }}>
         <div className="info-card">
           <label>Patient</label>
-          <div className="value">{plan.patient_name || `Patient #${plan.patient}`}</div>
+          <div className="value">{plan.patient_detail?.full_name || 'Patient details unavailable'}</div>
         </div>
         <div className="info-card">
           <label>Role</label>

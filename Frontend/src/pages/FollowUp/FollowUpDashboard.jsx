@@ -69,7 +69,7 @@ export default function FollowUpDashboard() {
               </Badge>
             </div>
             <div className="plan-card__meta">
-              <span><strong>Patient:</strong> {plan.patient_name || `Patient #${plan.patient}`}</span>
+              <span><strong>Patient:</strong> {plan.patient_detail?.full_name || 'Patient details unavailable'}</span>
               <span><strong>Role:</strong> {ROLE_LABELS[plan.patient_role] || plan.patient_role}</span>
               <span><strong>Started:</strong> {plan.start_date || '—'}</span>
               {plan.end_date && <span><strong>Ended:</strong> {plan.end_date}</span>}
