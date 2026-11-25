@@ -113,6 +113,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
         except Encounter.DoesNotExist:
             return None
 
+    def validate_appointment_type(self, value):
+        if value in (Appointment.Type.CT_SCAN, Appointment.Type.LAB_VISIT):
+            raise serializers.ValidationError("CT scans and lab visits are not bookable appointment types.")
+        return value
+
     def validate(self, attrs):
         user = self.context["request"].user
 

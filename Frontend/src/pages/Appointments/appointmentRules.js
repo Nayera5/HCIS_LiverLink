@@ -3,11 +3,20 @@
 
 export const APPOINTMENT_TYPE_LABELS = {
   consultation: 'Consultation',
+  examination: 'Examination',
   ct_scan: 'CT scan',
   lab_visit: 'Lab visit',
   donor_evaluation: 'Donor evaluation',
   recipient_evaluation: 'Recipient evaluation',
   follow_up: 'Post-transplant follow-up',
+}
+
+export const BOOKABLE_APPOINTMENT_TYPE_LABELS = {
+  consultation: APPOINTMENT_TYPE_LABELS.consultation,
+  examination: APPOINTMENT_TYPE_LABELS.examination,
+  donor_evaluation: APPOINTMENT_TYPE_LABELS.donor_evaluation,
+  recipient_evaluation: APPOINTMENT_TYPE_LABELS.recipient_evaluation,
+  follow_up: APPOINTMENT_TYPE_LABELS.follow_up,
 }
 
 export const APPOINTMENT_STATUS = {
@@ -177,7 +186,7 @@ export function validateBooking(values, { needsPatient }) {
   const errors = {}
   if (needsPatient && blank(values.patient)) errors.patient = 'Choose the patient.'
   if (blank(values.staff)) errors.staff = 'Choose a doctor.'
-  if (!APPOINTMENT_TYPE_LABELS[values.appointment_type]) errors.appointment_type = 'Choose the type of visit.'
+  if (!BOOKABLE_APPOINTMENT_TYPE_LABELS[values.appointment_type]) errors.appointment_type = 'Choose the type of visit.'
   if (blank(values.date)) errors.date = 'Choose a date.'
   if (blank(values.start_time)) errors.start_time = 'Choose a free time.'
   return errors
