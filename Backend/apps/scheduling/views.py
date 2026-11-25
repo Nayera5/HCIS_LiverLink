@@ -8,6 +8,9 @@ Scheduling API (module 3), mounted at /api/scheduling/. Permissions: see permiss
     appointments/{id}/reschedule/       new start_time (and optionally staff)
     appointments/{id}/cancel/ | check-in/ | no-show/ | complete/
 
+Imaging appointments (type 'imaging') appear in the list and can be checked in here; booking, moving,
+cancelling, no-show and completing them is done through /api/radiology/, with the imaging order.
+
 Appointments are never deleted: cancelled and no-show visits are kept for reports.
 Audit (module 1 audit log): create, reschedule (update) and status changes.
 """
@@ -109,7 +112,7 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
     Patients and donors only see and manage their own appointments.
     """
 
-    queryset = Appointment.objects.select_related("patient", "staff__user", "encounter")
+    queryset = Appointment.objects.select_related("patient", "staff__user", "encounter", "imaging_order__billing_service")
     serializer_class = AppointmentSerializer
     permission_classes = [AppointmentAccess]
 
@@ -139,8 +142,19 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
             return
         raise PermissionDenied("You cannot change this appointment.")
 
+    @staticmethod
+    def check_not_imaging(appointment):
+        if appointment.is_imaging:
+            raise ValidationError("This is a scan appointment: manage it from its imaging order.")
+
+    @transaction.atomic
     def change_status(self, new_status):
         appointment = self.get_object()
+        if appointment.is_imaging:
+            if new_status != Appointment.Status.CHECKED_IN:
+                self.check_not_imaging(appointment)
+            # Locked, so a check-in cannot overwrite a cancellation made through the imaging order.
+            appointment = Appointment.objects.select_for_update().get(pk=appointment.pk)
         if not appointment.can_move_to(new_status):
             raise ValidationError(f"A {appointment.get_status_display().lower()} appointment cannot be "
                                   f"changed to {Appointment.Status(new_status).label.lower()}.")
@@ -166,6 +180,7 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
     def reschedule(self, request, pk=None):
         appointment = self.get_object()
         self.check_can_manage(appointment)
+        self.check_not_imaging(appointment)
         if appointment.status != Appointment.Status.BOOKED:
             raise ValidationError("Only booked appointments can be rescheduled.")
         data = {key: request.data[key] for key in ("start_time", "staff") if key in request.data}

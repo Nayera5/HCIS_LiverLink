@@ -5,6 +5,7 @@ from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
 from apps.registry.models import Patient
+from apps.radiology.models import ImagingOrder
 from apps.scheduling.models import Appointment
 
 from .models import Invoice, InvoiceItem, Payment, Service
@@ -50,7 +51,7 @@ class InvoiceItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InvoiceItem
-        fields = ['id', 'service', 'service_code', 'service_name', 'appointment', 'surgery',
+        fields = ['id', 'service', 'service_code', 'service_name', 'appointment', 'surgery', 'imaging_order',
                   'quantity', 'unit_price', 'line_total']
         read_only_fields = fields
 
@@ -109,6 +110,8 @@ class InvoiceItemInputSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1, default=1)
     appointment = serializers.PrimaryKeyRelatedField(
         queryset=Appointment.objects.all(), required=False, allow_null=True)
+    imaging_order = serializers.PrimaryKeyRelatedField(
+        queryset=ImagingOrder.objects.all(), required=False, allow_null=True)
 
 
 class InvoiceCreateSerializer(serializers.Serializer):
@@ -130,6 +133,20 @@ class InvoiceCreateSerializer(serializers.Serializer):
             if appointment is not None and appointment.patient_id != patient.pk:
                 raise serializers.ValidationError(
                     {'items': ['An appointment on the invoice must belong to the billed patient.']})
+            imaging_order = item.get('imaging_order')
+            if imaging_order is not None and imaging_order.patient_id != patient.pk:
+                raise serializers.ValidationError(
+                    {'items': ['An imaging order on the invoice must belong to the billed patient.']})
+            if imaging_order is not None and imaging_order.status != 'acquired':
+                raise serializers.ValidationError(
+                    {'items': ['An imaging order can be billed only after the scan is acquired.']})
+            if imaging_order is not None and item['service'].category != Service.Category.IMAGING:
+                raise serializers.ValidationError(
+                    {'items': ['An imaging order must be billed with an imaging service.']})
+            if (imaging_order is not None and imaging_order.billing_service_id is not None
+                    and item['service'].pk != imaging_order.billing_service_id):
+                raise serializers.ValidationError(
+                    {'items': ['An imaging order must use its selected billing service.']})
         return attrs
 
     def validate_due_date(self, value):
@@ -144,6 +161,20 @@ class InvoiceCreateSerializer(serializers.Serializer):
                           issued_by=self.context.get('issued_by'))
         try:
             with transaction.atomic():
+                imaging_order_ids = sorted({
+                    item_data['imaging_order'].pk
+                    for item_data in items_data if item_data.get('imaging_order') is not None
+                })
+                if imaging_order_ids:
+                    list(ImagingOrder.objects.select_for_update().filter(
+                        pk__in=imaging_order_ids,
+                    ).order_by('pk'))
+                    if InvoiceItem.objects.filter(
+                        imaging_order_id__in=imaging_order_ids, is_current_imaging_charge=True,
+                    ).exclude(invoice__status=Invoice.Status.CANCELLED).exists():
+                        raise serializers.ValidationError({
+                            'items': ['An active invoice already contains this imaging order.'],
+                        })
                 invoice.full_clean(exclude=['invoice_no', 'total_amount'])
                 invoice.save()
                 total = Decimal('0')
@@ -152,6 +183,7 @@ class InvoiceCreateSerializer(serializers.Serializer):
                     item = InvoiceItem(
                         invoice=invoice, service=service, quantity=item_data['quantity'],
                         unit_price=service.price, appointment=item_data.get('appointment'),
+                        imaging_order=item_data.get('imaging_order'),
                     )
                     item.full_clean(exclude=['line_total'])
                     item.save()

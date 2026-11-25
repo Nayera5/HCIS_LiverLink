@@ -3,12 +3,15 @@ Automatic invoice generation (spec §13 "Invoice Generation": invoices are creat
 appointments and transplant surgeries).
 
 - invoice_for_appointment(): called when an appointment is marked completed. The visit fee comes
+  from APPOINTMENT_SERVICE_CODES. Lab visits carry no fee: their tests are billed with the order.
+- invoice_for_imaging_order(): called when a scan is acquired and uses the order's explicitly
+  selected active imaging service.
   from APPOINTMENT_SERVICE_CODES. Lab visits carry no visit fee.
 - invoice_for_surgery(): called when a transplant surgery is marked completed.
 
 Both are idempotent (a source already on a non-cancelled invoice is not billed again) and never
 break the clinical action that triggered them: a billing problem (e.g. a service missing from
-the catalog) is logged and the appointment / result is still saved. Billing staff can then add
+the catalog) is logged and the clinical action is still saved. Billing staff can then add
 the charge by hand. Automatic invoices have no `issued_by` (spec §4.39).
 """
 import datetime
@@ -51,7 +54,6 @@ def _already_billed(**source):
 
 
 def _create_invoice(patient, lines):
-    """lines: [(service, quantity, source fields), ...]. Prices are copied now."""
     today = timezone.localdate()
     invoice = Invoice.objects.create(patient=patient, issued_by=None, issue_date=today,
                                      due_date=today + datetime.timedelta(days=DUE_AFTER_DAYS))
@@ -103,3 +105,25 @@ def invoice_for_surgery(surgery):
         return None
     return _safely(f'surgery #{surgery.pk}', lambda: _create_invoice(
         surgery.case.recipient, [(service, 1, {'surgery': surgery})]))
+
+@transaction.atomic
+def invoice_for_imaging_order(order, appointment=None):
+    """Invoice an acquired scan with its selected catalog service, or log an unmapped scan."""
+    from apps.radiology.models import ImagingOrder
+
+    order = ImagingOrder.objects.select_for_update().select_related(
+        'patient', 'billing_service',
+    ).get(pk=order.pk)
+    if order.status != ImagingOrder.Status.ACQUIRED or _already_billed(
+        imaging_order=order, is_current_imaging_charge=True,
+    ):
+        return None
+    service = order.billing_service
+    if service is None or service.category != Service.Category.IMAGING or not service.is_active:
+        logger.warning('Imaging order #%s has no active imaging service; it was not billed.', order.pk)
+        return None
+    source = {'imaging_order': order}
+    if appointment is not None:
+        source['appointment'] = appointment
+    return _safely(f'imaging order #{order.pk}', lambda: _create_invoice(
+        order.patient, [(service, 1, source)]))

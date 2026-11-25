@@ -1,0 +1,35 @@
+.filter-bar--imaging {
+  grid-template-columns: repeat(3, minmax(150px, 220px)) auto;
+}
+
+.imaging-more {
+  padding: 0 20px 16px;
+}
+
+.imaging-slots {
+  display: grid;
+  gap: 14px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.imaging-slot-grid {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+}
+
+.imaging-slot-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.imaging-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .filter-bar--imaging {
+    grid-template-columns: 1fr;
+  }
+}

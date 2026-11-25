@@ -38,6 +38,8 @@ urlpatterns = [
     path('api/', include('apps.notifications.urls')),
     # Transplant case management and follow-up (modules 11-12, Person 4).
     path('api/transplant/', include('apps.transplant.urls')),
+    # Radiology (module 7): imaging orders.
+    path('api/radiology/', include('apps.radiology.urls')),
     # Reporting & analytics (module 15): read-only reports with CSV/PDF export.
     path('api/', include('apps.reporting.urls')),
     # HL7 interoperability (module 16): message monitor.

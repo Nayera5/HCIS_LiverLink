@@ -208,6 +208,14 @@ class Invoice(models.Model):
     def cancel(self):
         # Same row lock as recording a payment, so a payment cannot land while we cancel.
         with transaction.atomic():
+            imaging_order_ids = list(InvoiceItem.objects.filter(
+                invoice_id=self.pk, imaging_order__isnull=False,
+            ).order_by().values_list('imaging_order_id', flat=True).distinct())
+            if imaging_order_ids:
+                from apps.radiology.models import ImagingOrder
+                list(ImagingOrder.objects.select_for_update().filter(
+                    pk__in=imaging_order_ids,
+                ).order_by('pk'))
             locked = Invoice.objects.select_for_update().get(pk=self.pk)
             if locked.paid_amount() > 0:
                 raise ValidationError({'status': 'An invoice with recorded payments cannot be cancelled.'})
@@ -217,6 +225,8 @@ class Invoice(models.Model):
                                                  'Try again in a few minutes.'})
             locked.status = self.Status.CANCELLED
             locked.save(update_fields=['status', 'updated_at'])
+            InvoiceItem.objects.filter(invoice=locked, imaging_order__isnull=False).update(
+                is_current_imaging_charge=False)
         self.status, self.updated_at = locked.status, locked.updated_at
 
 
@@ -232,6 +242,13 @@ class InvoiceItem(models.Model):
     surgery = models.ForeignKey(
         'transplant.Surgery', null=True, blank=True, on_delete=models.PROTECT,
         related_name='invoice_items', help_text='Transplant surgery the charge came from, if any.',
+    
+    imaging_order = models.ForeignKey(
+        'radiology.ImagingOrder', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='invoice_items', help_text='Imaging order the charge came from, if any.',
+    )
+    is_current_imaging_charge = models.BooleanField(
+        default=False, help_text='Marks the single non-cancelled invoice item currently charging an imaging order.',
     )
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     unit_price = models.DecimalField(
@@ -244,12 +261,18 @@ class InvoiceItem(models.Model):
         constraints = [
             models.CheckConstraint(condition=Q(quantity__gte=1), name='billing_invoiceitem_quantity_positive'),
             models.CheckConstraint(condition=Q(unit_price__gte=0), name='billing_invoiceitem_unit_price_non_negative'),
+            models.UniqueConstraint(
+                fields=['imaging_order'], condition=Q(imaging_order__isnull=False, is_current_imaging_charge=True),
+                name='billing_one_current_imaging_charge',
+            ),
         ]
 
     def __str__(self):
         return f'{self.service.code} × {self.quantity} on {self.invoice.invoice_no}'
 
     def save(self, *args, **kwargs):
+        if self._state.adding:
+            self.is_current_imaging_charge = self.imaging_order_id is not None
         if self.unit_price is None:
             self.unit_price = self.service.price
         self.line_total = self.unit_price * self.quantity

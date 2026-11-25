@@ -14,7 +14,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.accounts.models import Staff, User
+from apps.accounts.models import Staff, User, AuditLog
 from apps.billing.models import InvoiceItem
 from apps.registry.models import Patient
 
@@ -604,6 +604,11 @@ class TransplantAPITests(TestCase):
         }, format='json')
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(resp.data['status'], 'referred')
+        self.assertTrue(AuditLog.objects.filter(
+            entity_type='transplant.transplantcase',
+            entity_id=resp.data['id'],
+            action=AuditLog.Action.CREATE,
+        ).exists())
 
     def test_coordinator_cannot_refer(self):
         """Only hepatologists can refer."""
@@ -646,11 +651,63 @@ class TransplantAPITests(TestCase):
     # ── Case Donors ──────────────────────────────────────────────────
     def test_add_donor_to_case(self):
         case = _create_case(self.recipient, self.hepatologist)
+        case.transition_to(TransplantCase.Status.UNDER_EVALUATION)
         resp = self.coord_client.post(
             f'/api/transplant/cases/{case.pk}/donors/',
             {'donor': self.donor_patient.pk}, format='json',
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(AuditLog.objects.filter(
+            entity_type='transplant.casedonor',
+            entity_id=resp.data['id'],
+            action=AuditLog.Action.CREATE,
+        ).exists())
+
+    def test_cannot_add_donor_before_case_enters_evaluation(self):
+        case = _create_case(self.recipient, self.hepatologist)
+        resp = self.coord_client.post(
+            f'/api/transplant/cases/{case.pk}/donors/',
+            {'donor': self.donor_patient.pk}, format='json',
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('under evaluation', str(resp.data))
+        self.assertFalse(CaseDonor.objects.filter(case=case).exists())
+
+    def test_cannot_add_donor_if_recipient_category_changed(self):
+        case = _create_case(self.recipient, self.hepatologist, status=TransplantCase.Status.UNDER_EVALUATION)
+        self.recipient.category = Patient.Category.DONOR
+        self.recipient.save(update_fields=['category'])
+        resp = self.coord_client.post(
+            f'/api/transplant/cases/{case.pk}/donors/',
+            {'donor': self.donor_patient.pk}, format='json',
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('not currently eligible', str(resp.data))
+
+    def test_case_can_be_closed_before_matching(self):
+        for initial_status in (
+            TransplantCase.Status.REFERRED,
+            TransplantCase.Status.UNDER_EVALUATION,
+            TransplantCase.Status.COMMITTEE_REVIEW,
+        ):
+            with self.subTest(initial_status=initial_status):
+                case = _create_case(
+                    _make_patient(category='recipient'),
+                    self.hepatologist,
+                    status=initial_status,
+                )
+                response = self.coord_client.post(
+                    f'/api/transplant/cases/{case.pk}/status/',
+                    {'status': TransplantCase.Status.CLOSED},
+                    format='json',
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+                self.assertEqual(response.data['status'], TransplantCase.Status.CLOSED)
+                self.assertTrue(AuditLog.objects.filter(
+                    entity_type='transplant.transplantcase',
+                    entity_id=case.pk,
+                    action=AuditLog.Action.STATUS_CHANGE,
+                ).exists())
 
     def test_abo_check(self):
         case = _create_case(self.recipient, self.hepatologist)

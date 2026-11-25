@@ -152,6 +152,7 @@ const CONFIRM = {
 const BUTTON_LABELS = {
   reschedule: 'Reschedule', cancel: 'Cancel', check_in: 'Check in', no_show: 'No-show', complete: 'Complete',
   start_encounter: 'Start encounter', open_encounter: 'Open encounter',
+  open_order: 'Open imaging order', manage_scan: 'Manage scan',
 }
 
 /** Action buttons for one appointment. `onChanged(updated)` receives the new appointment. */
@@ -187,6 +188,8 @@ export function AppointmentActions({ appointment, who, onChanged }) {
 
   const click = (action) => {
     if (action === 'open_encounter') navigate(`/encounters/${appointment.encounter}`)
+    else if (action === 'open_order') navigate(`/imaging/orders/${appointment.imaging_order}`)
+    else if (action === 'manage_scan') navigate('/my-imaging')
     else if (action === 'reschedule' || CONFIRM[action]) setDialog(action)
     else run(action)
   }
@@ -246,9 +249,10 @@ export function AppointmentTable({ appointments, who, onChanged, showDate = fals
                   <span className="appt-sub">{a.patient_mrn}</span>
                 </td>
               )}
-              <td className="hide-sm">{a.staff_name}</td>
+              <td className="hide-sm">{a.staff_name || '—'}</td>
               <td className="hide-sm">
                 {APPOINTMENT_TYPE_LABELS[a.appointment_type] || a.appointment_type}
+                {a.imaging_service && ` · ${a.imaging_service}`}
                 {a.reason && <span className="appt-sub">{a.reason}</span>}
               </td>
               <td><StatusBadge status={a.status} /></td>

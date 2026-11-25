@@ -31,7 +31,8 @@ from apps.accounts.permissions import HasCapability
 from apps.accounts.rbac import get_staff_profile
 
 from .donor_serializers import (
-    OwnApplicationCreateSerializer, OwnApplicationSerializer, ScreeningSerializer,
+    MRN_NOT_FOUND, OwnApplicationCreateSerializer, OwnApplicationSerializer, ScreeningSerializer,
+    find_recipient,
     StaffApplicationCreateSerializer, StaffApplicationSerializer,
 )
 from .models import DonorApplication, Patient
@@ -57,10 +58,14 @@ def _django_errors(exc):
 
 
 def _create(serializer, request):
-    """Save a validated application (race-safe for the one-open-per-pair rule) and audit it."""
+    """Recheck recipient eligibility while saving, then audit the application."""
     try:
         with transaction.atomic():
-            application = DonorApplication.objects.create(**serializer.validated_data)
+            data = serializer.validated_data
+            recipient = find_recipient(data['recipient'].mrn, for_update=True)
+            if recipient is None or recipient.pk != data['recipient'].pk:
+                raise ValidationError({'recipient_mrn': [MRN_NOT_FOUND]})
+            application = DonorApplication.objects.create(**data)
     except IntegrityError:
         raise ValidationError(DUPLICATE_OPEN)
     audit(request, A.CREATE, ENTITY, entity_id=application.pk, patient=application.donor)

@@ -37,7 +37,7 @@ CHECKLIST_STAGES = ('referred', 'under_evaluation')
 def send_appointment_reminders(now):
     from apps.scheduling.models import Appointment
 
-    due = Appointment.objects.select_related('patient__user', 'staff__user').filter(
+    due = Appointment.objects.select_related('patient__user', 'staff__user', 'imaging_order__billing_service').filter(
         status=Appointment.Status.BOOKED, start_time__gt=now, start_time__lte=now + APPOINTMENT_REMINDER_WINDOW,
         patient__user__isnull=False,
     )

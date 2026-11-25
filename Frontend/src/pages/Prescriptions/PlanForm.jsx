@@ -15,8 +15,11 @@ const blank = () => ({ plan_type: '', goals: '', steps: '', start_date: todayIso
  * sent, and a reason is required (stored in the audit log with the old and new values).
  * onSubmit(payload) must return a promise.
  */
-export default function PlanForm({ plan, onSubmit, onCancel }) {
+export default function PlanForm({ plan, onSubmit, onCancel, canReferTransplant = false }) {
   const editing = Boolean(plan)
+  const planTypeOptions = canReferTransplant || plan?.plan_type === 'transplant_referral'
+    ? PLAN_TYPE_OPTIONS
+    : PLAN_TYPE_OPTIONS.filter((option) => option.value !== 'transplant_referral')
   const [form, setForm] = useState(() => (editing
     ? { plan_type: plan.plan_type, goals: plan.goals, steps: plan.steps || '', start_date: plan.start_date,
         review_date: plan.review_date || '', reason: '' }
@@ -53,7 +56,7 @@ export default function PlanForm({ plan, onSubmit, onCancel }) {
     <form onSubmit={submit} noValidate className="form-stack rx-plan-form">
       {errors.form && <Alert variant="error">{errors.form}</Alert>}
       <div className="rx-grid">
-        <SelectField label="Treatment" placeholder="Choose…" options={PLAN_TYPE_OPTIONS} value={form.plan_type}
+        <SelectField label="Treatment" placeholder="Choose…" options={planTypeOptions} value={form.plan_type}
           onChange={set('plan_type')} error={errors.plan_type} />
         <TextField label="Start date" type="date" value={form.start_date} onChange={set('start_date')}
           error={errors.start_date} />

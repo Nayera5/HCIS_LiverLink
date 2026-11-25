@@ -59,13 +59,17 @@ export default function PatientTreatmentPlansPanel({ patientId }) {
   }
 
   const create = async (payload) => {
-    await createTreatmentPlan({ ...payload, patient: patientId })
-    done('Treatment plan created.')
+    const created = await createTreatmentPlan({ ...payload, patient: patientId })
+    done(created.transplant_case_id
+      ? `Treatment plan created. Transplant case #${created.transplant_case_id} ${created.transplant_case_created ? 'was created' : 'is already open'}. Donor matching is available only while the case is under evaluation.`
+      : 'Treatment plan created.')
   }
 
   const update = (plan) => async (payload) => {
-    await updateTreatmentPlan(plan.id, payload)
-    done('Treatment plan updated. The change and reason were recorded in the audit log.')
+    const updated = await updateTreatmentPlan(plan.id, payload)
+    done(updated.transplant_case_id
+      ? `Treatment plan updated. Transplant case #${updated.transplant_case_id} ${updated.transplant_case_created ? 'was created' : 'is already open'}. Donor matching is available only while the case is under evaluation.`
+      : 'Treatment plan updated. The change and reason were recorded in the audit log.')
   }
 
   const close = async (reason) => {
@@ -80,13 +84,13 @@ export default function PatientTreatmentPlansPanel({ patientId }) {
   )
 
   return (
-    <Panel title="Treatment plans" subtitle="Goals, steps and review dates" action={action}>
+    <Panel title="Treatment plans" subtitle="Goals, steps and review dates" action={action} collapsible>
       {flash && <Alert variant="success">{flash}</Alert>}
       {error && <Alert variant="error">{getErrorMessage(error, 'Could not load treatment plans.')}</Alert>}
       {mode === 'new' && (
         <div className="rx-plan rx-plan--editing">
           <h3 className="rx-plan__title">New treatment plan</h3>
-          <PlanForm onSubmit={create} onCancel={() => setMode(null)} />
+          <PlanForm onSubmit={create} onCancel={() => setMode(null)} canReferTransplant={can('transplant.refer')} />
         </div>
       )}
       {loading && !data ? (
@@ -97,7 +101,8 @@ export default function PatientTreatmentPlansPanel({ patientId }) {
             {plans.map((plan) => (mode === plan.id ? (
               <div key={plan.id} className="rx-plan rx-plan--editing">
                 <h3 className="rx-plan__title">Edit {PLAN_TYPE_LABELS[plan.plan_type]} plan</h3>
-                <PlanForm plan={plan} onSubmit={update(plan)} onCancel={() => setMode(null)} />
+                <PlanForm plan={plan} onSubmit={update(plan)} onCancel={() => setMode(null)}
+                  canReferTransplant={can('transplant.refer')} />
               </div>
             ) : (
               <PlanCard key={plan.id} plan={plan} actions={canManage && (

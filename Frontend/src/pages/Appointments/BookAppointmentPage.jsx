@@ -15,7 +15,7 @@ import { useApi } from '../../hooks/useApi'
 import { TextAreaField } from '../EMR/emrPanels'
 import { DoctorAvailability } from './appointmentParts'
 import {
-  BOOKABLE_APPOINTMENT_TYPE_LABELS, bookingPayload, dateKey, doctorLabel, doctorsForAppointmentType,
+  BOOKABLE_TYPE_LABELS, BOOKABLE_APPOINTMENT_TYPE_LABELS, bookingPayload, dateKey, doctorLabel, doctorsForAppointmentType,
   formatDayTitle, formatWhen, toOptions, validateBooking,
 } from './appointmentRules'
 
@@ -159,14 +159,14 @@ export default function BookAppointmentPage() {
               ? 'No doctors are available for this type of visit.' : undefined}
             options={doctors.map((d) => ({ value: String(d.staff_id), label: doctorLabel(d) }))} error={errors.staff} />
           <DoctorAvailability staff={values.staff} value={values.start_time} onSelect={selectSlot} />
-          <div className="field" aria-live="polite">
-            <p className="field__label">Appointment date</p>
-            <p className="appt-booking-date">
-              {values.date ? formatDayTitle(values.date) : 'Choose an available slot to set the date.'}
-            </p>
-            {errors.date && <p className="field__error">{errors.date}</p>}
-          </div>
-          {errors.start_time && <p className="field__error">{errors.start_time}</p>}
+            <div className="field" aria-live="polite">
+              <p className="field__label">Appointment date</p>
+              <p className="appt-booking-date">
+                {values.date ? formatDayTitle(values.date) : 'Choose an available slot to set the date.'}
+              </p>
+              {errors.date && <p className="field__error">{errors.date}</p>}
+            </div>
+            {errors.start_time && <p className="field__error">{errors.start_time}</p>}
           <TextAreaField label="Reason for the visit (optional)" name="reason" value={values.reason} onChange={change}
             rows={3} maxLength={2000} error={errors.reason} />
           <div className="form-actions">

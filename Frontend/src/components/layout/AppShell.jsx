@@ -6,7 +6,7 @@ import { displayName, initials, roleLine } from '../../auth/roles'
 import { useApi } from '../../hooks/useApi'
 import Button from '../ui/Button'
 import { ConfirmDialog } from '../ui/Feedback'
-import { BellIcon, CloseIcon, LogOutIcon, MenuIcon, PlusIcon, SearchIcon } from '../ui/icons'
+import { BellIcon, CloseIcon, InfoIcon, LogOutIcon, MenuIcon, PlusIcon, SearchIcon } from '../ui/icons'
 import { navigationFor, primaryActionFor } from './navigation'
 import './AppShell.css'
 import '../../pages/Notifications/Notifications.css'
@@ -177,6 +177,10 @@ export default function AppShell() {
             <p className="topbar__context">{current?.label || 'LiverLink'}</p>
           )}
           <div className="topbar__actions">
+            <Link to="/access-info" className="topbar__bell" aria-label="Your access in LiverLink"
+              title="Your access in LiverLink">
+              <InfoIcon size={18} />
+            </Link>
             <NotificationBell />
             {primary && (
               <Button as={Link} to={primary.to} icon={PlusIcon} size="sm" className="topbar__primary"

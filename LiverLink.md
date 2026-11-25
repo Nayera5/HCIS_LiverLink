@@ -1010,7 +1010,11 @@ The planned treatment for a patient, with goals, steps and a review date.
 
 **Business rules**
 
-- A plan of type transplant_referral normally leads to a transplant case.
+- Submitting or changing a plan to `transplant_referral` creates a transplant case, or reuses the
+  patient's existing open case. It does not create another patient record.
+- A new case starts as `referred`. Donor matching is enabled only while the case is
+  `under_evaluation`; a pending referral alone is not enough.
+- Only a hepatologist may submit a transplant referral plan.
 
 ### Radiology & Ai Analysis
 
@@ -1384,6 +1388,10 @@ The transplant process for one recipient, from referral through evaluation, comm
 - A recipient has at most one open case at a time.
 
 - Status moves in order: referred → under_evaluation → committee_review → approved/rejected → surgery_scheduled → transplanted → follow_up.
+- A case may be closed from referred, under_evaluation, or committee_review when the patient withdraws
+  or becomes ineligible. Closing, rejection, and later stages all prevent new donor matching.
+- Under_evaluation is the only status that allows new donor applications or candidate-donor
+  assignments. Returning from committee_review to under_evaluation reopens matching.
 
 ## 4.30 CaseDonor
 
@@ -1420,6 +1428,8 @@ Links a candidate donor to a transplant case and tracks that donor's progress. A
 - abo_compatible is calculated from both blood groups.
 
 - Only one donor per case can be approved for surgery.
+- A donor can be assigned to a case only while that recipient's case is under evaluation. Existing
+  donor links remain as history when the case advances or closes.
 
 ## 4.31 ChecklistItem
 
