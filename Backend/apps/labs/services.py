@@ -1,7 +1,7 @@
 """Lab business logic, shared by the REST API and the HL7 ORU handler (apps/hl7/services.py).
 
-Side effects: the HL7 order message to the external lab (order placed / cancelled), notifications
-(results ready / released) and the automatic invoice once an order is fully resulted.
+Side effects: the HL7 order message to the external lab (order placed / cancelled) and notifications
+(results ready / released).
 """
 from django.db import transaction
 from django.utils import timezone
@@ -47,12 +47,10 @@ def record_result(result, value, result_time=None, hl7_message=None):
 
 
 def _on_order_resulted(order):
-    """All tests have values: tell the ordering doctor (module 14) and bill the tests (module 13)."""
-    from apps.billing.services import invoice_for_lab_order
+    """All tests have values: tell the ordering doctor (module 14)."""
     from apps.notifications import events
 
     events.lab_order_resulted(order)
-    invoice_for_lab_order(order)
 
 
 @transaction.atomic

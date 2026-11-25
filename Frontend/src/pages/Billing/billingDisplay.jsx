@@ -24,8 +24,6 @@ export function invoiceStatusBadge(status) {
 export const SERVICE_CATEGORY_LABELS = {
   consultation: 'Consultation',
   imaging: 'Imaging',
-  lab: 'Lab test',
-  ai_analysis: 'AI analysis',
   evaluation_package: 'Evaluation package',
   surgery: 'Surgery',
   medical_procedures: 'Medical Procedures',

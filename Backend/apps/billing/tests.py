@@ -18,6 +18,8 @@ class ServiceCodingFieldsTests(SimpleTestCase):
         self.assertIn('medical_procedures', Service.Category.values)
         self.assertIn('inpatient_services', Service.Category.values)
         self.assertIn('preventive_care', Service.Category.values)
+        self.assertNotIn('lab', Service.Category.values)
+        self.assertNotIn('ai_analysis', Service.Category.values)
 
 
 class ServiceListPaginationTests(APITestCase):
