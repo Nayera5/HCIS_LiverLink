@@ -108,6 +108,7 @@ export function calendarDays(view, iso) {
 
 /** Query filters for the calendar (the backend filters by start date, inclusive). */
 export function calendarRange(view, iso) {
+  if (view === 'all') return {}
   const days = calendarDays(view, iso)
   return { date_from: days[0], date_to: days[days.length - 1] }
 }
