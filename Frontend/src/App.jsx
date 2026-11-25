@@ -46,7 +46,7 @@ import MyMedicationsPage from './pages/Prescriptions/MyMedicationsPage'
 import MyTreatmentPlansPage from './pages/Prescriptions/MyTreatmentPlansPage'
 import PlanReviewsPage from './pages/Prescriptions/PlanReviewsPage'
 import PrescribePage from './pages/Prescriptions/PrescribePage'
-import ProfilePage from './pages/Profile/ProfilePage'
+import ProfilePage, { AccessInfoPage } from './pages/Profile/ProfilePage'
 import ServicesPage from './pages/Services/ServicesPage'
 import ReportsPage from './pages/Reports/ReportsPage'
 import { REPORT_CAPABILITIES } from './pages/Reports/reportDisplay'
@@ -74,6 +74,7 @@ function App() {
             <Route element={<AppShell />}>
               <Route index element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="access-info" element={<AccessInfoPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
 
               <Route element={<RequireCapability capability="patients.view" />}>

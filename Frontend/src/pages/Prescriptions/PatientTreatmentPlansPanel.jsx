@@ -84,7 +84,7 @@ export default function PatientTreatmentPlansPanel({ patientId }) {
   )
 
   return (
-    <Panel title="Treatment plans" subtitle="Goals, steps and review dates" action={action}>
+    <Panel title="Treatment plans" subtitle="Goals, steps and review dates" action={action} collapsible>
       {flash && <Alert variant="success">{flash}</Alert>}
       {error && <Alert variant="error">{getErrorMessage(error, 'Could not load treatment plans.')}</Alert>}
       {mode === 'new' && (

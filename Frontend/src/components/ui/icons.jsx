@@ -137,6 +137,12 @@ export const ChevronLeftIcon = (p) => (
   </Svg>
 )
 
+export const ChevronDownIcon = (p) => (
+  <Svg {...p}>
+    <path d="m6 9 6 6 6-6" />
+  </Svg>
+)
+
 export const ShieldIcon = (p) => (
   <Svg {...p}>
     <path d="M12 3 19.5 6v6c0 4.4-3.1 7.7-7.5 9-4.4-1.3-7.5-4.6-7.5-9V6Z" />
