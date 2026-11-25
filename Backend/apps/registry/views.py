@@ -25,7 +25,7 @@ from rest_framework.views import APIView
 from apps.accounts.audit import audit
 from apps.accounts.models import AuditLog
 from apps.accounts.permissions import HasCapability
-from apps.accounts.rbac import get_staff_profile
+from apps.accounts.rbac import SCHEDULABLE_TITLES, get_staff_profile
 
 from .models import Patient
 from .serializers import (
@@ -53,6 +53,14 @@ def search_patients(qs, text):
     return qs
 
 
+def patients_visible_to(user, queryset):
+    """Limit doctors to patients with an appointment assigned to their staff profile."""
+    staff = get_staff_profile(user)
+    if staff is not None and staff.job_title in SCHEDULABLE_TITLES:
+        return queryset.filter(appointments__staff=staff).distinct()
+    return queryset
+
+
 class PatientListCreateView(generics.ListCreateAPIView):
     """
     GET  /api/patients/?search=&category=&sex=&ordering=   (patients.view)
@@ -67,7 +75,7 @@ class PatientListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated(), HasCapability(cap)()]
 
     def get_queryset(self):
-        qs = Patient.objects.all()
+        qs = patients_visible_to(self.request.user, Patient.objects.all())
         params = self.request.query_params
         if search := params.get('search', '').strip():
             qs = search_patients(qs, search)
@@ -110,9 +118,12 @@ class PatientSummaryView(APIView):
 class PatientDetailView(generics.RetrieveUpdateAPIView):
     """GET /api/patients/<id>/ (patients.view) · PATCH demographics (patients.edit). No PUT/DELETE."""
 
-    queryset = Patient.objects.select_related('user', 'registered_by__user')
     serializer_class = PatientDetailSerializer
     http_method_names = ['get', 'patch', 'head', 'options']
+
+    def get_queryset(self):
+        return patients_visible_to(
+            self.request.user, Patient.objects.select_related('user', 'registered_by__user'))
 
     def get_permissions(self):
         cap = 'patients.edit' if self.request.method == 'PATCH' else 'patients.view'

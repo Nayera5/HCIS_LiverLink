@@ -3,6 +3,8 @@
 
 export const APPOINTMENT_TYPE_LABELS = {
   consultation: 'Consultation',
+  hepatology_consultation: 'Hepatology Consultation',
+  transplant_consultation: 'Transplant Consultation',
   examination: 'Examination',
   ct_scan: 'CT scan',
   lab_visit: 'Lab visit',
@@ -12,11 +14,26 @@ export const APPOINTMENT_TYPE_LABELS = {
 }
 
 export const BOOKABLE_APPOINTMENT_TYPE_LABELS = {
-  consultation: APPOINTMENT_TYPE_LABELS.consultation,
+  hepatology_consultation: APPOINTMENT_TYPE_LABELS.hepatology_consultation,
+  transplant_consultation: APPOINTMENT_TYPE_LABELS.transplant_consultation,
+  donor_evaluation: 'Donor Evaluation',
+  recipient_evaluation: 'Recipient Evaluation',
+  follow_up: 'Post-transplant Follow-up',
   examination: APPOINTMENT_TYPE_LABELS.examination,
-  donor_evaluation: APPOINTMENT_TYPE_LABELS.donor_evaluation,
-  recipient_evaluation: APPOINTMENT_TYPE_LABELS.recipient_evaluation,
-  follow_up: APPOINTMENT_TYPE_LABELS.follow_up,
+}
+
+const DOCTOR_TITLES_BY_APPOINTMENT_TYPE = {
+  hepatology_consultation: ['hepatologist'],
+  transplant_consultation: ['transplant_surgeon'],
+  examination: ['hepatologist'],
+  donor_evaluation: ['transplant_surgeon'],
+  recipient_evaluation: ['transplant_surgeon'],
+  follow_up: ['transplant_surgeon'],
+}
+
+export function doctorsForAppointmentType(doctors = [], appointmentType) {
+  const allowedTitles = DOCTOR_TITLES_BY_APPOINTMENT_TYPE[appointmentType] || []
+  return doctors.filter((doctor) => allowedTitles.includes(doctor.job_title))
 }
 
 export const APPOINTMENT_STATUS = {

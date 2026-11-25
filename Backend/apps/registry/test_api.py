@@ -2,6 +2,7 @@
 import datetime
 
 from django.core.cache import cache
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import AuditLog, Staff, User
@@ -59,7 +60,8 @@ class PermissionMatrixTests(PatientAPITestBase):
             with self.subTest(user=user.username):
                 self.as_(user)
                 self.assertEqual(self.client.get('/api/patients/').status_code, 200)
-                self.assertEqual(self.client.get(f'/api/patients/{self.other.pk}/').status_code, 200)
+                detail_status = 404 if user in (self.hep, self.rad, self.surg) else 200
+                self.assertEqual(self.client.get(f'/api/patients/{self.other.pk}/').status_code, detail_status)
         for user in (self.nojob, self.pat_user):
             with self.subTest(user=user.username):
                 self.as_(user)
@@ -171,9 +173,18 @@ class StaffRegistrationTests(PatientAPITestBase):
 
 
 class ListSearchDetailTests(PatientAPITestBase):
+    def book_patient(self, patient, staff):
+        start = timezone.now() + datetime.timedelta(days=1)
+        return patient.appointments.create(
+            staff=staff.staff_profile, booked_by=self.coord, appointment_type='consultation',
+            start_time=start, end_time=start + datetime.timedelta(minutes=30),
+        )
+
     def test_search_and_filters(self):
-        make_patient(first_name='Samira', last_name='Nabil Hassan', category='recipient', phone='01099998888')
-        make_patient(first_name='Omar', last_name='Youssef', category='donor', sex='male')
+        samira = make_patient(first_name='Samira', last_name='Nabil Hassan', category='recipient', phone='01099998888')
+        omar = make_patient(first_name='Omar', last_name='Youssef', category='donor', sex='male')
+        for patient in (self.own, self.other, samira, omar):
+            self.book_patient(patient, self.hep)
         self.as_(self.hep)
         names = lambda r: sorted(p['first_name'] for p in r.data['results'])
         self.assertEqual(names(self.client.get('/api/patients/', {'search': 'samira hassan'})), ['Samira'])
@@ -187,6 +198,7 @@ class ListSearchDetailTests(PatientAPITestBase):
         self.assertEqual(self.client.get('/api/patients/', {'category': 'bogus'}).data['count'], 4)
 
     def test_list_hides_sensitive_details_detail_shows_them(self):
+        self.book_patient(self.other, self.rad)
         self.as_(self.rad)
         row = self.client.get('/api/patients/', {'search': 'Other'}).data['results'][0]
         self.assertNotIn('national_id', row)
@@ -194,6 +206,19 @@ class ListSearchDetailTests(PatientAPITestBase):
         detail = self.client.get(f'/api/patients/{self.other.pk}/').data
         self.assertEqual(detail['national_id'], '29001011234567')
         self.assertIn('age', detail)
+
+    def test_doctors_only_see_patients_with_their_appointments(self):
+        self.book_patient(self.own, self.hep)
+        self.book_patient(self.other, self.rad)
+
+        self.as_(self.hep)
+        rows = self.client.get('/api/patients/').data['results']
+        self.assertEqual([row['id'] for row in rows], [self.own.pk])
+        self.assertEqual(self.client.get(f'/api/patients/{self.other.pk}/').status_code, 404)
+        self.assertEqual(self.client.get(f'/api/patients/{self.own.pk}/').status_code, 200)
+
+        self.as_(self.coord)
+        self.assertEqual(self.client.get('/api/patients/').data['count'], 2)
 
     def test_summary_counts_only_and_not_audited(self):
         make_patient(first_name='R', category='recipient')

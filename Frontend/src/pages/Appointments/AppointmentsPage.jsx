@@ -59,7 +59,8 @@ export default function AppointmentsPage() {
   const days = view === 'all'
     ? [...new Set((data || []).map((appointment) => dateKey(appointment.start_time)))].sort()
     : calendarDays(view, date)
-  const groups = groupByDay(data || [], days)
+  const groupedDays = groupByDay(data || [], days)
+  const groups = view === 'week' ? groupedDays.filter((group) => group.items.length > 0) : groupedDays
   const step = view === 'week' ? 7 : 1
   const patientName = data?.[0]?.patient_name
 
@@ -121,6 +122,9 @@ export default function AppointmentsPage() {
         <div className="content-stack">
           {view === 'all' && data && groups.length === 0 && !(isDoctor && !myStaffId) && (
             <Panel title="All appointments"><p className="muted-text">No appointments.</p></Panel>
+          )}
+          {view === 'week' && data && groups.length === 0 && !(isDoctor && !myStaffId) && (
+            <Panel title="Appointments"><p className="muted-text">No appointments this week.</p></Panel>
           )}
           {groups.map((group) => (
             <Panel key={group.date} title={view === 'day' ? 'Schedule' : formatDayTitle(group.date)}

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   addDays, allowedActions, bookingPayload, BOOKABLE_APPOINTMENT_TYPE_LABELS, calendarDays, calendarRange, dateKey,
-  formatTime, formatDayTitle, groupByDay, groupSchedules, nextDateOf, schedulePayload, splitUpcoming, validateBooking,
-  validateSchedule, weekStart,
+  doctorsForAppointmentType, formatTime, formatDayTitle, groupByDay, groupSchedules, nextDateOf, schedulePayload,
+  splitUpcoming, validateBooking, validateSchedule, weekStart,
 } from './appointmentRules.js'
 
 const canAll = (caps) => (cap) => caps.includes(cap)
@@ -81,7 +81,25 @@ test('splitUpcoming: active future visits first, the rest newest first', () => {
 })
 
 describe('booking form', () => {
+  test('visit type limits doctors to the requested specialties', () => {
+    const doctors = [
+      { staff_id: 1, job_title: 'hepatologist' },
+      { staff_id: 2, job_title: 'transplant_surgeon' },
+      { staff_id: 3, job_title: 'radiologist' },
+    ]
+    assert.deepEqual(doctorsForAppointmentType(doctors, 'hepatology_consultation'), [doctors[0]])
+    assert.deepEqual(doctorsForAppointmentType(doctors, 'transplant_consultation'), [doctors[1]])
+    assert.deepEqual(doctorsForAppointmentType(doctors, 'examination'), [doctors[0]])
+    for (const type of ['donor_evaluation', 'recipient_evaluation', 'follow_up']) {
+      assert.deepEqual(doctorsForAppointmentType(doctors, type), [doctors[1]])
+    }
+    assert.deepEqual(doctorsForAppointmentType(doctors, ''), [])
+  })
+
   test('bookable visit types replace CT and lab with Examination', () => {
+    assert.equal(BOOKABLE_APPOINTMENT_TYPE_LABELS.hepatology_consultation, 'Hepatology Consultation')
+    assert.equal(BOOKABLE_APPOINTMENT_TYPE_LABELS.transplant_consultation, 'Transplant Consultation')
+    assert.ok(!BOOKABLE_APPOINTMENT_TYPE_LABELS.consultation)
     assert.ok(BOOKABLE_APPOINTMENT_TYPE_LABELS.examination)
     assert.ok(!BOOKABLE_APPOINTMENT_TYPE_LABELS.ct_scan)
     assert.ok(!BOOKABLE_APPOINTMENT_TYPE_LABELS.lab_visit)
@@ -96,7 +114,7 @@ describe('booking form', () => {
     assert.deepEqual(Object.keys(validateBooking(empty, { needsPatient: true })).sort(),
       ['appointment_type', 'date', 'patient', 'staff', 'start_time'])
     assert.ok(!validateBooking(empty, { needsPatient: false }).patient)
-    const ok = { patient: '3', staff: '5', appointment_type: 'consultation', date: '2026-11-28',
+    const ok = { patient: '3', staff: '5', appointment_type: 'hepatology_consultation', date: '2026-11-28',
       start_time: '2026-11-28T09:00:00Z' }
     assert.deepEqual(validateBooking(ok, { needsPatient: true }), {})
   })

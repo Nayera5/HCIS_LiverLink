@@ -81,7 +81,10 @@ class DoctorSchedule(models.Model):
 # ---------------------------------------------------------------------------
 class Appointment(models.Model):
     class Type(models.TextChoices):
+        # Retained for existing appointments; new bookings use specialty-specific consultations.
         CONSULTATION = "consultation", "Consultation"
+        HEPATOLOGY_CONSULTATION = "hepatology_consultation", "Hepatology Consultation"
+        TRANSPLANT_CONSULTATION = "transplant_consultation", "Transplant Consultation"
         EXAMINATION = "examination", "Examination"
         # Retained for existing appointments; these are no longer offered when booking.
         CT_SCAN = "ct_scan", "CT scan"

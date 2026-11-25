@@ -15,8 +15,8 @@ import { useApi } from '../../hooks/useApi'
 import { TextAreaField } from '../EMR/emrPanels'
 import { DoctorAvailability } from './appointmentParts'
 import {
-  BOOKABLE_APPOINTMENT_TYPE_LABELS, bookingPayload, dateKey, doctorLabel, formatDayTitle, formatWhen,
-  toOptions, validateBooking,
+  BOOKABLE_APPOINTMENT_TYPE_LABELS, bookingPayload, dateKey, doctorLabel, doctorsForAppointmentType,
+  formatDayTitle, formatWhen, toOptions, validateBooking,
 } from './appointmentRules'
 
 /** Staff: search and pick the patient (results come from the patient registry). */
@@ -77,15 +77,15 @@ export default function BookAppointmentPage() {
   const portal = !can('appointments.book_any')
   const needsPatient = !portal
   const { data: doctorRows, error: doctorsError } = useApi(listDoctors)
-  const doctors = doctorRows || []
 
   const preset = location.state?.patientId
     ? { id: Number(location.state.patientId), name: location.state.patientName || 'Selected patient' }
     : null
   const [patient, setPatient] = useState(preset)
   const [values, setValues] = useState({
-    staff: '', appointment_type: 'consultation', date: '', start_time: '', reason: '',
+    staff: '', appointment_type: '', date: '', start_time: '', reason: '',
   })
+  const doctors = doctorsForAppointmentType(doctorRows || [], values.appointment_type)
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -95,6 +95,13 @@ export default function BookAppointmentPage() {
     if (name === 'staff') {
       setValues((prev) => ({ ...prev, staff: value, date: '', start_time: '' }))
       setErrors((prev) => ({ ...prev, staff: undefined, date: undefined, start_time: undefined }))
+      return
+    }
+    if (name === 'appointment_type') {
+      setValues((prev) => ({ ...prev, appointment_type: value, staff: '', date: '', start_time: '' }))
+      setErrors((prev) => ({
+        ...prev, appointment_type: undefined, staff: undefined, date: undefined, start_time: undefined,
+      }))
       return
     }
     setValues((prev) => ({ ...prev, [name]: value }))
@@ -138,11 +145,18 @@ export default function BookAppointmentPage() {
         <form onSubmit={submit} noValidate className="form-stack appt-form">
           {formError && <Alert variant="error">{formError}</Alert>}
           {doctorsError && <Alert variant="error">{getErrorMessage(doctorsError, 'Could not load doctors.')}</Alert>}
+          <SelectField label="Type of visit" name="appointment_type" value={values.appointment_type} onChange={change}
+            placeholder="Choose a type of visit"
+            options={toOptions(BOOKABLE_APPOINTMENT_TYPE_LABELS)} error={errors.appointment_type} />
           {needsPatient && (
             <PatientPicker value={patient} error={errors.patient}
               onChange={(p) => { setPatient(p); setErrors((prev) => ({ ...prev, patient: undefined })) }} />
           )}
-          <SelectField label="Doctor" name="staff" value={values.staff} onChange={change} placeholder="Choose a doctor"
+          <SelectField label="Doctor" name="staff" value={values.staff} onChange={change}
+            placeholder={values.appointment_type ? 'Choose a doctor' : 'Choose a visit type first'}
+            disabled={!values.appointment_type}
+            hint={values.appointment_type && doctorRows && doctors.length === 0
+              ? 'No doctors are available for this type of visit.' : undefined}
             options={doctors.map((d) => ({ value: String(d.staff_id), label: doctorLabel(d) }))} error={errors.staff} />
           <DoctorAvailability staff={values.staff} value={values.start_time} onSelect={selectSlot} />
           <div className="field" aria-live="polite">
@@ -153,8 +167,6 @@ export default function BookAppointmentPage() {
             {errors.date && <p className="field__error">{errors.date}</p>}
           </div>
           {errors.start_time && <p className="field__error">{errors.start_time}</p>}
-          <SelectField label="Type of visit" name="appointment_type" value={values.appointment_type} onChange={change}
-            options={toOptions(BOOKABLE_APPOINTMENT_TYPE_LABELS)} error={errors.appointment_type} />
           <TextAreaField label="Reason for the visit (optional)" name="reason" value={values.reason} onChange={change}
             rows={3} maxLength={2000} error={errors.reason} />
           <div className="form-actions">
