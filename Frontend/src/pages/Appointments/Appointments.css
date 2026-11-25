@@ -119,6 +119,37 @@
   font-weight: 600;
 }
 
+/* Weekly availability shown while booking */
+.appt-availability {
+  display: grid;
+  gap: 12px;
+}
+
+.appt-availability__days {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.appt-availability__day {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.appt-availability__day h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.appt-availability__day > p {
+  margin: 0;
+}
+
 /* Booking form */
 .appt-form {
   max-width: 640px;

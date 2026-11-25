@@ -14,7 +14,8 @@ import SelectField from '../../components/ui/SelectField'
 import TextField from '../../components/ui/TextField'
 import { useApi } from '../../hooks/useApi'
 import {
-  CLINIC_TIME_ZONE, DAY_LABELS, doctorLabel, findMyStaffId, groupSchedules, schedulePayload, shortTime, toOptions, validateSchedule,
+  CLINIC_TIME_ZONE, DAY_LABELS, doctorLabel, findMyStaffId, formatDayTitle, groupSchedules, nextDateOf, schedulePayload, shortTime,
+  toOptions, validateSchedule,
 } from './appointmentRules'
 
 const EMPTY = { day_of_week: 'sat', start_time: '09:00', end_time: '13:00', slot_minutes: '30' }
@@ -124,7 +125,7 @@ export default function SchedulePage() {
       {actionError && <Alert variant="error" className="form-alert">{actionError}</Alert>}
 
       {staffId && (
-        <Panel title="Working hours" subtitle="Each block is split into bookable slots.">
+        <Panel title="Working hours" subtitle="Hours repeat every week; the date is the next one. Each block is split into bookable slots.">
           {editing === 'new' && (
             <ScheduleForm staffId={manageAll ? staffId : null} onSaved={saved} onCancel={() => setEditing(null)} />
           )}
@@ -132,7 +133,7 @@ export default function SchedulePage() {
             <div className="emr-groups">
               {groups.map((group) => (
                 <section key={group.day}>
-                  <h3 className="emr-group__title">{group.label}</h3>
+                  <h3 className="emr-group__title">{formatDayTitle(nextDateOf(group.day))}</h3>
                   <ul className="emr-list">
                     {group.items.map((s) => (
                       <li key={s.schedule_id} className="emr-list__item emr-list__item--stacked">

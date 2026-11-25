@@ -2,8 +2,8 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
-  addDays, allowedActions, bookingPayload, calendarDays, calendarRange, dateKey, formatTime, groupByDay,
-  groupSchedules, schedulePayload, splitUpcoming, validateBooking, validateSchedule, weekStart,
+  addDays, allowedActions, bookingPayload, calendarDays, calendarRange, dateKey, formatTime, formatDayTitle, groupByDay,
+  groupSchedules, nextDateOf, schedulePayload, splitUpcoming, validateBooking, validateSchedule, weekStart,
 } from './appointmentRules.js'
 
 const canAll = (caps) => (cap) => caps.includes(cap)
@@ -104,6 +104,14 @@ describe('schedule form', () => {
     assert.ok(validateSchedule({ day_of_week: 'sat', start_time: '09:00', end_time: '09:20', slot_minutes: 30 }).slot_minutes)
     assert.ok(validateSchedule({ day_of_week: 'xyz', start_time: '09:00', end_time: '10:00', slot_minutes: 30 }).day_of_week)
     assert.deepEqual(validateSchedule({ day_of_week: 'sat', start_time: '09:00', end_time: '11:00', slot_minutes: '30' }), {})
+  })
+
+  test('next date of each schedule day (today counts)', () => {
+    const today = '2026-11-25' // a Wednesday
+    assert.deepEqual(['wed', 'thu', 'fri', 'sat', 'sun', 'mon', 'tue'].map((day) => nextDateOf(day, today)),
+      ['2026-11-25', '2026-11-26', '2026-11-27', '2026-11-28', '2026-11-29', '2026-11-30', '2026-12-01'])
+    assert.equal(nextDateOf('fri', '2026-12-26'), '2027-01-01') // Saturday, across the year end
+    assert.match(formatDayTitle(nextDateOf('sat', today)), /^Saturday,? 28 November 2026$/)
   })
 
   test('payload and grouping', () => {

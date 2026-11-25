@@ -13,7 +13,7 @@ import SelectField from '../../components/ui/SelectField'
 import TextField from '../../components/ui/TextField'
 import { useApi } from '../../hooks/useApi'
 import { TextAreaField } from '../EMR/emrPanels'
-import { SlotPicker } from './appointmentParts'
+import { DoctorAvailability, SlotPicker } from './appointmentParts'
 import {
   APPOINTMENT_TYPE_LABELS, bookingPayload, dateKey, doctorLabel, formatWhen, toOptions, validateBooking,
 } from './appointmentRules'
@@ -134,12 +134,14 @@ export default function BookAppointmentPage() {
           )}
           <SelectField label="Doctor" name="staff" value={values.staff} onChange={change} placeholder="Choose a doctor"
             options={doctors.map((d) => ({ value: String(d.staff_id), label: doctorLabel(d) }))} error={errors.staff} />
-          <SelectField label="Type of visit" name="appointment_type" value={values.appointment_type} onChange={change}
-            options={toOptions(APPOINTMENT_TYPE_LABELS)} error={errors.appointment_type} />
+          <DoctorAvailability staff={values.staff}
+            onSelect={(date, start) => setValues((prev) => ({ ...prev, date, start_time: start }))} />
           <TextField label="Date" name="date" type="date" value={values.date} min={dateKey()} onChange={change}
             error={errors.date} />
           <SlotPicker staff={values.staff} date={values.date} value={values.start_time} error={errors.start_time}
             onChange={(start) => setValues((prev) => ({ ...prev, start_time: start }))} />
+          <SelectField label="Type of visit" name="appointment_type" value={values.appointment_type} onChange={change}
+            options={toOptions(APPOINTMENT_TYPE_LABELS)} error={errors.appointment_type} />
           <TextAreaField label="Reason for the visit (optional)" name="reason" value={values.reason} onChange={change}
             rows={3} maxLength={2000} error={errors.reason} />
           <div className="form-actions">

@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
 import { createEncounter } from '../../api/emr'
 import { fieldErrors } from '../../api/http'
-import { changeAppointmentStatus, getFreeSlots, rescheduleAppointment } from '../../api/scheduling'
+import { changeAppointmentStatus, getFreeSlots, listSchedules, rescheduleAppointment } from '../../api/scheduling'
 import Alert from '../../components/ui/Alert'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
@@ -13,7 +13,8 @@ import { ConfirmDialog, LoadingBlock } from '../../components/ui/Feedback'
 import TextField from '../../components/ui/TextField'
 import { useApi } from '../../hooks/useApi'
 import {
-  APPOINTMENT_STATUS, APPOINTMENT_TYPE_LABELS, allowedActions, dateKey, formatTime, formatTimeRange, formatWhen,
+  APPOINTMENT_STATUS, APPOINTMENT_TYPE_LABELS, allowedActions, dateKey, formatDayTitle, formatTime, formatTimeRange,
+  formatWhen, groupSchedules, nextDateOf,
 } from './appointmentRules'
 import './Appointments.css'
 
@@ -53,6 +54,55 @@ export function SlotPicker({ staff, date, value, onChange, error }) {
       )}
       {error && <p className="field__error">{error}</p>}
     </div>
+  )
+}
+
+/** Upcoming free slots for each weekday in the doctor's active schedule. */
+export function DoctorAvailability({ staff, onSelect }) {
+  const loader = useCallback(async () => {
+    if (!staff) return null
+    const schedules = (await listSchedules({ staff })).filter((schedule) => schedule.is_active)
+    return Promise.all(groupSchedules(schedules).map(async (group) => {
+      const date = nextDateOf(group.day)
+      const availability = await getFreeSlots(staff, date)
+      return { ...group, date, slots: availability.slots || [] }
+    }))
+  }, [staff])
+  const { data, error, loading } = useApi(loader)
+
+  if (!staff) return null
+
+  return (
+    <section className="appt-availability" aria-label="Doctor availability">
+      <div>
+        <p className="field__label">Doctor availability</p>
+        <p className="muted-text">Upcoming free slots for each scheduled day. Choose a slot or search another date below.</p>
+      </div>
+      {loading && <LoadingBlock label="Loading doctor availability" />}
+      {error && <Alert variant="error">{getErrorMessage(error, 'Could not load doctor availability.')}</Alert>}
+      {!loading && !error && data?.length === 0 && <p className="muted-text">No active working days for this doctor.</p>}
+      {!loading && !error && data?.length > 0 && (
+        <div className="appt-availability__days">
+          {data.map((group) => (
+            <section key={group.day} className="appt-availability__day">
+              <h3>{formatDayTitle(group.date)}</h3>
+              {group.slots.length ? (
+                <div className="slot-grid" aria-label={`Free times on ${formatDayTitle(group.date)}`}>
+                  {group.slots.map((slot) => (
+                    <button key={slot.start_time} type="button" className="slot"
+                      onClick={() => onSelect(group.date, slot.start_time)}>
+                      {formatTime(slot.start_time)}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted-text">No free times on this date. Search another date below.</p>
+              )}
+            </section>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 

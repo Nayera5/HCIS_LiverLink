@@ -84,6 +84,12 @@ export function weekStart(iso) {
   return addDays(iso, -((day + 1) % 7))
 }
 
+/** The next date ('YYYY-MM-DD') of a schedule day ('sat' ... 'fri'); today counts. */
+export function nextDateOf(day, today = dateKey()) {
+  const date = addDays(weekStart(today), Object.keys(DAY_LABELS).indexOf(day))
+  return date < today ? addDays(date, 7) : date
+}
+
 /** The dates shown by the calendar: one day, or Saturday to Friday. */
 export function calendarDays(view, iso) {
   if (view === 'day') return [iso]
