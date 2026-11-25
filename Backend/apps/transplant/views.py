@@ -567,7 +567,8 @@ class SurgeryTeamMemberView(PositiveIdMixin, generics.ListCreateAPIView):
         ).select_related('staff__user')
 
     def perform_create(self, serializer):
-        member = serializer.save(surgery_id=self.kwargs['surgery_pk'])
+        surgery = get_object_or_404(Surgery, pk=self.kwargs['surgery_pk'])
+        member = serializer.save(surgery=surgery)
         audit(
             self.request, AuditLog.Action.CREATE, 'transplant.surgeryteammember',
             entity_id=member.pk, patient=member.surgery.case.recipient,

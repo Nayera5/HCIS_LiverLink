@@ -247,7 +247,7 @@ class InvoiceItem(models.Model):
     is_current_imaging_charge = models.BooleanField(
         default=False, help_text='Marks the single non-cancelled invoice item currently charging an imaging order.',
     )
-    
+
     surgery = models.ForeignKey(
             'transplant.Surgery', null=True, blank=True, on_delete=models.PROTECT,
             related_name='invoice_items', help_text='Transplant surgery the charge came from, if any.',
