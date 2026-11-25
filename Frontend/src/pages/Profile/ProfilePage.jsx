@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { changePassword, getErrorMessage, updateMe } from '../../api/auth'
 import { fieldErrors } from '../../api/http'
 import { useAuth } from '../../auth/authContext'
+import { describeCapabilities } from '../../auth/capabilities'
 import { displayName, ROLE_LABELS, roleLine } from '../../auth/roles'
 import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
+import { CheckCircleIcon } from '../../components/ui/icons'
 import PageHeader from '../../components/ui/PageHeader'
 import Panel from '../../components/ui/Panel'
 import PasswordField from '../../components/ui/PasswordField'
@@ -149,6 +151,38 @@ export default function ProfilePage() {
           <PasswordForm />
         </Panel>
       </div>
+    </>
+  )
+}
+
+export function AccessInfoPage() {
+  const { user } = useAuth()
+  const access = describeCapabilities(user.capabilities)
+
+  return (
+    <>
+      <PageHeader eyebrow="Account" title="Access information" />
+      <Panel title="Your access in LiverLink"
+        subtitle={user.role === 'patient' ? 'Based on your account type' : 'Based on your job title'}>
+        {access.length ? (
+          <ul className="capability-list">
+            {access.map((item) => (
+              <li key={item.key}>
+                <CheckCircleIcon size={18} />
+                <span>{item.text}</span>
+              </li>
+            ))}
+            <li>
+              <CheckCircleIcon size={18} />
+              <span>Manage your own profile and password</span>
+            </li>
+          </ul>
+        ) : (
+          <p className="muted-text">
+            You can manage your own profile and password. Clinical access starts once a job title is assigned.
+          </p>
+        )}
+      </Panel>
     </>
   )
 }

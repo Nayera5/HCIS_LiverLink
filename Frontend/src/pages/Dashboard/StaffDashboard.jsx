@@ -1,39 +1,15 @@
 import { Link } from 'react-router-dom'
 import { loadPatientOverview } from '../../api/patients'
 import { useAuth } from '../../auth/authContext'
-import { describeCapabilities } from '../../auth/capabilities'
 import { greetingName, roleLine } from '../../auth/roles'
 import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
-import { CheckCircleIcon } from '../../components/ui/icons'
 import PageHeader from '../../components/ui/PageHeader'
 import Panel from '../../components/ui/Panel'
 import { useApi } from '../../hooks/useApi'
 import { greeting, longDate } from '../../utils/format'
 import { ReportHighlights } from '../Reports/reportPanels'
 import { PatientOverviewError, PatientStats, RecentPatientsPanel } from './PatientOverview'
-
-function AccessPanel({ user }) {
-  const access = describeCapabilities(user.capabilities)
-  return (
-    <Panel title="Your access in LiverLink" subtitle="Based on your job title">
-      {access.length ? (
-        <ul className="capability-list">
-          {access.map((item) => (
-            <li key={item.key}>
-              <CheckCircleIcon size={18} />
-              <span>{item.text}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="muted-text">
-          You can manage your own profile and password. Clinical access starts once a job title is assigned.
-        </p>
-      )}
-    </Panel>
-  )
-}
 
 function ProfilePanel({ user }) {
   const profile = user.staff_profile
@@ -52,18 +28,13 @@ function ProfilePanel({ user }) {
 }
 
 /** Clinical staff with patient access: registry overview built from real data. */
-function ClinicalWorkspace({ user }) {
+function ClinicalWorkspace() {
   const { data, error, loading } = useApi(loadPatientOverview)
   return (
     <>
       <PatientOverviewError error={error} />
       <PatientStats data={data} />
-      <div className="content-grid">
-        <RecentPatientsPanel data={data} loading={loading} />
-        <div className="content-stack">
-          <AccessPanel user={user} />
-        </div>
-      </div>
+      <RecentPatientsPanel data={data} loading={loading} />
     </>
   )
 }
@@ -100,12 +71,9 @@ export default function StaffDashboard() {
       )}
 
       {can('patients.view') ? (
-        <ClinicalWorkspace user={user} />
+        <ClinicalWorkspace />
       ) : (
-        <div className="content-grid content-grid--even">
-          <AccessPanel user={user} />
-          <ProfilePanel user={user} />
-        </div>
+        <ProfilePanel user={user} />
       )}
 
       {/* Charts for the reports this job title may open (nothing for other roles). */}

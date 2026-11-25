@@ -63,11 +63,13 @@ class TransplantCase(models.Model):
         FOLLOW_UP = 'follow_up', 'Follow-up'
         CLOSED = 'closed', 'Closed'
 
+    DONOR_MATCHING_STATUSES = frozenset({Status.UNDER_EVALUATION})
+
     # Valid forward transitions (business rule §4.29).
     TRANSITIONS = {
-        'referred': {'under_evaluation'},
-        'under_evaluation': {'committee_review'},
-        'committee_review': {'approved', 'rejected', 'under_evaluation'},  # under_evaluation = more_tests_needed
+        'referred': {'under_evaluation', 'closed'},
+        'under_evaluation': {'committee_review', 'closed'},
+        'committee_review': {'approved', 'rejected', 'under_evaluation', 'closed'},
         'approved': {'surgery_scheduled', 'closed'},
         'rejected': {'closed'},
         'surgery_scheduled': {'transplanted', 'closed'},
