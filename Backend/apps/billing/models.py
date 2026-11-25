@@ -7,15 +7,13 @@ Billing & Payments (spec §13 and entity dictionary §4.38–§4.41).
 - Payment: a payment against an invoice, at the desk (cash/card) or online through Paymob.
 
 Invoices are created by billing staff, or automatically (apps.billing.services) when an
-appointment is completed or a lab order is fully resulted.
+appointment is completed.
 
 Online payments (apps.billing.paymob) start as `pending` and become `succeeded` or `failed`
 when Paymob reports the transaction. Only succeeded payments count towards the invoice.
 
 Deviations from the spec:
 - Addition: Payment.gateway_order_id stores Paymob's order id, used to match its callbacks.
-- Addition: InvoiceItem.lab_order links a charge to the lab order it came from, so a resulted
-  order is never billed twice. Lab services are matched to lab tests by LOINC code.
 """
 import datetime
 from decimal import Decimal
@@ -83,8 +81,6 @@ class Service(models.Model):
     class Category(models.TextChoices):
         CONSULTATION = 'consultation', 'Consultation'
         IMAGING = 'imaging', 'Imaging'
-        LAB = 'lab', 'Lab test'
-        AI_ANALYSIS = 'ai_analysis', 'AI analysis'
         EVALUATION_PACKAGE = 'evaluation_package', 'Evaluation package'
         SURGERY = 'surgery', 'Surgery'
         MEDICAL_PROCEDURES = 'medical_procedures', 'Medical Procedures'
@@ -115,7 +111,7 @@ class Service(models.Model):
             models.CheckConstraint(condition=Q(price__gte=0), name='billing_service_price_non_negative'),
             models.CheckConstraint(
                 condition=Q(category__in=[
-                    'consultation', 'imaging', 'lab', 'ai_analysis', 'evaluation_package', 'surgery',
+                    'consultation', 'imaging', 'evaluation_package', 'surgery',
                     'medical_procedures', 'inpatient_services', 'preventive_care',
                 ]),
                 name='billing_service_category_valid'),
@@ -232,10 +228,6 @@ class InvoiceItem(models.Model):
     appointment = models.ForeignKey(
         'scheduling.Appointment', null=True, blank=True, on_delete=models.PROTECT,
         related_name='invoice_items', help_text='Visit the charge came from, if any.',
-    )
-    lab_order = models.ForeignKey(
-        'labs.LabOrder', null=True, blank=True, on_delete=models.PROTECT,
-        related_name='invoice_items', help_text='Lab order the charge came from, if any.',
     )
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     unit_price = models.DecimalField(
