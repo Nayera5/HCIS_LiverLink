@@ -1,5 +1,6 @@
 """Views for the transplant module (Modules 11 & 12)."""
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics, status
@@ -556,7 +557,8 @@ class SurgeryTeamMemberView(PositiveIdMixin, generics.ListCreateAPIView):
         ).select_related('staff__user')
 
     def perform_create(self, serializer):
-        member = serializer.save(surgery_id=self.kwargs['surgery_pk'])
+        surgery = get_object_or_404(Surgery, pk=self.kwargs['surgery_pk'])
+        member = serializer.save(surgery=surgery)
         audit(
             self.request, AuditLog.Action.CREATE, 'transplant.surgeryteammember',
             entity_id=member.pk, patient=member.surgery.case.recipient,

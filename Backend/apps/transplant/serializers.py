@@ -311,6 +311,20 @@ class SurgeryTeamMemberSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Choose an active clinical staff member.')
         return staff
 
+    def validate(self, attrs):
+        """Reject a duplicate team member before the database constraint is reached."""
+        view = self.context.get('view')
+        surgery_id = view.kwargs.get('surgery_pk') if view else None
+        staff = attrs.get('staff')
+        if surgery_id and staff and SurgeryTeamMember.objects.filter(
+            surgery_id=surgery_id,
+            staff=staff,
+        ).exists():
+            raise serializers.ValidationError({
+                'staff': 'This staff member is already assigned to this surgery.',
+            })
+        return attrs
+
 
 class SurgerySerializer(serializers.ModelSerializer):
     team_members = SurgeryTeamMemberSerializer(many=True, read_only=True)

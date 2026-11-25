@@ -685,7 +685,7 @@ function SurgeryTab({ caseId, surgeries, donors, reload, caseStatus, can, reload
       setTeamForm({ staff: '', team_role: '' })
       reload()
     } catch (e) {
-      setTeamError(e.message || 'Could not add the surgical team member.')
+      setTeamError(Object.values(fieldErrors(e)).join(' ') || e.message || 'Could not add the surgical team member.')
     }
   }
 
