@@ -27,6 +27,7 @@ describe('dates', () => {
     assert.equal(week.length, 7)
     assert.deepEqual(calendarRange('week', '2026-12-01'), { date_from: '2026-11-28', date_to: '2026-12-04' })
     assert.deepEqual(calendarRange('day', '2026-12-01'), { date_from: '2026-12-01', date_to: '2026-12-01' })
+    assert.deepEqual(calendarRange('all', '2026-12-01'), {})
   })
 
   test('times use the clinic time zone (UTC)', () => {
