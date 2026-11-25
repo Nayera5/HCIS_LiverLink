@@ -8,13 +8,13 @@ from django.db import migrations
 
 # (code, name, category, coding_system, standard_code, price EGP)
 SERVICES = [
-    # Consultation: one per bookable appointment type (CONS-004 = consultation with a transplant surgeon)
+    # Consultation: one per bookable appointment type
     ('CONS-001', 'Hepatology Consultation', 'consultation', 'cpt', '99204', 1000),
-    ('CONS-002', 'Recipient Evaluation Visit', 'consultation', 'cpt', '99204', 1500),
-    ('CONS-003', 'Post-Transplant Follow-up', 'consultation', 'cpt', '99214', 800),
-    ('CONS-004', 'Transplant Surgery Consultation', 'consultation', 'cpt', '99204', 1200),
-    ('CONS-005', 'Donor Evaluation Visit', 'consultation', 'cpt', '99204', 1000),
-    ('CONS-006', 'Clinical Examination', 'consultation', 'cpt', '99213', 600),
+    ('CONS-002', 'Post-Transplant Follow-up', 'consultation', 'cpt', '99214', 800),
+    ('CONS-003', 'Transplant Surgery Consultation', 'consultation', 'cpt', '99204', 1200),
+    ('EVA-001', 'Recipient Evaluation Visit', 'consultation', 'cpt', '99204', 1500),
+    ('EVA-002', 'Donor Evaluation Visit', 'consultation', 'cpt', '99204', 1000),
+    ('EXM-001', 'Clinical Examination', 'consultation', 'cpt', '99213', 600),
     # Imaging: one per ImagingOrder protocol (report and AI analysis included)
     ('IMG-003', 'Multiphase Liver CT', 'imaging', 'cpt', '74170', 3000),
     ('IMG-006', 'Donor Volumetry CT', 'imaging', 'cpt', '74175', 4000),
@@ -30,6 +30,7 @@ SERVICES = [
 ]
 
 RETIRED_CODES = [
+    'CONS-004', 'CONS-005',
     'IMG-001', 'IMG-002', 'IMG-004', 'IMG-005',
     'PKG-003', 'PKG-004', 'PKG-005',
     'SUR-002', 'SUR-003', 'SUR-004',
@@ -40,12 +41,14 @@ RETIRED_CODES = [
 def seed_services(apps, schema_editor):
     Service = apps.get_model('billing', 'Service')
     for code, name, category, coding_system, standard_code, price in SERVICES:
-        details = {'name': name, 'category': category, 'coding_system': coding_system,
-                   'standard_code': standard_code}
-        # Price and is_active are only set on creation, so changes made by the admin are kept.
-        Service.objects.update_or_create(
-            code=code, defaults=details,
-            create_defaults={**details, 'price': Decimal(price), 'is_active': True})
+        service = Service.objects.filter(code=code).first()
+        if service is not None and service.name == name:
+            continue  # already there: keep the admin's price and other changes
+        # New, or a code that migration 0004 used for another service.
+        Service.objects.update_or_create(code=code, defaults={
+            'name': name, 'category': category, 'coding_system': coding_system,
+            'standard_code': standard_code, 'price': Decimal(price), 'is_active': True,
+        })
 
 
 def retire_services(apps, schema_editor):

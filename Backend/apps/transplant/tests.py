@@ -15,6 +15,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import Staff, User
+from apps.billing.models import InvoiceItem
 from apps.registry.models import Patient
 
 from .models import (
@@ -802,6 +803,13 @@ class TransplantAPITests(TestCase):
         case.refresh_from_db()
         self.assertEqual(case.status, 'transplanted')
         self.assertEqual(FollowUpPlan.objects.filter(case=case).count(), 2)
+        item = InvoiceItem.objects.get(surgery=surgery)
+        self.assertEqual(item.service.code, 'SUR-001')
+        self.assertEqual(item.invoice.patient, case.recipient)
+        from apps.billing.services import invoice_for_surgery
+
+        self.assertIsNone(invoice_for_surgery(surgery))
+        self.assertEqual(InvoiceItem.objects.filter(surgery=surgery).count(), 1)
 
     def test_coordinator_cannot_create_surgery(self):
         case = _create_case(self.recipient, self.hepatologist)

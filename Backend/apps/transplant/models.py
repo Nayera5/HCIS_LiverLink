@@ -13,7 +13,7 @@ Linked modules:
   - module 4 (emr): Encounter
 """
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
@@ -539,14 +539,18 @@ class Surgery(models.Model):
                     'case_donor': 'Only an approved donor can be assigned to surgery.',
                 })
 
+    @transaction.atomic
     def complete(self):
-        """Mark surgery completed and create follow-up plans."""
+        """Mark surgery completed, create follow-up plans and invoice the operation."""
         self.status = self.Status.COMPLETED
         self.save(update_fields=['status', 'updated_at'])
         # Update case status to transplanted
         self.case.transition_to(TransplantCase.Status.TRANSPLANTED)
         # Business rule: completing a surgery creates follow-up plans
         self._create_followup_plans()
+        from apps.billing.services import invoice_for_surgery
+
+        invoice_for_surgery(self)
 
     def _create_followup_plans(self):
         """Create separate follow-up plans for recipient and donor."""

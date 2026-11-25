@@ -7,7 +7,7 @@ Billing & Payments (spec §13 and entity dictionary §4.38–§4.41).
 - Payment: a payment against an invoice, at the desk (cash/card) or online through Paymob.
 
 Invoices are created by billing staff, or automatically (apps.billing.services) when an
-appointment is completed.
+appointment or transplant surgery is completed.
 
 Online payments (apps.billing.paymob) start as `pending` and become `succeeded` or `failed`
 when Paymob reports the transaction. Only succeeded payments count towards the invoice.
@@ -228,6 +228,10 @@ class InvoiceItem(models.Model):
     appointment = models.ForeignKey(
         'scheduling.Appointment', null=True, blank=True, on_delete=models.PROTECT,
         related_name='invoice_items', help_text='Visit the charge came from, if any.',
+    )
+    surgery = models.ForeignKey(
+        'transplant.Surgery', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='invoice_items', help_text='Transplant surgery the charge came from, if any.',
     )
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     unit_price = models.DecimalField(

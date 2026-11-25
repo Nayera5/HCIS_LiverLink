@@ -1,4 +1,4 @@
-"""Automatic invoices (completed appointments, resulted lab orders) and payment locking."""
+"""Automatic invoices (completed appointments) and payment locking."""
 import datetime
 from decimal import Decimal
 from unittest import mock
@@ -9,6 +9,7 @@ from apps.labs import services as lab_services
 from apps.labs.models import LabTest
 from apps.registry.test_api import PatientAPITestBase
 from apps.scheduling.models import Appointment
+from apps.scheduling.serializers import APPOINTMENT_DOCTOR_TITLES
 
 from .models import Invoice, InvoiceItem, Payment, Service
 from .serializers import PaymentCreateSerializer
@@ -37,10 +38,43 @@ class AppointmentInvoiceTests(PatientAPITestBase):
         self.assertEqual(invoice.total_amount, service.price)
         self.assertEqual(invoice.due_date - invoice.issue_date, datetime.timedelta(days=14))
 
-    def test_surgeon_consultation_uses_the_surgeon_fee(self):
+    def test_every_bookable_visit_type_is_billed_with_its_own_service(self):
+        expected = {
+            'hepatology_consultation': ('CONS-001', 'Hepatology Consultation', 1000),
+            'transplant_consultation': ('CONS-003', 'Transplant Surgery Consultation', 1200),
+            'follow_up': ('CONS-002', 'Post-Transplant Follow-up', 800),
+            'recipient_evaluation': ('EVA-001', 'Recipient Evaluation Visit', 1500),
+            'donor_evaluation': ('EVA-002', 'Donor Evaluation Visit', 1000),
+            'examination': ('EXM-001', 'Clinical Examination', 600),
+        }
+        self.assertEqual(set(expected), set(APPOINTMENT_DOCTOR_TITLES))  # every bookable type is covered
+        for visit_type, (code, name, price) in expected.items():
+            with self.subTest(visit_type):
+                appointment = self.appointment(visit_type)
+                self.assertEqual(self.complete(appointment).status_code, 200)
+                item = InvoiceItem.objects.get(appointment=appointment)
+                self.assertEqual((item.service.code, item.service.name, item.unit_price), (code, name, price))
+
+    def test_invoice_appears_in_the_patient_portal(self):
+        appointment = self.appointment('examination')
+        self.complete(appointment)
+        self.as_(self.pat_user)
+        invoices = self.client.get('/api/invoices/me/').data['invoices']
+        self.assertEqual([i['id'] for i in invoices],
+                         [InvoiceItem.objects.get(appointment=appointment).invoice_id])
+
+    def test_visit_that_was_not_completed_is_not_billed(self):
+        for visit_status, action in (('checked_in', 'cancel'), ('booked', 'no-show'), ('booked', 'check-in')):
+            appointment = self.appointment('examination', status=visit_status)
+            self.as_(self.coord)
+            self.assertEqual(
+                self.client.post(f'/api/scheduling/appointments/{appointment.pk}/{action}/').status_code, 200)
+        self.assertFalse(Invoice.objects.exists())
+
+    def test_old_surgeon_consultation_uses_the_surgeon_fee(self):
         appointment = self.appointment(staff=self.surg)
         self.complete(appointment)
-        self.assertEqual(InvoiceItem.objects.get(appointment=appointment).service.code, 'CONS-004')
+        self.assertEqual(InvoiceItem.objects.get(appointment=appointment).service.code, 'CONS-003')
 
     def test_lab_visit_has_no_visit_fee(self):
         appointment = self.appointment('lab_visit')
