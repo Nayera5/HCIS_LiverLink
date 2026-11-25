@@ -13,4 +13,5 @@ class DoctorScheduleAdmin(admin.ModelAdmin):
 class AppointmentAdmin(admin.ModelAdmin):
     list_display = ("appointment_id", "patient", "staff", "appointment_type", "start_time", "status")
     list_filter = ("status", "appointment_type")
+    raw_id_fields = ("imaging_order", "imaging_slot")
     search_fields = ("patient__mrn", "patient__first_name", "patient__last_name")

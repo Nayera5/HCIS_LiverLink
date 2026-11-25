@@ -1,11 +1,16 @@
 // Billing & Payments API (backend: apps/billing). Permissions are enforced server-side.
 import { authRequest, downloadFile, toQuery } from './http'
+import { loadAllPages } from './pagination'
 
 // --------------------------------------------------------------------------- service catalog
 
 /** params: { category, active_only } */
 export function listServices(params = {}) {
   return authRequest(`/services/${toQuery(params)}`)
+}
+
+export function listAllServices(params = {}) {
+  return loadAllPages(listServices, params)
 }
 
 export function createService(data) {

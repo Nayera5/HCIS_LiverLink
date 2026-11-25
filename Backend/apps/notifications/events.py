@@ -81,6 +81,10 @@ def appointment_reminder(appointment):
     user = appointment.patient.user
     if user is None or already_notified(user, T.APPOINTMENT_REMINDER, appointment):
         return False
+    if appointment.imaging_order_id:  # a scan has no doctor
+        notify(user, T.APPOINTMENT_REMINDER, _scan_reminder(appointment.imaging_order, appointment),
+               title='Upcoming scan', related=appointment)
+        return True
     doctor = appointment.staff.user.get_full_name() or appointment.staff.user.username
     notify(user, T.APPOINTMENT_REMINDER,
            f'Reminder: your {appointment.get_appointment_type_display().lower()} appointment with '
@@ -88,6 +92,56 @@ def appointment_reminder(appointment):
            title='Upcoming appointment', related=appointment)
     return True
 
+
+# --------------------------------------------------------------------------- imaging orders (module 7)
+
+def _scan_reminder(order, appointment):
+    scan = order.billing_service.name
+    if appointment is None:
+        return f'Please choose an appointment for your scan ({scan}, imaging order #{order.pk}) in your portal.'
+    message = f'Reminder: your scan appointment ({scan}) is on {_when(appointment.start_time)}.'
+    if order.status == 'ordered':
+        message += ' It is waiting for confirmation by the radiology department.'
+    return message
+
+
+def imaging_notice(order, title, message):
+    """Tell the patient about their imaging order (nothing happens without a portal account)."""
+    return notify(order.patient.user, T.APPOINTMENT_REMINDER, message, title=title, related=order)
+
+
+def imaging_order_created(order):
+    imaging_notice(order, 'Scan requested',
+                   f'Your doctor requested a scan: {order.billing_service.name} (imaging order #{order.pk}). '
+                   'Please choose an appointment in your portal.')
+
+
+def imaging_booking_confirmed(order, appointment):
+    imaging_notice(order, 'Scan appointment confirmed',
+                   f'Your scan ({order.billing_service.name}) is confirmed for {_when(appointment.start_time)}.')
+
+
+def imaging_booking_cancelled(order):
+    imaging_notice(order, 'Scan appointment cancelled',
+                   f'Your scan appointment ({order.billing_service.name}) was cancelled. '
+                   'Please choose another time in your portal.')
+
+
+def imaging_order_cancelled(order):
+    imaging_notice(order, 'Scan request cancelled',
+                   f'Your scan request ({order.billing_service.name}, imaging order #{order.pk}) was cancelled.')
+
+
+def imaging_coordinator_reminder(order, appointment):
+    """Reminder sent by the coordinator. False when the patient already heard about this order today."""
+    start_of_day = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+    if already_notified(order.patient.user, T.APPOINTMENT_REMINDER, order, since=start_of_day):
+        return False
+    imaging_notice(order, 'Scan reminder', _scan_reminder(order, appointment))
+    return True
+
+
+# --------------------------------------------------------------------------- follow-up reminders
 
 def follow_up_reminder(visit):
     """Returns True when a reminder was created (False if already sent or nobody to tell)."""

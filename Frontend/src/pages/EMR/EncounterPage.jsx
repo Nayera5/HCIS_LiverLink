@@ -17,6 +17,7 @@ import Panel from '../../components/ui/Panel'
 import TextField from '../../components/ui/TextField'
 import { useApi } from '../../hooks/useApi'
 import { formatDateTime } from '../../utils/format'
+import { ImagingOrdersPanel } from '../Imaging/imagingParts'
 import { patientName } from '../Patients/patientDisplay'
 import { TextAreaField } from './emrPanels'
 import {
@@ -401,6 +402,9 @@ export default function EncounterPage({ portal = false }) {
           </div>
           <div className="content-stack">
             <DiagnosesPanel encounter={encounter} editable={editable} canWrite={canWrite} onChanged={reload} />
+            {!portal && can('imaging.view') && (
+              <ImagingOrdersPanel patientId={encounter.patient} encounterId={encounter.encounter_id} />
+            )}
             <AddendaPanel encounter={encounter} canAdd={canWrite && !isOpen} onChanged={reload} />
           </div>
         </div>

@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from apps.labs import services as lab_services
 from apps.labs.models import LabTest
+from apps.radiology.models import ImagingOrder
 from apps.registry.test_api import PatientAPITestBase
 from apps.scheduling.models import Appointment
 
@@ -85,6 +86,89 @@ class AppointmentInvoiceTests(PatientAPITestBase):
         r = self.client.post('/api/invoices/', payload, format='json')
         self.assertEqual(r.status_code, 201)
         self.assertEqual(r.data['items'][0]['appointment'], appointment.pk)
+
+    def test_manual_invoice_can_link_acquired_imaging_order(self):
+        service = Service.objects.get(code='IMG-003')
+        order = ImagingOrder.objects.create(
+            patient=self.own, ordered_by=self.hep.staff_profile,
+            clinical_indication='Follow-up scan', billing_service=service,
+            status=ImagingOrder.Status.ACQUIRED,
+        )
+        self.as_(self.billing)
+        payload = {'patient': self.own.pk, 'due_date': timezone.localdate().isoformat(),
+                   'items': [{'service': Service.objects.get(code='IMG-004').pk,
+                              'imaging_order': order.pk}]}
+        self.assertEqual(self.client.post('/api/invoices/', payload, format='json').status_code, 400)
+        payload['items'][0]['service'] = service.pk
+        response = self.client.post('/api/invoices/', payload, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        item = InvoiceItem.objects.get(imaging_order=order)
+        self.assertEqual((item.service, item.unit_price), (service, service.price))
+
+    def test_manual_invoice_rejects_unacquired_or_foreign_imaging_order(self):
+        service = Service.objects.get(code='IMG-003')
+        order = ImagingOrder.objects.create(
+            patient=self.own, ordered_by=self.hep.staff_profile,
+            clinical_indication='Follow-up scan', billing_service=service,
+        )
+        self.as_(self.billing)
+        payload = {'patient': self.own.pk, 'due_date': timezone.localdate().isoformat(),
+                   'items': [{'service': service.pk, 'imaging_order': order.pk}]}
+        self.assertEqual(self.client.post('/api/invoices/', payload, format='json').status_code, 400)
+        payload['patient'] = self.other.pk
+        order.status = ImagingOrder.Status.ACQUIRED
+        order.save(update_fields=['status'])
+        self.assertEqual(self.client.post('/api/invoices/', payload, format='json').status_code, 400)
+
+
+class ImagingOrderInvoiceTests(PatientAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.service = Service.objects.get(code='IMG-003')
+        self.order = ImagingOrder.objects.create(
+            patient=self.own, ordered_by=self.hep.staff_profile,
+            clinical_indication='Follow-up scan', billing_service=self.service,
+            status=ImagingOrder.Status.ACQUIRED,
+        )
+
+    def test_billing_operation_locks_order_and_is_idempotent(self):
+        from .services import invoice_for_imaging_order
+
+        with mock.patch('django.db.models.query.QuerySet.select_for_update',
+                        autospec=True, side_effect=lambda qs, *a, **k: qs) as lock:
+            invoice = invoice_for_imaging_order(self.order)
+            self.assertTrue(any(call.args[0].model is ImagingOrder for call in lock.call_args_list))
+        self.assertIsNotNone(invoice)
+        self.assertIsNone(invoice_for_imaging_order(self.order))
+        self.assertEqual(InvoiceItem.objects.filter(imaging_order=self.order).count(), 1)
+
+    def test_cancelled_invoice_releases_unique_charge_for_rebilling(self):
+        from .services import invoice_for_imaging_order
+
+        first_invoice = invoice_for_imaging_order(self.order)
+        first_item = InvoiceItem.objects.get(imaging_order=self.order)
+        self.assertTrue(first_item.is_current_imaging_charge)
+        first_invoice.cancel()
+        first_item.refresh_from_db()
+        self.assertFalse(first_item.is_current_imaging_charge)
+
+        self.assertIsNotNone(invoice_for_imaging_order(self.order))
+        self.assertIsNone(invoice_for_imaging_order(self.order))
+        self.assertEqual(InvoiceItem.objects.filter(imaging_order=self.order).count(), 2)
+        self.assertEqual(InvoiceItem.objects.filter(
+            imaging_order=self.order, is_current_imaging_charge=True,
+        ).count(), 1)
+
+    def test_manual_invoice_cannot_duplicate_active_imaging_charge(self):
+        from .services import invoice_for_imaging_order
+
+        invoice_for_imaging_order(self.order)
+        self.as_(self.billing)
+        payload = {'patient': self.own.pk, 'due_date': timezone.localdate().isoformat(),
+                   'items': [{'service': self.service.pk, 'imaging_order': self.order.pk}]}
+        response = self.client.post('/api/invoices/', payload, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(InvoiceItem.objects.filter(imaging_order=self.order).count(), 1)
 
 
 class LabOrderNotInvoicedTests(PatientAPITestBase):
