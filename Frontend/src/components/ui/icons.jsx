@@ -204,6 +204,13 @@ export const FlaskIcon = (p) => (
   </Svg>
 )
 
+export const ScanIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" />
+    <circle cx="12" cy="12" r="3.5" />
+  </Svg>
+)
+
 export const PillIcon = (p) => (
   <Svg {...p}>
     <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />

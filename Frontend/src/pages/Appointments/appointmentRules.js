@@ -8,7 +8,13 @@ export const APPOINTMENT_TYPE_LABELS = {
   donor_evaluation: 'Donor evaluation',
   recipient_evaluation: 'Recipient evaluation',
   follow_up: 'Post-transplant follow-up',
+  imaging: 'Imaging scan',
 }
+
+// Visits booked with a doctor. Scans are booked from an imaging order instead (pages/Imaging).
+export const BOOKABLE_TYPE_LABELS = Object.fromEntries(
+  Object.entries(APPOINTMENT_TYPE_LABELS).filter(([type]) => type !== 'ct_scan' && type !== 'imaging'),
+)
 
 export const APPOINTMENT_STATUS = {
   booked: { label: 'Booked', tone: 'info' },
@@ -145,7 +151,8 @@ export function shortTime(value) {
 /**
  * @param appointment  row from the API
  * @param who  { can(capability), myStaffId, portal }  (`portal` = patient/donor account)
- * @returns list of action keys: reschedule, cancel, check_in, no_show, complete, start_encounter, open_encounter
+ * @returns list of action keys: reschedule, cancel, check_in, no_show, complete, start_encounter, open_encounter;
+ *   imaging appointments only: check_in, open_order, manage_scan (the rest is done on the imaging order)
  */
 export function allowedActions(appointment, { can, myStaffId = null, portal = false }) {
   const { status } = appointment
@@ -153,6 +160,12 @@ export function allowedActions(appointment, { can, myStaffId = null, portal = fa
   const coordinator = can('appointments.check_in')
   const isDoctor = myStaffId !== null && myStaffId === appointment.staff
   const actions = []
+  if (appointment.imaging_order) {
+    if (coordinator && status === 'booked') actions.push('check_in')
+    if (portal) actions.push('manage_scan')
+    else if (can('imaging.view')) actions.push('open_order')
+    return actions
+  }
   if (manages && status === 'booked') actions.push('reschedule')
   if (manages && (status === 'booked' || status === 'checked_in')) actions.push('cancel')
   if (coordinator && status === 'booked') actions.push('check_in', 'no_show')
@@ -177,7 +190,7 @@ export function validateBooking(values, { needsPatient }) {
   const errors = {}
   if (needsPatient && blank(values.patient)) errors.patient = 'Choose the patient.'
   if (blank(values.staff)) errors.staff = 'Choose a doctor.'
-  if (!APPOINTMENT_TYPE_LABELS[values.appointment_type]) errors.appointment_type = 'Choose the type of visit.'
+  if (!BOOKABLE_TYPE_LABELS[values.appointment_type]) errors.appointment_type = 'Choose the type of visit.'
   if (blank(values.date)) errors.date = 'Choose a date.'
   if (blank(values.start_time)) errors.start_time = 'Choose a free time.'
   return errors

@@ -8,6 +8,7 @@ import { LoadingBlock } from '../../components/ui/Feedback'
 import PageHeader from '../../components/ui/PageHeader'
 import { useApi } from '../../hooks/useApi'
 import { ageSex, categoryBadge, patientName } from '../Patients/patientDisplay'
+import { ImagingOrdersPanel } from '../Imaging/imagingParts'
 import { PatientImagingReportsPanel } from '../Reports/reportPanels'
 import { DocumentsPanel, EncountersPanel, HistoryPanel } from './emrPanels'
 import '../Patients/Patients.css'
@@ -50,6 +51,7 @@ export default function MedicalRecordPage() {
       <div className="content-grid">
         <div className="content-stack">
           <EncountersPanel patientId={patient.id} canCreate={canEdit} encounterLink={(encId) => `/encounters/${encId}`} />
+          {can('imaging.view') && <ImagingOrdersPanel patientId={patient.id} canOrder={false} />}
           <DocumentsPanel patientId={patient.id} canEdit={canEdit} />
         </div>
         <div className="content-stack">

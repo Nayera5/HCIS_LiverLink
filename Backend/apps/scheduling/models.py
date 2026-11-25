@@ -9,6 +9,12 @@ Linked modules:
 
 Appointment may optionally link to a transplant.TransplantCase (spec §4.9).
 
+Two kinds of appointment:
+- doctor appointment: a doctor (`staff`) and one of the doctor's free slots;
+- imaging appointment (type 'imaging'): no doctor; an imaging order and a published scan slot
+  (module 7). It is booked, moved and cancelled only through apps/radiology, which keeps the order
+  in step; the database constraints below keep the two kinds apart.
+
 Times: schedule times and slot dates use the server time zone (settings.TIME_ZONE).
 """
 import datetime
@@ -87,6 +93,11 @@ class Appointment(models.Model):
         DONOR_EVALUATION = "donor_evaluation", "Donor evaluation"
         RECIPIENT_EVALUATION = "recipient_evaluation", "Recipient evaluation"
         FOLLOW_UP = "follow_up", "Post-transplant follow-up"
+        IMAGING = "imaging", "Imaging scan"
+
+    # Not bookable with a doctor: scans need an imaging order and a scan slot. ('ct_scan' is kept
+    # for appointments made before imaging orders existed.)
+    NOT_DOCTOR_TYPES = (Type.CT_SCAN, Type.IMAGING)
 
     class Status(models.TextChoices):
         BOOKED = "booked", "Booked"
@@ -97,6 +108,8 @@ class Appointment(models.Model):
 
     # Appointments in these statuses hold the doctor's slot.
     ACTIVE_STATUSES = (Status.BOOKED, Status.CHECKED_IN)
+    # An imaging appointment in these statuses uses up its scan slot and its order.
+    SLOT_HOLDING_STATUSES = (Status.BOOKED, Status.CHECKED_IN, Status.COMPLETED)
 
     # Allowed status changes: current status -> statuses it may move to.
     TRANSITIONS = {
@@ -117,8 +130,18 @@ class Appointment(models.Model):
     )
     staff = models.ForeignKey(
         "accounts.Staff", on_delete=models.PROTECT,
-        related_name="appointments", db_column="staff_id",
-        help_text="Doctor the visit is with.",
+        related_name="appointments", db_column="staff_id", null=True, blank=True,
+        help_text="Doctor the visit is with (empty for imaging appointments only).",
+    )
+    imaging_order = models.ForeignKey(
+        "radiology.ImagingOrder", on_delete=models.PROTECT,
+        related_name="appointments", db_column="imaging_order_id", null=True, blank=True,
+        help_text="Order the scan is for (imaging appointments only).",
+    )
+    imaging_slot = models.ForeignKey(
+        "radiology.ImagingSlot", on_delete=models.PROTECT,
+        related_name="appointments", db_column="imaging_slot_id", null=True, blank=True,
+        help_text="Scan slot (imaging appointments only).",
     )
     booked_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
@@ -139,10 +162,27 @@ class Appointment(models.Model):
         constraints = [
             models.CheckConstraint(condition=Q(end_time__gt=F("start_time")),
                                    name="scheduling_appointment_end_after_start"),
+            models.CheckConstraint(
+                condition=(
+                    Q(appointment_type="imaging", staff__isnull=True,
+                      imaging_order__isnull=False, imaging_slot__isnull=False)
+                    | (~Q(appointment_type="imaging")
+                       & Q(staff__isnull=False, imaging_order__isnull=True, imaging_slot__isnull=True))
+                ),
+                name="scheduling_appointment_doctor_or_scan"),
+            # No double booking of a scan slot, and one live booking per imaging order.
+            models.UniqueConstraint(fields=["imaging_slot"], name="scheduling_one_booking_per_scan_slot",
+                                    condition=Q(status__in=["booked", "checked_in", "completed"])),
+            models.UniqueConstraint(fields=["imaging_order"], name="scheduling_one_booking_per_scan_order",
+                                    condition=Q(status__in=["booked", "checked_in", "completed"])),
         ]
 
     def __str__(self):
         return f"Appointment #{self.pk} – patient {self.patient_id} ({self.start_time:%Y-%m-%d %H:%M})"
+
+    @property
+    def is_imaging(self):
+        return self.appointment_type == self.Type.IMAGING
 
     def can_move_to(self, new_status):
         return new_status in self.TRANSITIONS.get(self.status, set())

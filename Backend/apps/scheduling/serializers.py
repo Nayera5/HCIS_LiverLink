@@ -93,12 +93,15 @@ class AppointmentSerializer(serializers.ModelSerializer):
     patient_mrn = serializers.CharField(source="patient.mrn", read_only=True)
     staff_name = serializers.SerializerMethodField()
     encounter = serializers.SerializerMethodField()
+    # Imaging appointments only (read-only: booked through /api/radiology/).
+    imaging_service = serializers.CharField(source="imaging_order.billing_service.name", read_only=True, default=None)
 
     class Meta:
         model = Appointment
         fields = ["appointment_id", "patient", "patient_name", "patient_mrn", "staff", "staff_name",
-                  "booked_by", "appointment_type", "start_time", "end_time", "status", "reason", "encounter"]
-        read_only_fields = ["appointment_id", "booked_by", "end_time", "status"]
+                  "booked_by", "appointment_type", "start_time", "end_time", "status", "reason", "encounter",
+                  "imaging_order", "imaging_service"]
+        read_only_fields = ["appointment_id", "booked_by", "end_time", "status", "imaging_order"]
 
     def get_patient_name(self, appointment):
         return appointment.patient.full_name
@@ -112,6 +115,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
             return appointment.encounter.pk
         except Encounter.DoesNotExist:
             return None
+
+    def validate_appointment_type(self, value):
+        if value in Appointment.NOT_DOCTOR_TYPES:
+            raise serializers.ValidationError("Scans are booked from an imaging order, not with a doctor.")
+        return value
 
     def validate(self, attrs):
         user = self.context["request"].user

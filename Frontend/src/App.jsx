@@ -25,6 +25,10 @@ import DonorApplicationsPage from './pages/DonorApplications/DonorApplicationsPa
 import EncounterPage from './pages/EMR/EncounterPage'
 import MedicalRecordPage from './pages/EMR/MedicalRecordPage'
 import HL7MonitorPage from './pages/HL7/HL7MonitorPage'
+import ImagingOrderCreatePage from './pages/Imaging/ImagingOrderCreatePage'
+import ImagingOrderDetailPage from './pages/Imaging/ImagingOrderDetailPage'
+import ImagingOrdersPage from './pages/Imaging/ImagingOrdersPage'
+import ImagingSlotsPage from './pages/Imaging/ImagingSlotsPage'
 import NotFoundPage from './pages/Errors/NotFoundPage'
 import LoginRoute from './pages/Login/LoginRoute'
 import NotificationsPage from './pages/Notifications/NotificationsPage'
@@ -40,6 +44,7 @@ import MyAppointmentsPage from './pages/Portal/MyAppointmentsPage'
 import MyConsentsPage from './pages/Portal/MyConsentsPage'
 import MyDonorApplicationsPage from './pages/Portal/MyDonorApplicationsPage'
 import MyMedicalRecordPage from './pages/Portal/MyMedicalRecordPage'
+import MyImagingPage from './pages/Portal/MyImagingPage'
 import MyInvoiceDetailPage from './pages/Portal/MyInvoiceDetailPage'
 import MyInvoicesPage from './pages/Portal/MyInvoicesPage'
 import MyMedicationsPage from './pages/Prescriptions/MyMedicationsPage'
@@ -136,6 +141,20 @@ function App() {
               </Route>
               <Route element={<RequireCapability capability="billing.create_invoice" />}>
                 <Route path="billing/invoices/new" element={<InvoiceCreatePage />} />
+              </Route>
+
+              <Route element={<RequireCapability capability="imaging.view" />}>
+                <Route path="imaging/orders" element={<ImagingOrdersPage />} />
+                <Route path="imaging/orders/:id" element={<ImagingOrderDetailPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="imaging.manage" />}>
+                <Route path="imaging/slots" element={<ImagingSlotsPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="self.imaging_orders" />}>
+                <Route path="my-imaging" element={<MyImagingPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="imaging.order" />}>
+                <Route path="imaging/orders/new" element={<ImagingOrderCreatePage />} />
               </Route>
 
               <Route element={<RequireCapability capability="labs.view" />}>

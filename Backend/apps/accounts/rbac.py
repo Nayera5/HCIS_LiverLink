@@ -55,6 +55,13 @@ STAFF_CAPABILITIES = {
     # EMR (module 4): clinical readers view; only the treating doctors write and sign.
     'emr.view': CLINICAL_READERS,
     'emr.write': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    # Radiology (module 7): doctors order and cancel their own orders; the radiologist publishes scan
+    # slots, schedules / confirms, marks acquired and cancels; the coordinator only follows up.
+    # Super Admin has no access to imaging orders (clinical content).
+    'imaging.view': CLINICAL_READERS - {T.SUPER_ADMIN},
+    'imaging.order': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
+    'imaging.manage': frozenset({T.RADIOLOGIST}),
+    'imaging.coordinate': frozenset({T.TRANSPLANT_COORDINATOR}),  # remind patients about their scan
     # Scheduling (module 3): doctors manage their own working hours; super admin manages anyone's.
     'schedules.manage_own': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON, T.RADIOLOGIST}),
     'schedules.manage_all': frozenset({T.SUPER_ADMIN}),
@@ -97,6 +104,7 @@ PATIENT_CAPABILITIES = frozenset({
     'self.medications',         # view own prescriptions (active + past) and treatment plans
     'self.medical_records',     # view own released EMR records (read-only)
     'self.appointments',        # book / view / reschedule / cancel own appointments
+    'self.imaging_orders',      # view own imaging orders, choose / move / cancel own scan appointment
     'self.invoices',            # view own invoices, balance & payment history
     'self.imaging_reports',     # own imaging & AI reports (UI placeholder until module 9 exists)
     'services.view',            # read-only list of services and prices

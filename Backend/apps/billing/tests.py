@@ -65,6 +65,27 @@ class ServiceListPaginationTests(APITestCase):
     def test_out_of_range_page_is_404(self):
         self.assertEqual(self.get(page=99).status_code, 404)
 
+    def test_billing_admin_can_manage_imaging_services_for_dynamic_picker(self):
+        response = self.client.post('/api/services/', {
+            'code': 'IMG-DYNAMIC', 'name': 'New Dynamic Imaging Service', 'category': 'imaging',
+            'coding_system': 'cpt', 'standard_code': '70000', 'price': '1250.00',
+        }, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        service_id = response.data['id']
+
+        active = self.get(category='imaging', active_only='true', page_size=100)
+        self.assertIn('IMG-DYNAMIC', self.codes(active))
+
+        response = self.client.patch(f'/api/services/{service_id}/', {'is_active': False}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        inactive = self.get(category='imaging', active_only='true', page_size=100)
+        self.assertNotIn('IMG-DYNAMIC', self.codes(inactive))
+
+        response = self.client.patch(f'/api/services/{service_id}/', {'is_active': True}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        active = self.get(category='imaging', active_only='true', page_size=100)
+        self.assertIn('IMG-DYNAMIC', self.codes(active))
+
 
 class ServiceReadOnlyAccessTests(APITestCase):
     """The read-only Services page: clinical staff and patients may list services, never change them."""
