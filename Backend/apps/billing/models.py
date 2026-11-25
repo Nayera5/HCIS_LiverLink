@@ -242,7 +242,7 @@ class InvoiceItem(models.Model):
     surgery = models.ForeignKey(
         'transplant.Surgery', null=True, blank=True, on_delete=models.PROTECT,
         related_name='invoice_items', help_text='Transplant surgery the charge came from, if any.',
-    
+    )
     imaging_order = models.ForeignKey(
         'radiology.ImagingOrder', null=True, blank=True, on_delete=models.PROTECT,
         related_name='invoice_items', help_text='Imaging order the charge came from, if any.',
