@@ -1,6 +1,8 @@
 """Prescription and treatment-plan business rules, shared by the REST API and (later) HL7/EMR."""
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
+
+from apps.transplant.models import TransplantCase
 
 from .models import Prescription, TreatmentPlan
 
@@ -64,25 +66,62 @@ def _check_dates(start, review):
 
 
 @transaction.atomic
-def create_plan(patient, staff, **fields):
-    _check_dates(fields.get('start_date'), fields.get('review_date'))
-    return TreatmentPlan.objects.create(patient=patient, created_by=staff, **fields)
+def _ensure_transplant_case(patient, staff, referral_date):
+    if patient.category not in ('liver_patient', 'recipient'):
+        raise RxError('Only liver patients or recipients can be referred for transplant.')
+    case = TransplantCase.objects.select_for_update().filter(
+        recipient=patient,
+    ).exclude(status=TransplantCase.Status.CLOSED).first()
+    if case:
+        return case, False
+
+    try:
+        with transaction.atomic():
+            case = TransplantCase.objects.create(
+                recipient=patient,
+                referred_by=staff,
+                referral_date=referral_date,
+                status=TransplantCase.Status.REFERRED,
+            )
+    except IntegrityError:
+        case = TransplantCase.objects.select_for_update().filter(
+            recipient=patient,
+        ).exclude(status=TransplantCase.Status.CLOSED).first()
+        if case is None:
+            raise
+        return case, False
+    return case, True
 
 
 @transaction.atomic
-def update_plan(plan, data):
+def create_plan(patient, staff, **fields):
+    _check_dates(fields.get('start_date'), fields.get('review_date'))
+    plan = TreatmentPlan.objects.create(patient=patient, created_by=staff, **fields)
+    case = None
+    case_created = False
+    if plan.plan_type == TreatmentPlan.PlanType.TRANSPLANT_REFERRAL:
+        case, case_created = _ensure_transplant_case(patient, staff, timezone.localdate())
+    return plan, case, case_created
+
+
+@transaction.atomic
+def update_plan(plan, data, staff):
     """Edit an ACTIVE plan. Returns the changes ({} means nothing changed and nothing was saved)."""
     plan = TreatmentPlan.objects.select_for_update().get(pk=plan.pk)
     if plan.status != TreatmentPlan.Status.ACTIVE:
         raise RxError(f'A {plan.get_status_display().lower()} plan can no longer be edited.')
     changes = diff(plan, data, TreatmentPlan.EDITABLE_FIELDS)
     if not changes:
-        return plan, {}
+        return plan, {}, None, False
     for field in changes:
         setattr(plan, field, data[field])
     _check_dates(plan.start_date, plan.review_date)
     plan.save()
-    return plan, changes
+    case = None
+    case_created = False
+    if changes.get('plan_type', {}).get('to') == TreatmentPlan.PlanType.TRANSPLANT_REFERRAL:
+        case, case_created = _ensure_transplant_case(plan.patient, staff, timezone.localdate())
+    return plan, changes, case, case_created
 
 
 @transaction.atomic

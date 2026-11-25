@@ -51,7 +51,7 @@ class InvoiceItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InvoiceItem
-        fields = ['id', 'service', 'service_code', 'service_name', 'appointment', 'lab_order', 'imaging_order',
+        fields = ['id', 'service', 'service_code', 'service_name', 'appointment', 'imaging_order',
                   'quantity', 'unit_price', 'line_total']
         read_only_fields = fields
 

@@ -2,8 +2,9 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
-  addDays, allowedActions, bookingPayload, calendarDays, calendarRange, dateKey, formatTime, formatDayTitle, groupByDay,
-  groupSchedules, nextDateOf, schedulePayload, splitUpcoming, validateBooking, validateSchedule, weekStart,
+  addDays, allowedActions, bookingPayload, BOOKABLE_APPOINTMENT_TYPE_LABELS, calendarDays, calendarRange, dateKey,
+  doctorsForAppointmentType, formatTime, formatDayTitle, groupByDay, groupSchedules, nextDateOf, schedulePayload,
+  splitUpcoming, validateBooking, validateSchedule, weekStart,
 } from './appointmentRules.js'
 
 const canAll = (caps) => (cap) => caps.includes(cap)
@@ -45,6 +46,7 @@ describe('dates', () => {
     assert.equal(week.length, 7)
     assert.deepEqual(calendarRange('week', '2026-12-01'), { date_from: '2026-11-28', date_to: '2026-12-04' })
     assert.deepEqual(calendarRange('day', '2026-12-01'), { date_from: '2026-12-01', date_to: '2026-12-01' })
+    assert.deepEqual(calendarRange('all', '2026-12-01'), {})
   })
 
   test('times use the clinic time zone (UTC)', () => {
@@ -98,20 +100,48 @@ test('splitUpcoming: active future visits first, the rest newest first', () => {
 })
 
 describe('booking form', () => {
+  test('visit type limits doctors to the requested specialties', () => {
+    const doctors = [
+      { staff_id: 1, job_title: 'hepatologist' },
+      { staff_id: 2, job_title: 'transplant_surgeon' },
+      { staff_id: 3, job_title: 'radiologist' },
+    ]
+    assert.deepEqual(doctorsForAppointmentType(doctors, 'hepatology_consultation'), [doctors[0]])
+    assert.deepEqual(doctorsForAppointmentType(doctors, 'transplant_consultation'), [doctors[1]])
+    assert.deepEqual(doctorsForAppointmentType(doctors, 'examination'), [doctors[0]])
+    for (const type of ['donor_evaluation', 'recipient_evaluation', 'follow_up']) {
+      assert.deepEqual(doctorsForAppointmentType(doctors, type), [doctors[1]])
+    }
+    assert.deepEqual(doctorsForAppointmentType(doctors, ''), [])
+  })
+
+  test('bookable visit types replace CT and lab with Examination', () => {
+    assert.equal(BOOKABLE_APPOINTMENT_TYPE_LABELS.hepatology_consultation, 'Hepatology Consultation')
+    assert.equal(BOOKABLE_APPOINTMENT_TYPE_LABELS.transplant_consultation, 'Transplant Consultation')
+    assert.ok(!BOOKABLE_APPOINTMENT_TYPE_LABELS.consultation)
+    assert.ok(BOOKABLE_APPOINTMENT_TYPE_LABELS.examination)
+    assert.ok(!BOOKABLE_APPOINTMENT_TYPE_LABELS.ct_scan)
+    assert.ok(!BOOKABLE_APPOINTMENT_TYPE_LABELS.lab_visit)
+    const values = { staff: '5', appointment_type: 'examination', date: '2026-11-28',
+      start_time: '2026-11-28T09:00:00Z' }
+    assert.deepEqual(validateBooking(values, { needsPatient: false }), {})
+    assert.ok(validateBooking({ ...values, appointment_type: 'ct_scan' }, { needsPatient: false }).appointment_type)
+  })
+
   test('staff must choose a patient; portal users do not', () => {
     const empty = { staff: '', appointment_type: '', date: '', start_time: '' }
     assert.deepEqual(Object.keys(validateBooking(empty, { needsPatient: true })).sort(),
       ['appointment_type', 'date', 'patient', 'staff', 'start_time'])
     assert.ok(!validateBooking(empty, { needsPatient: false }).patient)
-    const ok = { patient: '3', staff: '5', appointment_type: 'consultation', date: '2026-11-28',
+    const ok = { patient: '3', staff: '5', appointment_type: 'hepatology_consultation', date: '2026-11-28',
       start_time: '2026-11-28T09:00:00Z' }
     assert.deepEqual(validateBooking(ok, { needsPatient: true }), {})
   })
 
   test('payload converts ids and trims the reason', () => {
-    const values = { patient: '3', staff: '5', appointment_type: 'ct_scan', start_time: 'T', reason: '  pain ' }
+    const values = { patient: '3', staff: '5', appointment_type: 'examination', start_time: 'T', reason: '  pain ' }
     assert.deepEqual(bookingPayload(values, { needsPatient: true }),
-      { patient: 3, staff: 5, appointment_type: 'ct_scan', start_time: 'T', reason: 'pain' })
+      { patient: 3, staff: 5, appointment_type: 'examination', start_time: 'T', reason: 'pain' })
     assert.equal(bookingPayload(values, { needsPatient: false }).patient, undefined)
   })
 })

@@ -3,6 +3,9 @@
 
 export const APPOINTMENT_TYPE_LABELS = {
   consultation: 'Consultation',
+  hepatology_consultation: 'Hepatology Consultation',
+  transplant_consultation: 'Transplant Consultation',
+  examination: 'Examination',
   ct_scan: 'CT scan',
   lab_visit: 'Lab visit',
   donor_evaluation: 'Donor evaluation',
@@ -15,6 +18,28 @@ export const APPOINTMENT_TYPE_LABELS = {
 export const BOOKABLE_TYPE_LABELS = Object.fromEntries(
   Object.entries(APPOINTMENT_TYPE_LABELS).filter(([type]) => type !== 'ct_scan' && type !== 'imaging'),
 )
+export const BOOKABLE_APPOINTMENT_TYPE_LABELS = {
+  hepatology_consultation: APPOINTMENT_TYPE_LABELS.hepatology_consultation,
+  transplant_consultation: APPOINTMENT_TYPE_LABELS.transplant_consultation,
+  donor_evaluation: 'Donor Evaluation',
+  recipient_evaluation: 'Recipient Evaluation',
+  follow_up: 'Post-transplant Follow-up',
+  examination: APPOINTMENT_TYPE_LABELS.examination,
+}
+
+const DOCTOR_TITLES_BY_APPOINTMENT_TYPE = {
+  hepatology_consultation: ['hepatologist'],
+  transplant_consultation: ['transplant_surgeon'],
+  examination: ['hepatologist'],
+  donor_evaluation: ['transplant_surgeon'],
+  recipient_evaluation: ['transplant_surgeon'],
+  follow_up: ['transplant_surgeon'],
+}
+
+export function doctorsForAppointmentType(doctors = [], appointmentType) {
+  const allowedTitles = DOCTOR_TITLES_BY_APPOINTMENT_TYPE[appointmentType] || []
+  return doctors.filter((doctor) => allowedTitles.includes(doctor.job_title))
+}
 
 export const APPOINTMENT_STATUS = {
   booked: { label: 'Booked', tone: 'info' },
@@ -105,6 +130,7 @@ export function calendarDays(view, iso) {
 
 /** Query filters for the calendar (the backend filters by start date, inclusive). */
 export function calendarRange(view, iso) {
+  if (view === 'all') return {}
   const days = calendarDays(view, iso)
   return { date_from: days[0], date_to: days[days.length - 1] }
 }
@@ -191,6 +217,7 @@ export function validateBooking(values, { needsPatient }) {
   if (needsPatient && blank(values.patient)) errors.patient = 'Choose the patient.'
   if (blank(values.staff)) errors.staff = 'Choose a doctor.'
   if (!BOOKABLE_TYPE_LABELS[values.appointment_type]) errors.appointment_type = 'Choose the type of visit.'
+  if (!BOOKABLE_APPOINTMENT_TYPE_LABELS[values.appointment_type]) errors.appointment_type = 'Choose the type of visit.'
   if (blank(values.date)) errors.date = 'Choose a date.'
   if (blank(values.start_time)) errors.start_time = 'Choose a free time.'
   return errors

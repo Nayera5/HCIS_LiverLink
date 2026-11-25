@@ -26,15 +26,20 @@ export default function AppointmentsPage() {
   const { can } = useAuth()
   const location = useLocation()
   const [params, setParams] = useSearchParams()
-  const doctors = useApi(listDoctors).data || []
+  const { data: doctorRows, error: doctorsError, loading: doctorsLoading } = useApi(listDoctors)
+  const doctors = doctorRows || []
   const myStaffId = findMyStaffId(doctors)
 
-  const view = params.get('view') === 'week' ? 'week' : 'day'
+  const viewParam = params.get('view')
+  const view = viewParam === 'all' ? 'all' : viewParam === 'week' ? 'week' : 'day'
   const date = params.get('date') || dateKey()
   const patient = params.get('patient') || ''
-  // Doctors start on their own calendar; "all" shows every doctor.
+  const isDoctor = can('schedules.manage_own') && !can('schedules.manage_all')
+  // Doctors are always limited to their own appointments; other staff may choose a doctor.
   const staffParam = params.get('staff')
-  const staff = staffParam === null ? (myStaffId ? String(myStaffId) : '') : staffParam === 'all' ? '' : staffParam
+  const staff = isDoctor
+    ? (myStaffId ? String(myStaffId) : '')
+    : staffParam === null ? (myStaffId ? String(myStaffId) : '') : staffParam === 'all' ? '' : staffParam
 
   const update = (changes) => {
     const next = new URLSearchParams(params)
@@ -43,14 +48,19 @@ export default function AppointmentsPage() {
   }
 
   const loader = useCallback(
-    () => listAppointments({ ...calendarRange(view, date), staff, patient }),
-    [view, date, staff, patient],
+    () => (isDoctor && !myStaffId
+      ? Promise.resolve(null)
+      : listAppointments({ ...calendarRange(view, date), staff, patient })),
+    [view, date, staff, patient, isDoctor, myStaffId],
   )
   const { data, error, loading, setData } = useApi(loader)
   const [flash] = useState(location.state?.flash || '')
   const who = { can, myStaffId }
-  const days = calendarDays(view, date)
-  const groups = groupByDay(data || [], days)
+  const days = view === 'all'
+    ? [...new Set((data || []).map((appointment) => dateKey(appointment.start_time)))].sort()
+    : calendarDays(view, date)
+  const groupedDays = groupByDay(data || [], days)
+  const groups = view === 'week' ? groupedDays.filter((group) => group.items.length > 0) : groupedDays
   const step = view === 'week' ? 7 : 1
   const patientName = data?.[0]?.patient_name
 
@@ -69,35 +79,53 @@ export default function AppointmentsPage() {
           <Button variant="link" size="sm" onClick={() => update({ patient: '' })}>Show all patients</Button>
         </Alert>
       )}
+      {doctorsError && <Alert variant="error">{getErrorMessage(doctorsError, 'Could not load doctor details.')}</Alert>}
 
       <div className="appt-toolbar">
         <div className="segmented" role="group" aria-label="Calendar view">
-          {['day', 'week'].map((v) => (
+          {['day', 'week', 'all'].map((v) => (
             <button key={v} type="button" className={`segmented__item ${view === v ? 'is-active' : ''}`}
               aria-pressed={view === v} onClick={() => update({ view: v === 'day' ? '' : v })}>
-              {v === 'day' ? 'Day' : 'Week'}
+              {v === 'day' ? 'Day' : v === 'week' ? 'Week' : 'All'}
             </button>
           ))}
         </div>
-        <div className="appt-toolbar__nav">
-          <Button variant="secondary" size="sm" onClick={() => update({ date: addDays(date, -step) })}>Previous</Button>
-          <Button variant="secondary" size="sm" onClick={() => update({ date: '' })}>Today</Button>
-          <Button variant="secondary" size="sm" onClick={() => update({ date: addDays(date, step) })}>Next</Button>
-          <input type="date" className="field__input appt-date" aria-label="Go to date" value={date}
-            onChange={(e) => update({ date: e.target.value })} />
-        </div>
-        <SelectField className="appt-toolbar__doctor" aria-label="Doctor" value={staff}
-          onChange={(e) => update({ staff: e.target.value || 'all' })}
-          placeholder="All doctors" options={doctors.map((d) => ({ value: String(d.staff_id), label: doctorLabel(d) }))} />
+        {view !== 'all' && (
+          <div className="appt-toolbar__nav">
+            <Button variant="secondary" size="sm" onClick={() => update({ date: addDays(date, -step) })}>Previous</Button>
+            {view === 'day' && (
+              <Button variant="secondary" size="sm" onClick={() => update({ date: '' })}>Today</Button>
+            )}
+            <Button variant="secondary" size="sm" onClick={() => update({ date: addDays(date, step) })}>Next</Button>
+            {view === 'day' && (
+              <input type="date" className="field__input appt-date" aria-label="Go to date" value={date}
+                onChange={(e) => update({ date: e.target.value })} />
+            )}
+          </div>
+        )}
+        {!isDoctor && (
+          <SelectField className="appt-toolbar__doctor" aria-label="Doctor" value={staff}
+            onChange={(e) => update({ staff: e.target.value || 'all' })}
+            placeholder="All doctors" options={doctors.map((d) => ({ value: String(d.staff_id), label: doctorLabel(d) }))} />
+        )}
       </div>
 
       <p className="appt-range">
-        {view === 'day' ? formatDayTitle(date) : `${formatDayShort(days[0])} – ${formatDayShort(days[6])}`}
+        {view === 'all' ? 'All appointments' : view === 'day' ? formatDayTitle(date) : `${formatDayShort(days[0])} – ${formatDayShort(days[6])}`}
       </p>
 
+      {isDoctor && !myStaffId && !doctorsLoading && !doctorsError && (
+        <Alert variant="error">Could not identify your doctor profile, so appointments were not loaded.</Alert>
+      )}
       {error && <Alert variant="error">{getErrorMessage(error, 'Could not load appointments.')}</Alert>}
       {loading && !data ? <LoadingBlock label="Loading appointments" /> : (
         <div className="content-stack">
+          {view === 'all' && data && groups.length === 0 && !(isDoctor && !myStaffId) && (
+            <Panel title="All appointments"><p className="muted-text">No appointments.</p></Panel>
+          )}
+          {view === 'week' && data && groups.length === 0 && !(isDoctor && !myStaffId) && (
+            <Panel title="Appointments"><p className="muted-text">No appointments this week.</p></Panel>
+          )}
           {groups.map((group) => (
             <Panel key={group.date} title={view === 'day' ? 'Schedule' : formatDayTitle(group.date)}
               subtitle={`${group.items.length} appointment${group.items.length === 1 ? '' : 's'}`}

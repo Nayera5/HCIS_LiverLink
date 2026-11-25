@@ -10,6 +10,14 @@ from .models import Appointment, DoctorSchedule, free_slots
 from .permissions import is_portal_user
 
 DOCTOR_ERROR = "Choose an active hepatologist, transplant surgeon or radiologist."
+APPOINTMENT_DOCTOR_TITLES = {
+    Appointment.Type.HEPATOLOGY_CONSULTATION: "hepatologist",
+    Appointment.Type.EXAMINATION: "hepatologist",
+    Appointment.Type.TRANSPLANT_CONSULTATION: "transplant_surgeon",
+    Appointment.Type.DONOR_EVALUATION: "transplant_surgeon",
+    Appointment.Type.RECIPIENT_EVALUATION: "transplant_surgeon",
+    Appointment.Type.FOLLOW_UP: "transplant_surgeon",
+}
 
 
 def schedulable_doctors():
@@ -119,6 +127,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
     def validate_appointment_type(self, value):
         if value in Appointment.NOT_DOCTOR_TYPES:
             raise serializers.ValidationError("Scans are booked from an imaging order, not with a doctor.")
+        if value in (Appointment.Type.CT_SCAN, Appointment.Type.LAB_VISIT):
+            raise serializers.ValidationError("CT scans and lab visits are not bookable appointment types.")
         return value
 
     def validate(self, attrs):
@@ -142,8 +152,15 @@ class AppointmentSerializer(serializers.ModelSerializer):
         else:
             attrs.pop("patient", None)
 
+        staff = attrs.get("staff") or getattr(self.instance, "staff", None)
+        appointment_type = attrs.get("appointment_type") or getattr(self.instance, "appointment_type", None)
+        required_title = APPOINTMENT_DOCTOR_TITLES.get(appointment_type)
+        if required_title and staff.job_title != required_title:
+            title = "hepatologist" if required_title == "hepatologist" else "transplant surgeon"
+            raise serializers.ValidationError({"staff": f"Choose a {title} for this type of visit."})
+
         # Business rule: the time must be a free slot of the doctor (no double booking).
-        staff = attrs.get("staff") or self.instance.staff
+        staff = staff or self.instance.staff
         start = attrs.get("start_time") or self.instance.start_time
         slots = dict(free_slots(staff, timezone.localtime(start).date(), exclude_appointment=self.instance))
         if start not in slots:

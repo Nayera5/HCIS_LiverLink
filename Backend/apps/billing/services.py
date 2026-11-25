@@ -1,13 +1,12 @@
 """
 Automatic invoice generation (spec §13 "Invoice Generation": invoices are created from completed
-appointments and tests).
+appointments).
 
 - invoice_for_appointment(): called when an appointment is marked completed. The visit fee comes
   from APPOINTMENT_SERVICE_CODES. Lab visits carry no fee: their tests are billed with the order.
-- invoice_for_lab_order(): called when every test of a lab order has a result. Each test is billed
-  with the active 'lab' service whose LOINC standard_code equals the test's code.
 - invoice_for_imaging_order(): called when a scan is acquired and uses the order's explicitly
   selected active imaging service.
+  from APPOINTMENT_SERVICE_CODES. Lab visits carry no visit fee.
 
 Both are idempotent (a source already on a non-cancelled invoice is not billed again) and never
 break the clinical action that triggered them: a billing problem (e.g. a service missing from
@@ -34,7 +33,8 @@ APPOINTMENT_SERVICE_CODES = {
     'donor_evaluation': 'CONS-005',
     'recipient_evaluation': 'CONS-002',
     'follow_up': 'CONS-003',             # Post-transplant follow-up
-    # 'lab_visit': no visit fee, the tests are billed when the lab order is resulted.
+    
+    # 'lab_visit': no visit fee.
 }
 SURGEON_CONSULTATION_CODE = 'CONS-004'   # consultation with a transplant surgeon
 
@@ -88,23 +88,6 @@ def invoice_for_appointment(appointment):
     return _safely(f'appointment #{appointment.pk}', lambda: _create_invoice(
         appointment.patient, [(service, 1, {'appointment': appointment})]))
 
-
-def invoice_for_lab_order(order):
-    """Invoice the tests of a fully resulted lab order. Returns the invoice, or None if nothing was billed."""
-    if order.status != 'resulted' or _already_billed(lab_order=order):
-        return None
-    codes = list(order.results.values_list('lab_test__code', flat=True))
-    services = {service.standard_code: service for service in Service.objects.filter(
-        category=Service.Category.LAB, coding_system=Service.CodingSystem.LOINC,
-        standard_code__in=codes, is_active=True)}
-    missing = sorted(set(codes) - set(services))
-    if missing:
-        logger.warning('Lab order #%s: no active lab service for LOINC %s; those tests were not billed.',
-                       order.pk, ', '.join(missing))
-    lines = [(services[code], 1, {'lab_order': order}) for code in codes if code in services]
-    if not lines:
-        return None
-    return _safely(f'lab order #{order.pk}', lambda: _create_invoice(order.patient, lines))
 
 
 @transaction.atomic

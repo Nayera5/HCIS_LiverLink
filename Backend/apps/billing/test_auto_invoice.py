@@ -171,7 +171,7 @@ class ImagingOrderInvoiceTests(PatientAPITestBase):
         self.assertEqual(InvoiceItem.objects.filter(imaging_order=self.order).count(), 1)
 
 
-class LabOrderInvoiceTests(PatientAPITestBase):
+class LabOrderNotInvoicedTests(PatientAPITestBase):
     def setUp(self):
         super().setUp()
         self.bili = LabTest.objects.create(code='1975-2', name='Bilirubin', normal_min=Decimal('0.1'),
@@ -183,30 +183,10 @@ class LabOrderInvoiceTests(PatientAPITestBase):
         lab_services.record_result(self.order.results.get(lab_test=test), Decimal(value))
         self.order.refresh_from_db()
 
-    def test_invoice_only_once_all_results_are_in(self):
-        self.enter(self.bili, '0.8')
-        self.assertFalse(InvoiceItem.objects.filter(lab_order=self.order).exists())
-        self.enter(self.alt, '30')
-        items = InvoiceItem.objects.filter(lab_order=self.order).select_related('service', 'invoice')
-        self.assertEqual(sorted(item.service.code for item in items), ['LAB-001', 'LAB-003'])
-        invoice = items[0].invoice
-        self.assertEqual(invoice.total_amount, sum(item.line_total for item in items))
-        self.assertEqual(invoice.patient, self.own)
-
-    def test_test_without_a_lab_service_is_skipped(self):
-        Service.objects.filter(code='LAB-003').update(is_active=False)  # bilirubin
-        self.enter(self.bili, '0.8')
-        with self.assertLogs('apps.billing.services', 'WARNING'):
-            self.enter(self.alt, '30')
-        self.assertEqual([i.service.code for i in InvoiceItem.objects.filter(lab_order=self.order)], ['LAB-001'])
-
-    def test_not_billed_twice(self):
-        from .services import invoice_for_lab_order
-
+    def test_lab_results_do_not_create_an_invoice(self):
         self.enter(self.bili, '0.8')
         self.enter(self.alt, '30')
-        self.assertIsNone(invoice_for_lab_order(self.order))
-        self.assertEqual(Invoice.objects.filter(items__lab_order=self.order).distinct().count(), 1)
+        self.assertFalse(Invoice.objects.filter(patient=self.own).exists())
 
 
 class PaymentLockTests(PatientAPITestBase):
