@@ -239,9 +239,6 @@ class InvoiceItem(models.Model):
         'scheduling.Appointment', null=True, blank=True, on_delete=models.PROTECT,
         related_name='invoice_items', help_text='Visit the charge came from, if any.',
     )
-    surgery = models.ForeignKey(
-        'transplant.Surgery', null=True, blank=True, on_delete=models.PROTECT,
-        related_name='invoice_items', help_text='Transplant surgery the charge came from, if any.',
     
     imaging_order = models.ForeignKey(
         'radiology.ImagingOrder', null=True, blank=True, on_delete=models.PROTECT,
@@ -250,6 +247,12 @@ class InvoiceItem(models.Model):
     is_current_imaging_charge = models.BooleanField(
         default=False, help_text='Marks the single non-cancelled invoice item currently charging an imaging order.',
     )
+    
+    surgery = models.ForeignKey(
+            'transplant.Surgery', null=True, blank=True, on_delete=models.PROTECT,
+            related_name='invoice_items', help_text='Transplant surgery the charge came from, if any.',
+    )
+
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     unit_price = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0'))],
