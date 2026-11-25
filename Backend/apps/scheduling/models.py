@@ -82,6 +82,8 @@ class DoctorSchedule(models.Model):
 class Appointment(models.Model):
     class Type(models.TextChoices):
         CONSULTATION = "consultation", "Consultation"
+        EXAMINATION = "examination", "Examination"
+        # Retained for existing appointments; these are no longer offered when booking.
         CT_SCAN = "ct_scan", "CT scan"
         LAB_VISIT = "lab_visit", "Lab visit"
         DONOR_EVALUATION = "donor_evaluation", "Donor evaluation"

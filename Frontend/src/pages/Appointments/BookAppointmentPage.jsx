@@ -13,9 +13,10 @@ import SelectField from '../../components/ui/SelectField'
 import TextField from '../../components/ui/TextField'
 import { useApi } from '../../hooks/useApi'
 import { TextAreaField } from '../EMR/emrPanels'
-import { DoctorAvailability, SlotPicker } from './appointmentParts'
+import { DoctorAvailability } from './appointmentParts'
 import {
-  APPOINTMENT_TYPE_LABELS, bookingPayload, dateKey, doctorLabel, formatWhen, toOptions, validateBooking,
+  BOOKABLE_APPOINTMENT_TYPE_LABELS, bookingPayload, dateKey, doctorLabel, formatDayTitle, formatWhen,
+  toOptions, validateBooking,
 } from './appointmentRules'
 
 /** Staff: search and pick the patient (results come from the patient registry). */
@@ -83,7 +84,7 @@ export default function BookAppointmentPage() {
     : null
   const [patient, setPatient] = useState(preset)
   const [values, setValues] = useState({
-    staff: '', appointment_type: 'consultation', date: dateKey(), start_time: '', reason: '',
+    staff: '', appointment_type: 'consultation', date: '', start_time: '', reason: '',
   })
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
@@ -91,8 +92,17 @@ export default function BookAppointmentPage() {
 
   const change = (event) => {
     const { name, value } = event.target
-    // A new doctor or date means the chosen time no longer applies.
-    setValues((prev) => ({ ...prev, [name]: value, ...((name === 'staff' || name === 'date') && { start_time: '' }) }))
+    if (name === 'staff') {
+      setValues((prev) => ({ ...prev, staff: value, date: '', start_time: '' }))
+      setErrors((prev) => ({ ...prev, staff: undefined, date: undefined, start_time: undefined }))
+      return
+    }
+    setValues((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const selectSlot = (date, start) => {
+    setValues((prev) => ({ ...prev, date, start_time: start }))
+    setErrors((prev) => ({ ...prev, date: undefined, start_time: undefined }))
   }
 
   const submit = async (event) => {
@@ -113,7 +123,7 @@ export default function BookAppointmentPage() {
       setErrors(rest)
       setFormError(form || (Object.keys(rest).length ? '' : getErrorMessage(error, 'Could not book the appointment.')))
       // The slot may have just been taken: clear it so the list reloads.
-      if (rest.start_time) setValues((prev) => ({ ...prev, start_time: '' }))
+      if (rest.start_time) setValues((prev) => ({ ...prev, date: '', start_time: '' }))
     } finally {
       setSaving(false)
     }
@@ -134,14 +144,17 @@ export default function BookAppointmentPage() {
           )}
           <SelectField label="Doctor" name="staff" value={values.staff} onChange={change} placeholder="Choose a doctor"
             options={doctors.map((d) => ({ value: String(d.staff_id), label: doctorLabel(d) }))} error={errors.staff} />
-          <DoctorAvailability staff={values.staff}
-            onSelect={(date, start) => setValues((prev) => ({ ...prev, date, start_time: start }))} />
-          <TextField label="Date" name="date" type="date" value={values.date} min={dateKey()} onChange={change}
-            error={errors.date} />
-          <SlotPicker staff={values.staff} date={values.date} value={values.start_time} error={errors.start_time}
-            onChange={(start) => setValues((prev) => ({ ...prev, start_time: start }))} />
+          <DoctorAvailability staff={values.staff} value={values.start_time} onSelect={selectSlot} />
+          <div className="field" aria-live="polite">
+            <p className="field__label">Appointment date</p>
+            <p className="appt-booking-date">
+              {values.date ? formatDayTitle(values.date) : 'Choose an available slot to set the date.'}
+            </p>
+            {errors.date && <p className="field__error">{errors.date}</p>}
+          </div>
+          {errors.start_time && <p className="field__error">{errors.start_time}</p>}
           <SelectField label="Type of visit" name="appointment_type" value={values.appointment_type} onChange={change}
-            options={toOptions(APPOINTMENT_TYPE_LABELS)} error={errors.appointment_type} />
+            options={toOptions(BOOKABLE_APPOINTMENT_TYPE_LABELS)} error={errors.appointment_type} />
           <TextAreaField label="Reason for the visit (optional)" name="reason" value={values.reason} onChange={change}
             rows={3} maxLength={2000} error={errors.reason} />
           <div className="form-actions">

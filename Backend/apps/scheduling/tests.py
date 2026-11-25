@@ -126,6 +126,17 @@ class ScheduleTests(SchedulingTestBase):
 
 
 class BookingTests(SchedulingTestBase):
+    def test_examination_is_bookable_but_ct_and_lab_are_not(self):
+        for appointment_type in ('ct_scan', 'lab_visit'):
+            with self.subTest(appointment_type=appointment_type):
+                response = self.book(self.coord, appointment_type=appointment_type)
+                self.assertEqual(response.status_code, 400, response.data)
+                self.assertIn('appointment_type', response.data)
+
+        response = self.book(self.coord, appointment_type='examination')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['appointment_type'], 'examination')
+
     def test_booking_matrix(self):
         starts = iter([at(9), at(9, 30), at(10)])
         for user in (self.coord, self.admin, self.pat_user):

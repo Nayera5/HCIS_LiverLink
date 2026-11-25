@@ -155,6 +155,11 @@
   max-width: 640px;
 }
 
+.appt-booking-date {
+  margin: 0;
+  color: var(--color-text-strong);
+}
+
 .appt-picked {
   display: flex;
   flex-wrap: wrap;

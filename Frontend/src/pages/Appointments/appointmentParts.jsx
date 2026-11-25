@@ -57,8 +57,8 @@ export function SlotPicker({ staff, date, value, onChange, error }) {
   )
 }
 
-/** Upcoming free slots for each weekday in the doctor's active schedule. */
-export function DoctorAvailability({ staff, onSelect }) {
+/** Upcoming bookable slots for each weekday in the doctor's active schedule. */
+export function DoctorAvailability({ staff, value, onSelect }) {
   const loader = useCallback(async () => {
     if (!staff) return null
     const schedules = (await listSchedules({ staff })).filter((schedule) => schedule.is_active)
@@ -76,7 +76,7 @@ export function DoctorAvailability({ staff, onSelect }) {
     <section className="appt-availability" aria-label="Doctor availability">
       <div>
         <p className="field__label">Doctor availability</p>
-        <p className="muted-text">Upcoming free slots for each scheduled day. Choose a slot or search another date below.</p>
+        <p className="muted-text">Choose an available slot. The appointment date updates to match your selection.</p>
       </div>
       {loading && <LoadingBlock label="Loading doctor availability" />}
       {error && <Alert variant="error">{getErrorMessage(error, 'Could not load doctor availability.')}</Alert>}
@@ -87,16 +87,17 @@ export function DoctorAvailability({ staff, onSelect }) {
             <section key={group.day} className="appt-availability__day">
               <h3>{formatDayTitle(group.date)}</h3>
               {group.slots.length ? (
-                <div className="slot-grid" aria-label={`Free times on ${formatDayTitle(group.date)}`}>
+                <div className="slot-grid" role="radiogroup" aria-label={`Available slots on ${formatDayTitle(group.date)}`}>
                   {group.slots.map((slot) => (
-                    <button key={slot.start_time} type="button" className="slot"
+                    <button key={slot.start_time} type="button" role="radio" aria-checked={value === slot.start_time}
+                      className={`slot ${value === slot.start_time ? 'slot--selected' : ''}`}
                       onClick={() => onSelect(group.date, slot.start_time)}>
                       {formatTime(slot.start_time)}
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="muted-text">No free times on this date. Search another date below.</p>
+                <p className="muted-text">No available slots on this date.</p>
               )}
             </section>
           ))}
