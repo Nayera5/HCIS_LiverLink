@@ -97,7 +97,9 @@ class LabResult(models.Model):
 
     lab_order = models.ForeignKey(LabOrder, on_delete=models.CASCADE, related_name='results')
     lab_test = models.ForeignKey(LabTest, on_delete=models.PROTECT, related_name='results')
-    # hl7_message FK is added with the HL7 module (apps/hl7 is still a stub).
+    # The ORU message that delivered the value (empty when it was entered by hand).
+    hl7_message = models.ForeignKey('hl7.HL7Message', null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name='lab_results')
     value = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
     flag = models.CharField(max_length=10, choices=Flag.choices, blank=True)
     result_time = models.DateTimeField(null=True, blank=True)

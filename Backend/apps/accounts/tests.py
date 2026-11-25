@@ -40,7 +40,7 @@ class RBACUnitTests(TestCase):
                         'appointments.book_any', 'billing.manage_services', 'billing.view',
                         'billing.create_invoice', 'billing.record_payment', 'reports.patients', 'reports.financial',
                         'reports.system_usage', 'reports.transplant', 'reports.imaging',
-                        'transplant.view', 'transplant.view_followup'},  # no consents.view
+                        'transplant.view', 'transplant.view_followup', 'hl7.monitor'},  # no consents.view
         T.BILLING_ADMIN: {'patients.view', 'billing.manage_services', 'billing.view', 'billing.create_invoice',
                           'billing.record_payment', 'reports.financial'},
         T.TRANSPLANT_COORDINATOR: {'patients.register', 'patients.view', 'patients.edit',

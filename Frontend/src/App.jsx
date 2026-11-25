@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AuthProvider from './auth/AuthProvider'
 import { PublicOnly, RequireAuth, RequireCapability } from './auth/guards'
 import AppShell from './components/layout/AppShell'
@@ -24,6 +24,7 @@ import DonorApplicationDetailPage from './pages/DonorApplications/DonorApplicati
 import DonorApplicationsPage from './pages/DonorApplications/DonorApplicationsPage'
 import EncounterPage from './pages/EMR/EncounterPage'
 import MedicalRecordPage from './pages/EMR/MedicalRecordPage'
+import HL7MonitorPage from './pages/HL7/HL7MonitorPage'
 import NotFoundPage from './pages/Errors/NotFoundPage'
 import LoginRoute from './pages/Login/LoginRoute'
 import NotificationsPage from './pages/Notifications/NotificationsPage'
@@ -33,7 +34,6 @@ import PatientsPage from './pages/Patients/PatientsPage'
 import LabOrderCreatePage from './pages/Labs/LabOrderCreatePage'
 import LabOrderDetailPage from './pages/Labs/LabOrderDetailPage'
 import LabOrdersPage from './pages/Labs/LabOrdersPage'
-import MyLabOrdersPage from './pages/Labs/MyLabOrdersPage'
 import MyLabResultsPage from './pages/Labs/MyLabResultsPage'
 import PendingTestsPage from './pages/Labs/PendingTestsPage'
 import MyAppointmentsPage from './pages/Portal/MyAppointmentsPage'
@@ -42,7 +42,6 @@ import MyDonorApplicationsPage from './pages/Portal/MyDonorApplicationsPage'
 import MyMedicalRecordPage from './pages/Portal/MyMedicalRecordPage'
 import MyInvoiceDetailPage from './pages/Portal/MyInvoiceDetailPage'
 import MyInvoicesPage from './pages/Portal/MyInvoicesPage'
-import MyRecordPage from './pages/Portal/MyRecordPage'
 import MyMedicationsPage from './pages/Prescriptions/MyMedicationsPage'
 import MyTreatmentPlansPage from './pages/Prescriptions/MyTreatmentPlansPage'
 import PlanReviewsPage from './pages/Prescriptions/PlanReviewsPage'
@@ -83,9 +82,6 @@ function App() {
               </Route>
               <Route element={<RequireCapability capability="patients.register" />}>
                 <Route path="patients/new" element={<PatientRegisterPage />} />
-              </Route>
-              <Route element={<RequireCapability capability="self.patient_record" />}>
-                <Route path="my-record" element={<MyRecordPage />} />
               </Route>
               <Route element={<RequireCapability capability="self.donor_applications" />}>
                 <Route path="my-donor-applications" element={<MyDonorApplicationsPage />} />
@@ -152,7 +148,7 @@ function App() {
               </Route>
               <Route element={<RequireCapability capability="self.lab_results" />}>
                 <Route path="my-results" element={<MyLabResultsPage />} />
-                <Route path="my-lab-orders" element={<MyLabOrdersPage />} />
+                <Route path="my-lab-orders" element={<Navigate to="/my-results?tab=orders" replace />} />
               </Route>
 
               <Route element={<RequireCapability capability="prescriptions.prescribe" />}>
@@ -177,6 +173,9 @@ function App() {
               </Route>
               <Route element={<RequireCapability capability="audit.view" />}>
                 <Route path="admin/audit-logs" element={<AuditLogsPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="hl7.monitor" />}>
+                <Route path="admin/hl7-messages" element={<HL7MonitorPage />} />
               </Route>
 
               <Route element={<RequireCapability capability="transplant.view" />}>

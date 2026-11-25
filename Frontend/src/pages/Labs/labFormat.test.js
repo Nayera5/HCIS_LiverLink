@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatValue, isAbnormal, niceTicks, rangeText, xPosition, yDomain } from './labFormat.js'
+import { formatValue, isAbnormal, latestPerTest, niceTicks, plainFlag, rangeText, xPosition, yDomain } from './labFormat.js'
 
 test('formatValue trims zeros and handles pending', () => {
   assert.equal(formatValue('3.4000'), '3.4')
@@ -45,4 +45,27 @@ test('isAbnormal', () => {
   assert.equal(isAbnormal('high'), true)
   assert.equal(isAbnormal('normal'), false)
   assert.equal(isAbnormal(''), false)
+})
+
+test('latestPerTest keeps the newest result of each test, most serious first', () => {
+  const result = (id, code, flag) => ({ id, test_code: code, test_name: code, flag })
+  const rows = latestPerTest([
+    result(5, 'ALT', 'normal'), result(4, 'INR', 'high'), result(3, 'Bili', 'critical'),
+    result(2, 'ALT', 'critical'), result(1, 'ALT', 'high'),
+  ])
+  assert.deepEqual(rows.map((r) => r.id), [3, 4, 5]) // ALT was critical before, but is normal now
+  assert.equal(rows[2].previous.id, 2)
+  assert.equal(rows[0].previous, null)
+  assert.deepEqual(latestPerTest([]), [])
+})
+
+test('plainFlag says the flag in words, with the direction of a critical value', () => {
+  const range = { normal_min: '135.0000', normal_max: '145.0000' }
+  assert.equal(plainFlag({ ...range, flag: 'critical', value: '165.0000' }), 'Critical: very high')
+  assert.equal(plainFlag({ ...range, flag: 'critical', value: '110.0000' }), 'Critical: very low')
+  assert.equal(plainFlag({ flag: 'critical', value: '5', normal_min: null, normal_max: null }), 'Critical')
+  assert.equal(plainFlag({ ...range, flag: 'high', value: '150' }), 'Higher than normal')
+  assert.equal(plainFlag({ ...range, flag: 'low', value: '130' }), 'Lower than normal')
+  assert.equal(plainFlag({ ...range, flag: 'normal', value: '140' }), 'Normal')
+  assert.equal(plainFlag({ flag: '' }), '')
 })

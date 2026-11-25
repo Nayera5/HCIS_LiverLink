@@ -2,6 +2,7 @@
 export const CAPABILITY_DESCRIPTIONS = {
   'users.manage': 'Create staff accounts, assign job titles and activate or deactivate accounts',
   'audit.view': 'Review the audit log of who viewed or changed records',
+  'hl7.monitor': 'Monitor HL7 messages exchanged with external systems',
   'patients.register': 'Register new patients and living donors',
   'patients.view': 'View patient lists and demographic profiles',
   'patients.edit': 'Edit patient demographic profiles',
@@ -31,12 +32,12 @@ export const CAPABILITY_DESCRIPTIONS = {
   'appointments.book_any': 'Book, reschedule and cancel appointments on behalf of patients',
   'appointments.check_in': 'Check patients in for their appointments and mark no-shows',
   'self.appointments': 'Book, reschedule and cancel your own appointments',
-  'self.patient_record': 'View your own record and update your contact details',
+  'self.patient_record': 'View a summary of your hospital record',
   'self.medical_records': 'View your own signed visits, medical history and released documents',
   'self.donor_applications': 'Apply to become a living donor and follow your application',
   'self.consents': 'View the consents you have signed',
   'services.view': 'See the list of services and their prices',
-  'self.lab_results': 'View your lab results and how they change over time',
+  'self.lab_results': 'Follow your lab orders and view your results and how they change over time',
   'self.medications': 'View your medications and treatment plans',
   'self.profile': 'Manage your own account and password',
   'transplant.view': 'View transplant cases and donor evaluations',
@@ -51,7 +52,7 @@ export const CAPABILITY_DESCRIPTIONS = {
 // Capabilities whose pages exist today. Capabilities of later stages are added here when
 // delivered, so dashboards never list unavailable features.
 export const IMPLEMENTED_CAPABILITIES = new Set([
-  'users.manage', 'audit.view', 'patients.register', 'patients.view', 'patients.edit', 'patients.change_category',
+  'users.manage', 'audit.view', 'hl7.monitor', 'patients.register', 'patients.view', 'patients.edit', 'patients.change_category',
   'labs.view', 'labs.order', 'labs.enter_result', 'labs.release',
   'prescriptions.view', 'prescriptions.prescribe', 'treatment_plans.view', 'treatment_plans.manage', 'drugs.manage',
   'donor_applications.view', 'donor_applications.screen', 'donor_applications.submit_on_behalf',

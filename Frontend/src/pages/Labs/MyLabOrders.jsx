@@ -1,12 +1,10 @@
 import { useCallback, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
 import { listMyLabOrders } from '../../api/labs'
 import Alert from '../../components/ui/Alert'
 import Badge from '../../components/ui/Badge'
 import { EmptyState, LoadingBlock, Pagination } from '../../components/ui/Feedback'
 import { FlaskIcon } from '../../components/ui/icons'
-import PageHeader from '../../components/ui/PageHeader'
 import Panel from '../../components/ui/Panel'
 import { useApi } from '../../hooks/useApi'
 import { formatDateTime } from '../../utils/format'
@@ -36,18 +34,17 @@ function orderBadge(order) {
   return <Badge tone="warning">Being reviewed</Badge>
 }
 
-/** Patient portal: the lab tests a doctor ordered for me and where each one stands. */
-export default function MyLabOrdersPage() {
+/** "Orders" tab of the patient's lab page: the tests a doctor ordered and where each one stands. */
+export default function MyLabOrders() {
   const [page, setPage] = useState(1)
   const loader = useCallback(() => listMyLabOrders({ page, page_size: PAGE_SIZE }), [page])
   const { data, error, loading } = useApi(loader)
 
   return (
     <>
-      <PageHeader eyebrow="Patient portal" title="My lab orders" />
       <div className="content-stack">
         <Alert variant="info">
-          Values appear on <Link to="/my-results">My lab results</Link> after your doctor reviews and releases them.
+          Values appear under Results after your doctor reviews and releases them.
         </Alert>
         {error && <Alert variant="error">{getErrorMessage(error, 'Could not load your lab orders.')}</Alert>}
 
@@ -61,7 +58,7 @@ export default function MyLabOrdersPage() {
                 subtitle={`By ${order.ordered_by_name}`}
                 action={<div className="inline-actions">{order.priority === 'urgent' && priorityBadge('urgent')}{orderBadge(order)}</div>}>
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <table className="data-table my-orders-table">
                     <thead>
                       <tr><th scope="col">Test</th><th scope="col">Status</th></tr>
                     </thead>

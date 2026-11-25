@@ -61,3 +61,32 @@ export function xPosition(time, first, last, left, right) {
 }
 
 export const isAbnormal = (flag) => flag === 'low' || flag === 'high' || flag === 'critical'
+
+const SEVERITY = { critical: 2, high: 1, low: 1 }
+
+/**
+ * For the patient page: the latest result of each test with the one before it (`previous`),
+ * most serious first. `results` is newest first, as the API returns it.
+ */
+export function latestPerTest(results) {
+  const tests = new Map()
+  results.forEach((r) => {
+    const latest = tests.get(r.test_code)
+    if (!latest) tests.set(r.test_code, { ...r, previous: null })
+    else if (!latest.previous) latest.previous = r
+  })
+  return [...tests.values()].sort((a, b) =>
+    (SEVERITY[b.flag] || 0) - (SEVERITY[a.flag] || 0) || a.test_name.localeCompare(b.test_name))
+}
+
+/** The flag in plain words. A critical flag has no direction, so it comes from the normal range. */
+export function plainFlag({ flag, value, normal_min: min, normal_max: max }) {
+  if (flag === 'high') return 'Higher than normal'
+  if (flag === 'low') return 'Lower than normal'
+  if (flag === 'normal') return 'Normal'
+  if (flag !== 'critical') return ''
+  const number = toNumber(value)
+  if (toNumber(max) !== null && number > toNumber(max)) return 'Critical: very high'
+  if (toNumber(min) !== null && number < toNumber(min)) return 'Critical: very low'
+  return 'Critical'
+}

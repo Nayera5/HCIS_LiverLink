@@ -1,7 +1,7 @@
-"""Lab business logic, shared by the REST API and (later) the HL7 ORU handler.
+"""Lab business logic, shared by the REST API and the HL7 ORU handler (apps/hl7/services.py).
 
-Side effects: notifications (results ready / released) and the automatic invoice once an
-order is fully resulted.
+Side effects: the HL7 order message to the external lab (order placed / cancelled), notifications
+(results ready / released) and the automatic invoice once an order is fully resulted.
 """
 from django.db import transaction
 from django.utils import timezone
@@ -17,11 +17,19 @@ class LabError(Exception):
 def create_order(patient, staff, tests, priority=LabOrder.Priority.ROUTINE):
     order = LabOrder.objects.create(patient=patient, ordered_by=staff, priority=priority)
     LabResult.objects.bulk_create([LabResult(lab_order=order, lab_test=t) for t in tests])
+    _tell_external_lab(order, 'NW')
     return order
 
 
+def _tell_external_lab(order, control):
+    """HL7 ORM^O01, sent after the transaction commits. control: NW (new) or CA (cancel)."""
+    from apps.hl7.services import queue_order
+
+    queue_order(order, control)
+
+
 @transaction.atomic
-def record_result(result, value, result_time=None):
+def record_result(result, value, result_time=None, hl7_message=None):
     """Fill a pending result: store the value, set the flag from the normal range, update the order."""
     order = result.lab_order
     if order.status == LabOrder.Status.CANCELLED:
@@ -29,7 +37,8 @@ def record_result(result, value, result_time=None):
     result.value = value
     result.flag = result.lab_test.compute_flag(value)
     result.result_time = result_time or timezone.now()
-    result.save(update_fields=['value', 'flag', 'result_time'])
+    result.hl7_message = hl7_message  # empty for manual entry
+    result.save(update_fields=['value', 'flag', 'result_time', 'hl7_message'])
     was_resulted = order.status == LabOrder.Status.RESULTED
     order.refresh_status()
     if order.status == LabOrder.Status.RESULTED and not was_resulted:
@@ -52,6 +61,7 @@ def cancel_order(order):
         raise LabError(f'A {order.get_status_display().lower()} order cannot be cancelled.')
     order.status = LabOrder.Status.CANCELLED
     order.save(update_fields=['status'])
+    _tell_external_lab(order, 'CA')
     return order
 
 

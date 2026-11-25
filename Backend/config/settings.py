@@ -85,6 +85,14 @@ PAYMOB = {
     'CALLBACK_BASE_URL': os.getenv('PAYMOB_CALLBACK_BASE_URL', ''),
 }
 
+# HL7 (module 16): where `python manage.py hl7_listener` receives lab results (MLLP). Where orders are
+# sent is the ExternalSystem record (host, port) in the database.
+HL7_LISTEN_HOST = os.getenv('HL7_LISTEN_HOST', '127.0.0.1')
+HL7_LISTEN_PORT = int(os.getenv('HL7_LISTEN_PORT', '2575'))
+# Send orders on a background thread so a lab that is down never slows a request.
+# Tests switch this off to send inline.
+HL7_SEND_ASYNC = True
+
 # Application definition
 
 INSTALLED_APPS = [
