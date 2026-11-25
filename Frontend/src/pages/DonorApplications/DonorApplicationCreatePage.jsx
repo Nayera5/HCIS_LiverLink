@@ -44,13 +44,14 @@ export default function DonorApplicationCreatePage() {
       <PageHeader back={{ to: '/donor-applications', label: 'Donor applications' }} eyebrow="Donor applications"
         title="New application for a donor" />
       <Panel title="Application details"
-        subtitle="The donor must already be registered with the Living donor category.">
+        subtitle="The donor must be registered as a living donor, and the recipient must have an active case under evaluation.">
         <form onSubmit={submit} noValidate className="form-stack">
           {formError && <Alert variant="error">{formError}</Alert>}
           <TextField label="Donor's MRN" name="donor_mrn" placeholder="LL-000123" autoComplete="off" maxLength={20}
             value={values.donor_mrn} onChange={change} error={errors.donor_mrn} />
           <TextField label="Recipient's MRN" name="recipient_mrn" placeholder="LL-000456" autoComplete="off"
-            maxLength={20} value={values.recipient_mrn} onChange={change} error={errors.recipient_mrn} />
+            maxLength={20} value={values.recipient_mrn} onChange={change} error={errors.recipient_mrn}
+            hint="Recipient eligibility is checked again when the application is submitted." />
           <TextField label="Relationship to the recipient" name="relationship" placeholder="e.g. son, wife, brother"
             maxLength={50} value={values.relationship} onChange={change} error={errors.relationship} />
           <div className="form-actions">
