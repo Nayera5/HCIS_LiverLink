@@ -40,4 +40,6 @@ urlpatterns = [
     path('api/transplant/', include('apps.transplant.urls')),
     # Reporting & analytics (module 15): read-only reports with CSV/PDF export.
     path('api/', include('apps.reporting.urls')),
+    # HL7 interoperability (module 16): message monitor.
+    path('api/', include('apps.hl7.urls')),
 ]

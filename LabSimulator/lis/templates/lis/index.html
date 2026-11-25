@@ -1,0 +1,58 @@
+{% load static %}<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>External Laboratory Simulator</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="{% static 'lis/style.css' %}" />
+  </head>
+  <body>
+    <header class="bar">
+      <div class="bar__brand">
+        <span class="bar__mark" aria-hidden="true">LIS</span>
+        <div>
+          <div class="bar__name">External Laboratory</div>
+          <div class="bar__sub">Simulator</div>
+        </div>
+      </div>
+      <nav class="bar__tabs" aria-label="Sections">
+        <button type="button" data-tab="orders" aria-current="page">Incoming orders <span class="count" id="order-count" hidden></span></button>
+        <button type="button" data-tab="messages">HL7 message monitor</button>
+      </nav>
+      <div class="bar__hl7">
+        <span>Receives on <b>{{ hl7_in }}</b></span>
+        <span>Sends to <b>{{ hl7_out }}</b></span>
+      </div>
+    </header>
+
+    <main>
+      <div id="notice" class="notice" role="status" hidden></div>
+
+      <section id="tab-orders" class="split">
+        <div class="card">
+          <h1 class="card__title">Incoming orders</h1>
+          <div id="order-list" class="order-list"></div>
+        </div>
+        <div class="card" id="order-detail"></div>
+      </section>
+
+      <section id="tab-messages" hidden>
+        <div class="card">
+          <h1 class="card__title">HL7 message monitor</h1>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>When</th><th>Direction</th><th>Message</th><th>ACK</th><th>Status</th><th></th></tr>
+              </thead>
+              <tbody id="message-list"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" id="message-detail" hidden></div>
+      </section>
+    </main>
+
+    <script src="{% static 'lis/app.js' %}"></script>
+  </body>
+</html>

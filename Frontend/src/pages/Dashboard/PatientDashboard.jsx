@@ -23,11 +23,11 @@ export default function PatientDashboard() {
       <PageHeader
         eyebrow={`${longDate()} · Patient portal`}
         title={`${greeting()}, ${greetingName(user)}`}
-        actions={<Button as={Link} to="/my-record" variant="secondary">My health record</Button>}
+        actions={<Button as={Link} to="/my-medical-record" variant="secondary">Medical record</Button>}
       />
 
       <div className="content-grid content-grid--even">
-        <Panel title="Your hospital record" action={record && <Link to="/my-record">Open record</Link>}>
+        <Panel title="Your hospital record" action={record && <Link to="/my-medical-record">Open record</Link>}>
           {loading && !record ? (
             <LoadingBlock />
           ) : record ? (

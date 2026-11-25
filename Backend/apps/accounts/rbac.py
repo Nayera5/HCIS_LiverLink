@@ -73,6 +73,8 @@ STAFF_CAPABILITIES = {
     'reports.patients': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
     'reports.financial': frozenset({T.SUPER_ADMIN, T.BILLING_ADMIN}),
     'reports.system_usage': frozenset({T.SUPER_ADMIN}),
+    # HL7 message monitor (module 16): raw messages contain patient data.
+    'hl7.monitor': frozenset({T.SUPER_ADMIN}),
     # Imaging/AI reports: UI placeholders only until modules 7 and 9 exist.
     'reports.transplant': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST,
                                      T.TRANSPLANT_SURGEON}),

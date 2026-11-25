@@ -1,0 +1,76 @@
+/* HL7 message monitor. Shares the table, badge and field styles from components/ui/ui.css. */
+
+.hl7-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.hl7-filters .field__input {
+  height: 42px;
+  font-size: 14px;
+}
+
+.hl7-nowrap {
+  white-space: nowrap;
+}
+
+.hl7-mono,
+.hl7-raw {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+.hl7-row--selected td {
+  background: var(--color-row-selected);
+}
+
+.hl7-error {
+  max-width: 280px;
+  color: var(--color-danger-strong);
+}
+
+.hl7-detail {
+  margin-bottom: 20px;
+}
+
+.hl7-detail__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.hl7-detail__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.hl7-raw__title {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.hl7-raw {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--color-text-strong);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.hl7-raw strong {
+  color: var(--color-primary);
+}
+
+@media (max-width: 900px) {
+  .hl7-detail__columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

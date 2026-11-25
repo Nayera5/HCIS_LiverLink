@@ -218,3 +218,122 @@
 .lab-refetch {
   opacity: 0.6;
 }
+
+/* Patient portal: results in plain words, most serious first */
+.my-results__summary {
+  display: flex;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid;
+  border-radius: 12px;
+}
+
+.my-results__summary svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.my-results__summary h2 {
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.my-results__summary p {
+  margin-top: 4px;
+  font-size: 14.5px;
+}
+
+.my-results__summary--critical {
+  color: var(--color-danger-strong);
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger);
+}
+
+.my-results__summary--attention {
+  color: var(--color-warning-strong);
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning);
+}
+
+.my-results__summary--normal {
+  color: var(--color-success-strong);
+  background: var(--color-success-soft);
+  border-color: var(--color-success-border);
+}
+
+.my-results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.my-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(170px, auto);
+  align-items: center;
+  gap: 6px 20px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.my-result--critical {
+  background: var(--color-danger-soft);
+}
+
+.my-result__value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-text-strong);
+}
+
+.my-result--critical .my-result__value {
+  color: var(--color-danger-strong);
+}
+
+.my-result__value span {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.my-result .badge {
+  justify-self: start;
+  padding: 5px 12px;
+  font-size: 13.5px;
+}
+
+.my-result .badge--critical {
+  color: #fff;
+  background: var(--color-danger);
+}
+
+.my-results__history summary {
+  padding: 16px 20px;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.my-results__history-body {
+  padding: 4px 20px 20px;
+}
+
+@media (max-width: 640px) {
+  .my-result {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Patient portal orders: one table per order, so fixed widths keep the columns lined up */
+.my-orders-table {
+  table-layout: fixed;
+}
+
+.my-orders-table th:first-child {
+  width: 50%;
+}
+
+.my-orders-table .badge {
+  white-space: normal;
+}

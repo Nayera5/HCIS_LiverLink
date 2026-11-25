@@ -9,6 +9,7 @@ import {
   FlaskIcon,
   GridIcon,
   HeartPulseIcon,
+  MailIcon,
   PillIcon,
   ReceiptIcon,
   ShieldIcon,
@@ -39,10 +40,28 @@ export const NAV_SECTIONS = [
     ],
   },
   {
+    label: 'My health',
+    items: [
+      { to: '/my-medical-record', label: 'Medical Record', icon: ClipboardIcon, capability: 'self.medical_records' },
+      { to: '/my-results', label: 'Lab & Test Results', icon: FlaskIcon, capability: 'self.lab_results' },
+      { to: '/my-medications', label: 'Medications', icon: PillIcon, capability: 'self.medications' },
+      { to: '/my-treatment-plans', label: 'Treatment Plans', icon: TargetIcon, capability: 'self.medications' },
+      { to: '/my-appointments', label: 'Appointments', icon: CalendarIcon, capability: 'self.appointments' },
+    ],
+  },
+  {
+    label: 'Donation & consents',
+    items: [
+      { to: '/my-donor-applications', label: 'Donor Applications', icon: UserPlusIcon, capability: 'self.donor_applications' },
+      { to: '/my-consents', label: 'Consents', icon: CheckCircleIcon, capability: 'self.consents' },
+    ],
+  },
+  {
     label: 'Billing',
     items: [
       { to: '/billing/invoices', label: 'Invoices', icon: ReceiptIcon, capability: 'billing.view' },
       { to: '/billing/services', label: 'Service catalog', icon: CreditCardIcon, capability: 'billing.view' },
+      { to: '/my-invoices', label: 'Invoices', icon: ReceiptIcon, capability: 'self.invoices' },
       // Read-only list for clinical staff and patients (admins have the Service catalog above).
       { to: '/services', label: 'Services & prices', icon: CreditCardIcon, capability: 'services.view' },
     ],
@@ -53,26 +72,12 @@ export const NAV_SECTIONS = [
     items: [{ to: '/reports', label: 'Reports', icon: BarChartIcon, capability: REPORT_CAPABILITIES }],
   },
   {
-    label: 'My health',
-    items: [
-      { to: '/my-record', label: 'My health record', icon: HeartPulseIcon, capability: 'self.patient_record' },
-      { to: '/my-lab-orders', label: 'My lab orders', icon: ClockIcon, capability: 'self.lab_results' },
-      { to: '/my-results', label: 'My lab results', icon: FlaskIcon, capability: 'self.lab_results' },
-      { to: '/my-medications', label: 'My medications', icon: PillIcon, capability: 'self.medications' },
-      { to: '/my-treatment-plans', label: 'My treatment plans', icon: TargetIcon, capability: 'self.medications' },
-      { to: '/my-appointments', label: 'My appointments', icon: CalendarIcon, capability: 'self.appointments' },
-      { to: '/my-medical-record', label: 'My medical record', icon: ClipboardIcon, capability: 'self.medical_records' },
-      { to: '/my-donor-applications', label: 'My donor applications', icon: UserPlusIcon, capability: 'self.donor_applications' },
-      { to: '/my-invoices', label: 'My invoices', icon: ReceiptIcon, capability: 'self.invoices' },
-      { to: '/my-consents', label: 'My consents', icon: CheckCircleIcon, capability: 'self.consents' },
-    ],
-  },
-  {
     label: 'Administration',
     items: [
       { to: '/admin/users', label: 'Users & access', icon: UsersIcon, capability: 'users.manage' },
       { to: '/schedule', label: 'Doctor schedules', icon: ClockIcon, capability: 'schedules.manage_all' },
       { to: '/admin/audit-logs', label: 'Audit logs', icon: ShieldIcon, capability: 'audit.view' },
+      { to: '/admin/hl7-messages', label: 'HL7 messages', icon: MailIcon, capability: 'hl7.monitor' },
     ],
   },
   {

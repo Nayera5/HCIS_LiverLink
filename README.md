@@ -35,6 +35,8 @@ HCIS_LiverLink/
 │   ├── package.json
 │   └── .env.example       # Template for Frontend/.env
 │
+├── LabSimulator/          # External lab simulator (separate project, HL7 only)
+├── HL7_INTEGRATION.md     # HL7 messages, rules, how to run the demo
 ├── .gitignore
 └── README.md
 ```
@@ -147,6 +149,11 @@ npm run dev
 Frontend: http://localhost:5173/
 
 The frontend reads the backend address from `VITE_API_URL` in `Frontend/.env` (default `http://127.0.0.1:8000/api`). Access it in code with `import.meta.env.VITE_API_URL`.
+
+## 6. HL7 and the External Lab (optional)
+
+Lab orders go to a simulated external lab, and results come back, as HL7 messages. LiverLink works without it.
+See [HL7_INTEGRATION.md](HL7_INTEGRATION.md) to run it.
 
 ---
 
