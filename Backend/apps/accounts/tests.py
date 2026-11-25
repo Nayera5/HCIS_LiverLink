@@ -40,7 +40,7 @@ class RBACUnitTests(TestCase):
                         'appointments.book_any', 'billing.manage_services', 'billing.view',
                         'billing.create_invoice', 'billing.record_payment', 'reports.patients', 'reports.financial',
                         'reports.system_usage', 'reports.transplant', 'reports.imaging',
-                        'transplant.view', 'transplant.view_followup', 'hl7.monitor'},  # no consents.view
+                        'transplant.view', 'transplant.view_followup', 'hl7.monitor'},  # no imaging.*, no consents.view
         T.BILLING_ADMIN: {'patients.view', 'billing.manage_services', 'billing.view', 'billing.create_invoice',
                           'billing.record_payment', 'reports.financial'},
         T.TRANSPLANT_COORDINATOR: {'patients.register', 'patients.view', 'patients.edit',
@@ -51,7 +51,7 @@ class RBACUnitTests(TestCase):
                                    'appointments.view', 'appointments.book_any', 'appointments.check_in',
                                    'reports.patients', 'reports.transplant', 'services.view',
                                    'transplant.manage', 'transplant.manage_followup', 'transplant.view',
-                                   'transplant.view_followup'},
+                                   'transplant.view_followup', 'imaging.view', 'imaging.coordinate'},
         T.HEPATOLOGIST: {'patients.view', 'patients.change_category', 'donor_applications.view',
                          'consents.record', 'consents.view', 'labs.view', 'labs.order', 'labs.enter_result',
                          'labs.release', 'prescriptions.view', 'prescriptions.prescribe', 'treatment_plans.view',
@@ -59,18 +59,19 @@ class RBACUnitTests(TestCase):
                          'schedules.manage_own', 'appointments.view', 'reports.patients',
                          'reports.transplant', 'reports.imaging', 'reports.imaging_patient', 'services.view',
                          'transplant.committee_decide', 'transplant.manage', 'transplant.manage_followup',
-                         'transplant.refer', 'transplant.view', 'transplant.view_followup'},
+                         'transplant.refer', 'transplant.view', 'transplant.view_followup',
+                         'imaging.view', 'imaging.order'},
         T.RADIOLOGIST: {'patients.view', 'donor_applications.view', 'consents.view', 'labs.view',
                         'prescriptions.view', 'treatment_plans.view', 'emr.view',
                         'schedules.manage_own', 'appointments.view', 'reports.imaging', 'services.view',
-                        'transplant.view', 'transplant.view_followup'},
+                        'transplant.view', 'transplant.view_followup', 'imaging.view', 'imaging.manage'},
         T.TRANSPLANT_SURGEON: {'patients.view', 'donor_applications.view', 'consents.view', 'labs.view',
                                'labs.order', 'labs.release', 'prescriptions.view', 'prescriptions.prescribe',
                                'treatment_plans.view', 'treatment_plans.manage', 'drugs.manage',
                                'emr.view', 'emr.write', 'schedules.manage_own', 'appointments.view',
                                'reports.transplant', 'services.view', 'transplant.manage',
                                'transplant.manage_followup', 'transplant.record_surgery', 'transplant.view',
-                               'transplant.view_followup'},
+                               'transplant.view_followup', 'imaging.view', 'imaging.order'},
     }
 
     def test_matrix_per_job_title(self):
@@ -85,7 +86,7 @@ class RBACUnitTests(TestCase):
         self.assertEqual(capabilities_for(user), EVERYONE | {'self.patient_record', 'self.invoices',
                                                   'self.donor_applications', 'self.consents',
                                                   'self.lab_results', 'self.medications',
-                                                  'self.medical_records', 'self.appointments',
+                                                  'self.medical_records', 'self.appointments', 'self.imaging_orders',
                                                    'services.view'})
         self.assertIsNone(effective_job_title(user))
 

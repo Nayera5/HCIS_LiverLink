@@ -52,7 +52,7 @@ function ApplicationForm({ onSubmitted }) {
       {formError && <Alert variant="error">{formError}</Alert>}
       <TextField label="Recipient's MRN" name="recipient_mrn" placeholder="LL-000123" autoComplete="off"
         maxLength={20} value={values.recipient_mrn} onChange={change} error={errors.recipient_mrn}
-        hint="The Medical Record Number of the person you want to donate to. Ask them or their family for it." />
+        hint="Enter the Medical Record Number of a person with an active transplant case under evaluation. Eligibility is checked when you submit." />
       <TextField label="Your relationship to the recipient" name="relationship" placeholder="e.g. son, wife, brother"
         maxLength={50} value={values.relationship} onChange={change} error={errors.relationship} />
       <div className="form-actions">

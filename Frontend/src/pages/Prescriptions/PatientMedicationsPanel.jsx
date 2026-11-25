@@ -100,7 +100,7 @@ export default function PatientMedicationsPanel({ patientId }) {
   const items = data ? data[tab] : []
 
   return (
-    <Panel title="Medications" subtitle="Current and past prescriptions" action={action}>
+    <Panel title="Medications" subtitle="Current and past prescriptions" action={action} collapsible>
       {flash && <Alert variant="success">{flash}</Alert>}
       {error && <Alert variant="error">{getErrorMessage(error, 'Could not load medications.')}</Alert>}
       {loading && !data ? (

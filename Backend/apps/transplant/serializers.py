@@ -161,6 +161,14 @@ class CaseDonorSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         case = attrs.get('case') or (self.instance and self.instance.case)
         donor = attrs.get('donor') or (self.instance and self.instance.donor)
+        if case and case.status not in TransplantCase.DONOR_MATCHING_STATUSES:
+            raise serializers.ValidationError({
+                'case': 'Donors can only be assigned while the recipient case is under evaluation.',
+            })
+        if case and case.recipient.category not in ('liver_patient', 'recipient'):
+            raise serializers.ValidationError({
+                'case': 'The recipient is not currently eligible for donor matching.',
+            })
         if donor and donor.pk < 1:
             raise serializers.ValidationError({'donor': 'ID must be positive and start from 1.'})
         if case and donor:

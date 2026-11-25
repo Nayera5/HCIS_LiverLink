@@ -9,6 +9,8 @@ Privacy rules:
 """
 from rest_framework import serializers
 
+from apps.transplant.models import TransplantCase
+
 from .models import DonorApplication, Patient
 
 MRN_NOT_FOUND = 'No eligible recipient was found with this MRN. Please check the number with the recipient.'
@@ -18,10 +20,17 @@ def normalize_mrn(value):
     return (value or '').strip().upper()
 
 
-def find_recipient(mrn):
+def find_recipient(mrn, *, for_update=False):
     """The patient who may be named as recipient for this MRN, or None (not found / not eligible)."""
-    return Patient.objects.filter(
-        mrn=normalize_mrn(mrn), category__in=DonorApplication.RECIPIENT_CATEGORIES).first()
+    cases = TransplantCase.objects.filter(
+        recipient__mrn=normalize_mrn(mrn),
+        recipient__category__in=DonorApplication.RECIPIENT_CATEGORIES,
+        status__in=TransplantCase.DONOR_MATCHING_STATUSES,
+    ).select_related('recipient')
+    if for_update:
+        cases = cases.select_for_update()
+    case = cases.first()
+    return case.recipient if case else None
 
 
 class _ApplicationInputMixin(serializers.Serializer):

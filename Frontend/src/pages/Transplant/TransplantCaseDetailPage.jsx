@@ -141,7 +141,7 @@ export default function TransplantCaseDetailPage() {
       </div>
 
       {tab === 'overview' && <OverviewTab c={c} donorList={donorList} />}
-      {tab === 'donors' && <DonorsTab caseId={id} donors={donorList} reload={reloadDonors} can={can} />}
+      {tab === 'donors' && <DonorsTab caseId={id} caseStatus={c.status} donors={donorList} reload={reloadDonors} can={can} />}
       {tab === 'checklist' && <ChecklistTab caseId={id} recipient={c.recipient} donors={donorList} items={checklistItems} reload={reloadChecklist} can={can} />}
       {tab === 'decisions' && <DecisionsTab caseId={id} decisions={decisionList} reload={reloadDecisions} caseStatus={c.status} can={can} reloadCase={reload} />}
       {tab === 'surgery' && <SurgeryTab caseId={id} surgeries={surgeryList} donors={donorList} reload={reloadSurgeries} caseStatus={c.status} can={can} reloadCase={reload} />}
@@ -241,7 +241,7 @@ function OverviewTab({ c, donorList }) {
 }
 
 /* ── Donors Tab ──────────────────────────────────────────────────────── */
-function DonorsTab({ caseId, donors, reload, can }) {
+function DonorsTab({ caseId, caseStatus, donors, reload, can }) {
   const [adding, setAdding] = useState(false)
   const [donorSearch, setDonorSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -286,9 +286,11 @@ function DonorsTab({ caseId, donors, reload, can }) {
     <div className="section-panel">
       <h3>
         Candidate Donors
-        {can('transplant.manage') && <button className="btn btn-primary" onClick={() => setAdding(!adding)}>+ Add Donor</button>}
+        {can('transplant.manage') && caseStatus === 'under_evaluation' && (
+          <button className="btn btn-primary" onClick={() => setAdding(!adding)}>+ Add Donor</button>
+        )}
       </h3>
-      {adding && (
+      {adding && caseStatus === 'under_evaluation' && (
         <div style={{ marginBottom: '1rem', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: 8 }}>
           <input type="text" placeholder="Search donors by name or MRN…" value={donorSearch} onChange={(e) => search(e.target.value)} className="input" style={{ width: '100%', marginBottom: 8 }} />
           {searchError && <p className="error-text">{searchError}</p>}

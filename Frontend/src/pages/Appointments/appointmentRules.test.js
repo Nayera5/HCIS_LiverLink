@@ -13,6 +13,25 @@ const appt = (over = {}) => ({
   start_time: '2026-11-28T09:00:00Z', end_time: '2026-11-28T09:30:00Z', ...over,
 })
 
+describe('imaging appointments', () => {
+  const scan = appt({ staff: null, imaging_order: 9 })
+
+  test('doctor actions are never offered', () => {
+    const all = () => true
+    assert.deepEqual(allowedActions(scan, { can: all }), ['check_in', 'open_order'])
+    assert.deepEqual(allowedActions({ ...scan, status: 'checked_in' }, { can: all }), ['open_order'])
+    assert.deepEqual(allowedActions(scan, { can: () => false, portal: true }), ['manage_scan'])
+    assert.deepEqual(allowedActions(scan, { can: canAll(['appointments.book_any']) }), [])
+  })
+
+  test('scans cannot be booked with a doctor', () => {
+    const values = { patient: '3', staff: '5', date: '2026-11-28', start_time: 'T' }
+    for (const type of ['ct_scan', 'imaging']) {
+      assert.ok(validateBooking({ ...values, appointment_type: type }, { needsPatient: true }).appointment_type)
+    }
+  })
+})
+
 describe('dates', () => {
   test('addDays crosses months', () => {
     assert.equal(addDays('2026-11-30', 1), '2026-12-01')

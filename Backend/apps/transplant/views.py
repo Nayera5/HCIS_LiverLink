@@ -1,6 +1,6 @@
 """Views for the transplant module (Modules 11 & 12)."""
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.shortcuts import get_object_or_404
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics, status
@@ -151,6 +151,8 @@ class TransplantCaseListCreateView(generics.ListCreateAPIView):
         )
         serializer.is_valid(raise_exception=True)
         case = serializer.save()
+        audit(request, AuditLog.Action.CREATE, ENTITY,
+              entity_id=case.pk, patient=case.recipient)
         return Response(
             TransplantCaseDetailSerializer(case).data,
             status=status.HTTP_201_CREATED,
@@ -176,8 +178,11 @@ class TransplantCaseStatusView(PositiveIdMixin, generics.GenericAPIView):
     serializer_class = TransplantCaseStatusSerializer
     queryset = TransplantCase.objects.all()
 
+    @transaction.atomic
     def post(self, request, pk):
-        case = self.get_object()
+        case = generics.get_object_or_404(
+            TransplantCase.objects.select_for_update(), pk=pk,
+        )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         new_status = serializer.validated_data['status']
@@ -257,7 +262,12 @@ class CaseDonorListCreateView(PositiveIdMixin, generics.ListCreateAPIView):
             case_id=self.kwargs['case_pk'],
         ).select_related('donor')
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
+        generics.get_object_or_404(
+            TransplantCase.objects.select_related('recipient').select_for_update(),
+            pk=self.kwargs['case_pk'],
+        )
         data = {**request.data, 'case': self.kwargs['case_pk']}
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)

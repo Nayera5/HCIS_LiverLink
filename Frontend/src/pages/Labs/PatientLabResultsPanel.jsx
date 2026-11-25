@@ -32,7 +32,7 @@ export default function PatientLabResultsPanel({ patientId }) {
   )
 
   return (
-    <Panel title="Laboratory" subtitle="Results reported by the external lab" action={actions}>
+    <Panel title="Laboratory" subtitle="Results reported by the external lab" action={actions} collapsible>
       {error && <Alert variant="error">{getErrorMessage(error, 'Could not load lab results.')}</Alert>}
       {loading && !data ? (
         <LoadingBlock label="Loading lab results" />

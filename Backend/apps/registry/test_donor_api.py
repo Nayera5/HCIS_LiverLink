@@ -1,7 +1,9 @@
 """Stage 5 API tests: donor applications (donor portal, staff screening, permissions, audit)."""
+import datetime
 from unittest import mock
 
 from apps.accounts.models import AuditLog, User
+from apps.transplant.models import TransplantCase
 
 from .donor_serializers import MRN_NOT_FOUND
 from .donor_views import SubmissionThrottle
@@ -24,6 +26,12 @@ class DonorAPITestBase(PatientAPITestBase):
                                    user=self.donor2_user, phone='0133')
         self.recipient = make_patient(first_name='Rami', last_name='Recipient', category='recipient',
                                       blood_group='O+', phone='0144')
+        self.recipient_case = TransplantCase.objects.create(
+            recipient=self.recipient,
+            referred_by=self.hep.staff_profile,
+            referral_date=datetime.date.today(),
+            status=TransplantCase.Status.UNDER_EVALUATION,
+        )
         self.walk_in_donor = make_patient(first_name='Walid', last_name='Walkin', category='donor', phone='0155')
         self.no_record_user = User.objects.create_user('norecord', 'nr@lh.test', PW, role='patient')
 
@@ -69,7 +77,52 @@ class DonorPortalTests(DonorAPITestBase):
         self.assertEqual(DonorApplication.objects.count(), 0)
 
     def test_liver_patient_can_be_named_as_recipient(self):
+        response = self.submit(recipient_mrn=self.other.mrn)
+        self.assertEqual(response.status_code, 400)
+        TransplantCase.objects.create(
+            recipient=self.other,
+            referred_by=self.hep.staff_profile,
+            referral_date=datetime.date.today(),
+            status=TransplantCase.Status.UNDER_EVALUATION,
+        )
         self.assertEqual(self.submit(recipient_mrn=self.other.mrn).status_code, 201)
+
+    def test_coordinator_uses_the_same_recipient_eligibility_rule(self):
+        self.as_(self.coord)
+        payload = {
+            'donor_mrn': self.walk_in_donor.mrn,
+            'recipient_mrn': self.other.mrn,
+            'relationship': 'son',
+        }
+        response = self.client.post(STAFF, payload, format='json')
+        self.assertEqual(response.status_code, 400)
+        payload['recipient_mrn'] = self.recipient.mrn
+        response = self.client.post(STAFF, payload, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+
+    def test_only_under_evaluation_cases_are_eligible(self):
+        for case_status in (
+            TransplantCase.Status.REFERRED,
+            TransplantCase.Status.COMMITTEE_REVIEW,
+            TransplantCase.Status.APPROVED,
+            TransplantCase.Status.REJECTED,
+            TransplantCase.Status.CLOSED,
+        ):
+            with self.subTest(case_status=case_status):
+                self.recipient_case.status = case_status
+                self.recipient_case.save(update_fields=['status'])
+                response = self.submit()
+                self.assertEqual((response.status_code, response.data['recipient_mrn']),
+                                 (400, [MRN_NOT_FOUND]))
+        self.recipient_case.status = TransplantCase.Status.UNDER_EVALUATION
+        self.recipient_case.save(update_fields=['status'])
+
+    def test_eligibility_is_rechecked_when_application_is_saved(self):
+        with mock.patch('apps.registry.donor_views.find_recipient', return_value=None):
+            response = self.submit()
+        self.assertEqual((response.status_code, response.data['recipient_mrn']),
+                         (400, [MRN_NOT_FOUND]))
+        self.assertFalse(DonorApplication.objects.exists())
 
     def test_cannot_name_self(self):
         r = self.submit(recipient_mrn=self.donor.mrn)

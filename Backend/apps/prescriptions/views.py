@@ -25,6 +25,7 @@ from apps.accounts.models import AuditLog
 from apps.accounts.permissions import HasCapability
 from apps.accounts.rbac import get_staff_profile, has_capability
 from apps.registry.models import Patient
+from apps.transplant.models import TransplantCase
 
 from . import services
 from .models import Drug, Prescription, TreatmentPlan
@@ -271,13 +272,26 @@ class TreatmentPlanListCreateView(generics.ListCreateAPIView):
         if staff is None:
             return _bad('Only doctors can create treatment plans.')
         d = dict(ser.validated_data)
+        if (d['plan_type'] == TreatmentPlan.PlanType.TRANSPLANT_REFERRAL
+                and not has_capability(request.user, 'transplant.refer')):
+            return Response(
+                {'detail': 'Only a hepatologist can submit a transplant referral.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         patient = d.pop('patient')
         try:
-            plan = services.create_plan(patient, staff, **d)
+            plan, case, case_created = services.create_plan(patient, staff, **d)
         except services.RxError as e:
             return _bad(e)
         audit(request, A.CREATE, PLAN_ENTITY, entity_id=plan.pk, patient=patient)
-        return Response(TreatmentPlanSerializer(plan).data, status=status.HTTP_201_CREATED)
+        if case_created:
+            audit(request, A.CREATE, 'transplant.transplantcase',
+                  entity_id=case.pk, patient=patient)
+        data = TreatmentPlanSerializer(plan).data
+        if case:
+            data['transplant_case_id'] = case.pk
+            data['transplant_case_created'] = case_created
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 class TreatmentPlanDetailView(APIView):
@@ -300,15 +314,32 @@ class TreatmentPlanDetailView(APIView):
         ser.is_valid(raise_exception=True)
         data = dict(ser.validated_data)
         reason = data.pop('reason')
+        if (data.get('plan_type') == TreatmentPlan.PlanType.TRANSPLANT_REFERRAL
+                and not has_capability(request.user, 'transplant.refer')):
+            return Response(
+                {'detail': 'Only a hepatologist can submit a transplant referral.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        staff = _doctor(request)
+        if staff is None:
+            return Response({'detail': 'Only doctors can manage treatment plans.'},
+                            status=status.HTTP_403_FORBIDDEN)
         try:
-            plan, changes = services.update_plan(plan, data)
+            plan, changes, case, case_created = services.update_plan(plan, data, staff)
         except services.RxError as e:
             return _bad(e)
         if not changes:
             return _bad('Nothing was changed.')
         audit(request, A.UPDATE, PLAN_ENTITY, entity_id=plan.pk, patient=plan.patient,
               changes=changes, reason=reason)
-        return Response(TreatmentPlanSerializer(get_object_or_404(_plan_qs(), pk=pk)).data)
+        if case_created:
+            audit(request, A.CREATE, 'transplant.transplantcase',
+                  entity_id=case.pk, patient=plan.patient)
+        response_data = TreatmentPlanSerializer(get_object_or_404(_plan_qs(), pk=pk)).data
+        if case:
+            response_data['transplant_case_id'] = case.pk
+            response_data['transplant_case_created'] = case_created
+        return Response(response_data)
 
 
 class _PlanCloseView(APIView):

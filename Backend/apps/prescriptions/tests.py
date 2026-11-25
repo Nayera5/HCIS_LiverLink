@@ -9,6 +9,7 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import AuditLog, Staff, User
 from apps.registry.models import Patient
+from apps.transplant.models import TransplantCase
 
 from .models import Drug, Prescription, TreatmentPlan
 
@@ -242,10 +243,66 @@ class TreatmentPlanTests(Base):
         self.assertFalse(r.data['review_due'])
         self.assertTrue(AuditLog.objects.filter(entity_type='prescriptions.treatmentplan', action='create').exists())
 
+    def test_transplant_referral_plan_creates_case_and_audit_entry(self):
+        response = self.plan(plan_type=TreatmentPlan.PlanType.TRANSPLANT_REFERRAL)
+        self.assertEqual(response.status_code, 201, response.data)
+        case = TransplantCase.objects.get(recipient=self.patient)
+        self.assertEqual(case.status, TransplantCase.Status.REFERRED)
+        self.assertEqual(case.referred_by, self.doctor.staff_profile)
+        self.assertEqual(case.referral_date, TODAY)
+        self.assertEqual(response.data['transplant_case_id'], case.pk)
+        self.assertTrue(response.data['transplant_case_created'])
+        self.assertTrue(AuditLog.objects.filter(
+            entity_type='transplant.transplantcase',
+            entity_id=case.pk,
+            action=AuditLog.Action.CREATE,
+        ).exists())
+
+    def test_transplant_referral_plan_reuses_existing_open_case(self):
+        first = self.plan(plan_type=TreatmentPlan.PlanType.TRANSPLANT_REFERRAL)
+        second = self.plan(plan_type=TreatmentPlan.PlanType.TRANSPLANT_REFERRAL)
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201, second.data)
+        self.assertEqual(TransplantCase.objects.filter(recipient=self.patient).count(), 1)
+        self.assertEqual(second.data['transplant_case_id'], first.data['transplant_case_id'])
+        self.assertFalse(second.data['transplant_case_created'])
+
+    def test_donor_cannot_be_referred_as_transplant_recipient(self):
+        self.patient.category = Patient.Category.DONOR
+        self.patient.save(update_fields=['category'])
+        response = self.plan(plan_type=TreatmentPlan.PlanType.TRANSPLANT_REFERRAL)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Only liver patients or recipients', str(response.data))
+        self.assertFalse(TransplantCase.objects.exists())
+
     def test_only_doctors_manage_plans(self):
-        self.assertEqual(self.plan(self.surgeon, plan_type='transplant_referral').status_code, 201)
+        self.assertEqual(self.plan(self.surgeon).status_code, 201)
+        self.assertEqual(self.plan(self.surgeon, plan_type='transplant_referral').status_code, 403)
         for user in (self.coord, self.admin, self.billing, self.pat_user):
             self.assertEqual(self.plan(user).status_code, 403)
+
+    def test_changing_plan_to_transplant_referral_creates_case(self):
+        plan = self.plan().data
+        response = self.client.patch(
+            f"/api/rx/plans/{plan['id']}/",
+            {'plan_type': TreatmentPlan.PlanType.TRANSPLANT_REFERRAL, 'reason': 'Refer for evaluation'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        case = TransplantCase.objects.get(recipient=self.patient)
+        self.assertEqual(response.data['transplant_case_id'], case.pk)
+        self.assertEqual(case.status, TransplantCase.Status.REFERRED)
+
+    def test_only_hepatologist_can_change_plan_to_transplant_referral(self):
+        plan = self.plan().data
+        self.as_(self.surgeon)
+        response = self.client.patch(
+            f"/api/rx/plans/{plan['id']}/",
+            {'plan_type': TreatmentPlan.PlanType.TRANSPLANT_REFERRAL, 'reason': 'Refer for evaluation'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(TransplantCase.objects.exists())
 
     def test_review_date_not_before_start(self):
         r = self.plan(review_date=str(TODAY - D(1)))
