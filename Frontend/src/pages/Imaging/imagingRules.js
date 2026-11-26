@@ -111,6 +111,7 @@ export function slotState(slot) {
 export function validateSlots(values) {
   const errors = {}
   if (blank(values.billing_service)) errors.billing_service = 'Choose the imaging type.'
+  if (blank(values.resource_name)) errors.resource_name = 'Choose a room.'
   if (blank(values.date)) errors.date = 'Choose a date.'
   if (blank(values.start_time)) errors.start_time = 'Enter the start time.'
   if (blank(values.end_time)) errors.end_time = 'Enter the end time.'

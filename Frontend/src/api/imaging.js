@@ -45,12 +45,17 @@ export const bookMyScan = (id, slot) => post(`my-orders/${id}/booking/`, { slot 
 export const cancelMyScan = (id) => post(`my-orders/${id}/booking/cancel/`)
 
 // --- Scan slots (radiologist) ---------------------------------------------------------------
+/** Room choices for scan slot creation: [{ value, label }]. */
+export function listImagingRooms() {
+  return authRequest('/radiology/rooms/')
+}
+
 /** params: { billing_service, date_from, date_to, page, page_size } */
 export function listScanSlots(params = {}) {
   return authRequest(`/radiology/slots/${toQuery(params)}`)
 }
 
-/** data: { billing_service, resource_name?, date, start_time, end_time, slot_minutes, is_published } */
+/** data: { billing_service, resource_name, date, start_time, end_time, slot_minutes, is_published } */
 export const createScanSlots = (data) => post('slots/', data)
 
 export function publishScanSlot(id, isPublished) {

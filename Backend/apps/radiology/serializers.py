@@ -7,7 +7,7 @@ from apps.billing.models import Service
 from apps.emr.models import Encounter
 from apps.registry.models import Patient
 
-from .models import ImagingOrder, ImagingSlot
+from .models import IMAGING_ROOM_NAMES, ImagingOrder, ImagingSlot
 
 MAX_SLOTS = 100  # per request
 SERVICE_FIELDS = ["billing_service", "billing_service_code", "billing_service_name"]
@@ -162,12 +162,12 @@ class SlotBatchSerializer(serializers.Serializer):
     """{billing_service, date, start_time, end_time, slot_minutes, is_published}: hours of one day, split into equal slots."""
 
     billing_service = imaging_service_field()
+    resource_name = serializers.ChoiceField(choices=[(room, room) for room in IMAGING_ROOM_NAMES])
     date = serializers.DateField()
     start_time = serializers.TimeField()
     end_time = serializers.TimeField()
     slot_minutes = serializers.IntegerField(min_value=5, max_value=240)
     is_published = serializers.BooleanField(default=True)
-    resource_name = serializers.CharField(required=False, allow_blank=True, max_length=80, default="")
 
     def validate(self, attrs):
         tz = timezone.get_current_timezone()

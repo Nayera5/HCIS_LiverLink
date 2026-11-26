@@ -127,9 +127,13 @@ describe('scan slots', () => {
   })
 
   test('form checks', () => {
-    const ok = { billing_service: '12', date: '2026-11-28', start_time: '09:00', end_time: '11:00', slot_minutes: '30' }
+    const ok = {
+      billing_service: '12', resource_name: 'room-1', date: '2026-11-28',
+      start_time: '09:00', end_time: '11:00', slot_minutes: '30',
+    }
     assert.deepEqual(validateSlots(ok), {})
     assert.deepEqual(Object.keys(validateSlots({ ...ok, billing_service: '', date: '', end_time: '08:00', slot_minutes: '0' })),
       ['billing_service', 'date', 'end_time', 'slot_minutes'])
+    assert.equal(validateSlots({ ...ok, resource_name: '' }).resource_name, 'Choose a room.')
   })
 })

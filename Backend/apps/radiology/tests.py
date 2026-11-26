@@ -19,6 +19,7 @@ from .models import ImagingOrder, ImagingSlot
 URL = "/api/radiology/orders/"
 MY = "/api/radiology/my-orders/"
 SLOTS = "/api/radiology/slots/"
+ROOMS = "/api/radiology/rooms/"
 APPT = "/api/scheduling/appointments/"
 
 
@@ -277,8 +278,19 @@ class ImagingOrderTests(RadiologyTestBase):
 class ScanSlotTests(RadiologyTestBase):
     def payload(self, **over):
         day = timezone.localdate() + datetime.timedelta(days=5)
-        return {"billing_service": self.service.pk, "date": day.isoformat(), "start_time": "09:00", "end_time": "11:00",
-                "slot_minutes": 30, **over}
+        return {"billing_service": self.service.pk, "resource_name": "CT Room 1", "date": day.isoformat(),
+                "start_time": "09:00", "end_time": "11:00", "slot_minutes": 30, **over}
+
+    def test_room_choices_are_available_to_radiologists_only(self):
+        self.assertEqual(self.call(self.rad, ROOMS, method="get").data, [
+            {"value": "CT Room 1", "label": "CT Room 1"},
+            {"value": "CT Room 2", "label": "CT Room 2"},
+        ])
+        for user in (self.root, self.admin, self.coord, self.hep, self.surg, self.billing, self.nojob, self.pat_user):
+            with self.subTest(user=user.username):
+                self.assertEqual(self.call(user, ROOMS, method="get").status_code, 403)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(ROOMS).status_code, 401)
 
     def test_only_radiologist_manages_slots(self):
         slot = self.slot()
@@ -302,7 +314,8 @@ class ScanSlotTests(RadiologyTestBase):
         self.ok(self.call(self.rad, SLOTS, self.payload()), 201)
         overlapping = self.payload(start_time="10:45", end_time="12:00", slot_minutes=15)
         self.assertEqual(self.call(self.rad, SLOTS, overlapping).status_code, 400)
-        self.ok(self.call(self.rad, SLOTS, self.payload(billing_service=self.other_service.pk)), 201)
+        self.ok(self.call(self.rad, SLOTS, self.payload(
+            billing_service=self.other_service.pk, resource_name="CT Room 2")), 201)
         self.ok(self.call(self.rad, SLOTS, self.payload(start_time="11:00", end_time="12:00")), 201)
 
     def test_distinct_resources_can_run_same_service_at_the_same_time(self):
@@ -320,6 +333,11 @@ class ScanSlotTests(RadiologyTestBase):
 
     def test_validation(self):
         past = (timezone.localdate() - datetime.timedelta(days=1)).isoformat()
+        missing_room = self.payload()
+        missing_room.pop("resource_name")
+        for payload in (missing_room, self.payload(resource_name=""), self.payload(resource_name="MRI Room 1")):
+            with self.subTest(payload=payload):
+                self.assertEqual(self.call(self.rad, SLOTS, payload).status_code, 400)
         for over in ({"billing_service": "ct"},
                      {"billing_service": Service.objects.filter(category="consultation").first().pk}, {"date": past}, {"end_time": "08:00"}, {"slot_minutes": 0},
                      {"slot_minutes": 200}, {"date": "x"}):
