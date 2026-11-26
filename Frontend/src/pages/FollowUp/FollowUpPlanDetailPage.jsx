@@ -1,9 +1,12 @@
 /* Follow-up Plan Detail – shows plan info, visit list, new visit form, recovery charts. */
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import Badge from '../../components/ui/Badge'
 import PageHeader from '../../components/ui/PageHeader'
 import { Pagination } from '../../components/ui/Feedback'
+import { DoctorAvailability } from '../Appointments/appointmentParts'
+import { listDoctors } from '../../api/scheduling'
+import { fieldErrors } from '../../api/http'
 import { useAuth } from '../../auth/authContext'
 import { useApi } from '../../hooks/useApi'
 import {
@@ -15,6 +18,16 @@ import './FollowUp.css'
 
 const VISIT_PAGE_SIZE = 10
 const ROLE_LABELS = { recipient: 'Recipient', donor: 'Donor' }
+const VISIT_STATUSES = {
+  scheduled: { label: 'Scheduled', tone: 'info' },
+  completed: { label: 'Completed', tone: 'success' },
+  missed: { label: 'Missed', tone: 'warning' },
+  cancelled: { label: 'Cancelled', tone: 'danger' },
+}
+
+function visitStatus(status) {
+  return VISIT_STATUSES[status] || { label: status || 'Unknown', tone: 'neutral' }
+}
 
 export default function FollowUpPlanDetailPage() {
   const { id } = useParams()
@@ -32,12 +45,41 @@ export default function FollowUpPlanDetailPage() {
   const { data: stats, reload: reloadStats } = useApi(statsLoader)
   const visits = Array.isArray(visitsRaw) ? visitsRaw : visitsRaw?.results || []
   const visitsCount = visitsRaw?.count ?? visits.length
+  const unresolvedVisitCount = plan?.unresolved_visit_count ?? 0
+  const refreshTimer = useRef(null)
+
+  // A patient may cancel from their portal while this coordinator screen is open.
+  // Refresh once when the coordinator returns to this tab so the visit status is current.
+  useEffect(() => {
+    function refreshWhenVisible() {
+      if (document.visibilityState !== 'visible' || refreshTimer.current !== null) return
+      // Browsers emit both `visibilitychange` and `focus` when a tab is reopened.
+      // Coalesce them into one refresh instead of repeatedly replacing the page with a loader.
+      refreshTimer.current = window.setTimeout(() => {
+        reloadPlan()
+        reloadVisits()
+        reloadStats()
+        refreshTimer.current = null
+      }, 100)
+    }
+
+    window.addEventListener('focus', refreshWhenVisible)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      window.removeEventListener('focus', refreshWhenVisible)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+      if (refreshTimer.current !== null) window.clearTimeout(refreshTimer.current)
+    }
+  }, [reloadPlan, reloadStats, reloadVisits])
 
   /* ── New-visit modal state ──────────────────────────────────── */
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ due_date: '', notes: '' })
+  const [form, setForm] = useState({ staff: '', start_time: '' })
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
+  const doctorsLoader = useCallback(() => listDoctors(), [])
+  const { data: doctorsData, error: doctorsError } = useApi(doctorsLoader)
+  const hepatologists = (doctorsData || []).filter((doctor) => doctor.job_title === 'hepatologist')
 
   /* ── Edit-visit inline state ────────────────────────────────── */
   const [editingVisitId, setEditingVisitId] = useState(null)
@@ -46,7 +88,7 @@ export default function FollowUpPlanDetailPage() {
   /* ── Complete-plan action ───────────────────────────────────── */
   const [completing, setCompleting] = useState(false)
 
-  if (planLoading) return <p>Loading plan…</p>
+  if (planLoading && !plan) return <p>Loading plan…</p>
   if (planError) return <p className="error-text">Error: {planError.message}</p>
   if (!plan) return null
 
@@ -61,10 +103,13 @@ export default function FollowUpPlanDetailPage() {
     try {
       await createFollowUpVisit(id, form)
       setShowModal(false)
-      setForm({ due_date: '', notes: '' })
+      setForm({ staff: '', start_time: '' })
+      reloadPlan()
       reloadVisits()
       reloadStats?.()
-    } catch (err) { setFormError(err.message) }
+    } catch (err) {
+      setFormError(Object.values(fieldErrors(err)).join(' ') || err.message || 'Could not schedule the follow-up visit.')
+    }
     finally { setSaving(false) }
   }
 
@@ -76,7 +121,9 @@ export default function FollowUpPlanDetailPage() {
       await updateFollowUpPlan(id, { status: 'completed', end_date: today })
       reloadPlan()
       reloadStats?.()
-    } catch (err) { alert(err.message) }
+    } catch (err) {
+      alert(Object.values(fieldErrors(err)).join(' ') || err.message || 'Could not complete the follow-up plan.')
+    }
     finally { setCompleting(false) }
   }
 
@@ -103,6 +150,7 @@ export default function FollowUpPlanDetailPage() {
       else payload.liver_regrowth_ml = parseFloat(payload.liver_regrowth_ml)
       await updateFollowUpVisit(editingVisitId, payload)
       setEditingVisitId(null)
+      reloadPlan()
       reloadVisits()
       reloadStats?.()
     } catch (err) { alert(err.message) }
@@ -224,9 +272,18 @@ export default function FollowUpPlanDetailPage() {
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>
             + Schedule Visit
           </button>
-          <button className="btn btn-success" onClick={handleCompletePlan} disabled={completing}>
-            {completing ? 'Completing…' : 'Complete Plan'}
-          </button>
+          <span title={unresolvedVisitCount > 0
+            ? 'Complete or cancel every follow-up visit before completing this plan.'
+            : undefined}
+          >
+            <button
+              className="btn btn-success"
+              onClick={handleCompletePlan}
+              disabled={completing || unresolvedVisitCount > 0}
+            >
+              {completing ? 'Completing…' : 'Complete Plan'}
+            </button>
+          </span>
         </div>
       )}
 
@@ -329,7 +386,10 @@ export default function FollowUpPlanDetailPage() {
                     )}
                   </div>
                   <div className="visit-card__actions">
-                    {canManage && plan.status === 'active' && (
+                    <Badge tone={visitStatus(v.status).tone}>
+                      {visitStatus(v.status).label}
+                    </Badge>
+                    {canManage && plan.status === 'active' && v.status === 'scheduled' && (
                       <button className="btn" onClick={() => startEditVisit(v)}>Edit</button>
                     )}
                     {v.appointment && (
@@ -363,24 +423,30 @@ export default function FollowUpPlanDetailPage() {
             <form onSubmit={handleCreateVisit}>
               <div className="form-grid">
                 <div className="form-group">
-                  <label>Due Date *</label>
-                  <input
-                    type="date" required
-                    value={form.due_date}
-                    onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Notes</label>
-                  <textarea
-                    rows={3}
-                    value={form.notes}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  />
+                  <label>Hepatologist *</label>
+                  <select
+                    required
+                    value={form.staff}
+                    onChange={(e) => setForm({ staff: e.target.value, start_time: '' })}
+                  >
+                    <option value="">— Select hepatologist —</option>
+                    {hepatologists.map((doctor) => (
+                      <option key={doctor.staff_id} value={doctor.staff_id}>{doctor.name}</option>
+                    ))}
+                  </select>
+                  {doctorsError && <p className="error-text">Could not load hepatologists.</p>}
+                  {!doctorsError && doctorsData && hepatologists.length === 0 && (
+                    <p className="error-text">No active hepatologists are available.</p>
+                  )}
                 </div>
               </div>
+              <DoctorAvailability
+                staff={form.staff}
+                value={form.start_time}
+                onSelect={(_, start_time) => setForm({ ...form, start_time })}
+              />
               <div className="form-actions">
-                <button type="submit" className="btn btn-primary" disabled={saving}>
+                <button type="submit" className="btn btn-primary" disabled={saving || !form.staff || !form.start_time}>
                   {saving ? 'Scheduling…' : 'Schedule Visit'}
                 </button>
                 <button type="button" className="btn" onClick={() => setShowModal(false)}>Cancel</button>

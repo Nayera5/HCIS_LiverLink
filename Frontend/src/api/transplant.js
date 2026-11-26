@@ -122,6 +122,11 @@ export function listFollowUpPlans(params = {}) {
   return authRequest(`/transplant/followup/plans/${toQuery(params)}`)
 }
 
+/** Future scheduled follow-up visits for the signed-in patient or donor. */
+export function listMyFollowUpVisits() {
+  return authRequest('/transplant/followup/mine/')
+}
+
 export function getFollowUpPlan(id) {
   return authRequest(`/transplant/followup/plans/${id}/`)
 }

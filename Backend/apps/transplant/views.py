@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from apps.accounts.audit import audit  # type: ignore
 from apps.accounts.models import AuditLog, Staff  # type: ignore
 from apps.accounts.rbac import get_staff_profile  # type: ignore
+from apps.scheduling.models import Appointment
 
 from .models import (
     CaseDonor, ChecklistItem, CommitteeDecision,
@@ -20,12 +21,14 @@ from .models import (
 from .permissions import (
     CanCommitteeDecide, CanManageFollowUp, CanManageTransplant,
     CanRecordSurgery, CanReferTransplant, CanViewFollowUp, CanViewTransplant,
+    CanViewOwnFollowUp,
 )
 from .serializers import (
     CaseDonorSerializer, CaseDonorStatusSerializer, ChecklistItemSerializer,
     ChecklistItemStatusSerializer, CommitteeDecisionCreateSerializer,
     CommitteeDecisionSerializer, FollowUpPlanSerializer,
     FollowUpPlanUpdateSerializer, FollowUpVisitCreateSerializer, FollowUpVisitSerializer,
+    MyFollowUpVisitSerializer,
     SurgeryCompleteSerializer, SurgeryCreateSerializer, SurgerySerializer,
     SurgeryTeamMemberSerializer, TransplantCaseCreateSerializer,
     TransplantCaseDetailSerializer, TransplantCaseListSerializer,
@@ -627,32 +630,54 @@ class FollowUpPlanDetailView(PositiveIdMixin, generics.RetrieveUpdateAPIView):
     http_method_names = ['get', 'patch', 'head', 'options']
 
     def partial_update(self, request, *args, **kwargs):
-        plan = self.get_object()
-        previous_status = plan.status
-        previous_end_date = plan.end_date
         serializer = FollowUpPlanUpdateSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         changes = serializer.validated_data
-        update_fields = []
-        if 'status' in changes:
-            plan.status = changes['status']
-            update_fields.append('status')
-            if plan.status == FollowUpPlan.Status.COMPLETED and not plan.end_date:
-                plan.end_date = changes.get('end_date') or timezone.localdate()
+
+        with transaction.atomic():
+            plan = FollowUpPlan.objects.select_for_update().select_related(
+                'patient', 'case'
+            ).get(pk=self.get_object().pk)
+            previous_status = plan.status
+            previous_end_date = plan.end_date
+            target_status = changes.get('status', plan.status)
+
+            if (target_status == FollowUpPlan.Status.COMPLETED
+                    and previous_status != FollowUpPlan.Status.COMPLETED):
+                unresolved = plan.visits.exclude(
+                    status__in=[
+                        FollowUpVisit.Status.COMPLETED,
+                        FollowUpVisit.Status.CANCELLED,
+                    ],
+                ).count()
+                if unresolved:
+                    raise DRFValidationError({
+                        'status': (
+                            'A follow-up plan can be completed only after every visit is '
+                            f'completed or cancelled. {unresolved} visit(s) still need attention.'
+                        ),
+                    })
+
+            update_fields = []
+            if 'status' in changes:
+                plan.status = changes['status']
+                update_fields.append('status')
+                if plan.status == FollowUpPlan.Status.COMPLETED and not plan.end_date:
+                    plan.end_date = changes.get('end_date') or timezone.localdate()
+                    update_fields.append('end_date')
+            if 'end_date' in changes and 'end_date' not in update_fields:
+                plan.end_date = changes['end_date']
                 update_fields.append('end_date')
-        if 'end_date' in changes and 'end_date' not in update_fields:
-            plan.end_date = changes['end_date']
-            update_fields.append('end_date')
-        if update_fields:
-            plan.save(update_fields=update_fields)
-            if plan.status != previous_status or plan.end_date != previous_end_date:
-                action = (AuditLog.Action.STATUS_CHANGE
-                          if plan.status != previous_status
-                          else AuditLog.Action.UPDATE)
-                audit(
-                    request, action, 'transplant.followupplan',
-                    entity_id=plan.pk, patient=plan.patient,
-                )
+            if update_fields:
+                plan.save(update_fields=update_fields)
+                if plan.status != previous_status or plan.end_date != previous_end_date:
+                    action = (AuditLog.Action.STATUS_CHANGE
+                              if plan.status != previous_status
+                              else AuditLog.Action.UPDATE)
+                    audit(
+                        request, action, 'transplant.followupplan',
+                        entity_id=plan.pk, patient=plan.patient,
+                    )
         return Response(FollowUpPlanSerializer(plan).data)
 
 
@@ -684,16 +709,39 @@ class FollowUpVisitListCreateView(PositiveIdMixin, generics.ListCreateAPIView):
         data = {**request.data, 'plan': self.kwargs['plan_pk']}
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        visit = self.perform_create(serializer)
+        response_data = FollowUpVisitSerializer(visit).data
+        headers = self.get_success_headers(response_data)
+        return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_create(self, serializer):
-        visit = serializer.save()
-        audit(
-            self.request, AuditLog.Action.CREATE, 'transplant.followupvisit',
-            entity_id=visit.pk, patient=visit.plan.patient,
-        )
+        with transaction.atomic():
+            visit = serializer.save()
+            audit(
+                self.request, AuditLog.Action.CREATE, 'scheduling.appointment',
+                entity_id=visit.appointment_id, patient=visit.plan.patient,
+            )
+            audit(
+                self.request, AuditLog.Action.CREATE, 'transplant.followupvisit',
+                entity_id=visit.pk, patient=visit.plan.patient,
+            )
+        return visit
+
+
+class MyFollowUpVisitListView(generics.ListAPIView):
+    """GET /api/transplant/followup/mine/ — future scheduled visits for the portal user."""
+
+    permission_classes = [IsAuthenticated, CanViewOwnFollowUp]
+    serializer_class = MyFollowUpVisitSerializer
+
+    def get_queryset(self):
+        return FollowUpVisit.objects.filter(
+            plan__patient__user=self.request.user,
+            status=FollowUpVisit.Status.SCHEDULED,
+            due_date__gte=timezone.localdate(),
+            appointment__status=Appointment.Status.BOOKED,
+            appointment__start_time__gte=timezone.now(),
+        ).select_related('plan__case', 'appointment__staff__user').order_by('due_date', 'appointment__start_time')
 
 
 class FollowUpVisitDetailView(PositiveIdMixin, generics.RetrieveUpdateAPIView):
@@ -705,11 +753,49 @@ class FollowUpVisitDetailView(PositiveIdMixin, generics.RetrieveUpdateAPIView):
     http_method_names = ['get', 'patch', 'head', 'options']
 
     def perform_update(self, serializer):
-        visit = serializer.save()
-        audit(
-            self.request, AuditLog.Action.UPDATE, 'transplant.followupvisit',
-            entity_id=visit.pk, patient=visit.plan.patient,
-        )
+        with transaction.atomic():
+            # Do not select_related('appointment') here: appointment is nullable and PostgreSQL
+            # cannot apply FOR UPDATE to the nullable side of that outer join. The linked
+            # appointment is locked explicitly below when the visit is being completed.
+            visit = FollowUpVisit.objects.select_for_update().select_related(
+                'plan__patient'
+            ).get(pk=serializer.instance.pk)
+            target_status = serializer.validated_data.get('status', visit.status)
+
+            if target_status == FollowUpVisit.Status.COMPLETED and visit.appointment_id:
+                appointment = Appointment.objects.select_for_update().get(pk=visit.appointment_id)
+                if appointment.status in (Appointment.Status.CANCELLED, Appointment.Status.NO_SHOW):
+                    raise DRFValidationError({
+                        'status': 'A cancelled or no-show appointment cannot be recorded as a completed follow-up visit.',
+                    })
+                if appointment.status == Appointment.Status.BOOKED:
+                    # Clinical completion implies that the patient attended, so preserve the
+                    # appointment state machine rather than jumping directly from booked to completed.
+                    appointment.status = Appointment.Status.CHECKED_IN
+                    appointment.save(update_fields=['status'])
+                if appointment.status == Appointment.Status.CHECKED_IN:
+                    appointment.status = Appointment.Status.COMPLETED
+                    appointment.save(update_fields=['status'])
+                    from apps.billing.services import invoice_for_appointment
+
+                    invoice_for_appointment(appointment)
+                    audit(
+                        self.request, AuditLog.Action.STATUS_CHANGE,
+                        'scheduling.appointment', entity_id=appointment.pk,
+                        patient=appointment.patient,
+                    )
+                elif appointment.status != Appointment.Status.COMPLETED:
+                    raise DRFValidationError({
+                        'status': 'The linked appointment is not in a state that can be completed.',
+                    })
+
+            # Use the locked row as the serializer instance so concurrent updates cannot be overwritten.
+            serializer.instance = visit
+            visit = serializer.save()
+            audit(
+                self.request, AuditLog.Action.UPDATE, 'transplant.followupvisit',
+                entity_id=visit.pk, patient=visit.plan.patient,
+            )
 
 
 class RecoveryStatsView(PositiveIdMixin, generics.GenericAPIView):

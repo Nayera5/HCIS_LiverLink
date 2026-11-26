@@ -15,6 +15,7 @@ Appointments are never deleted: cancelled and no-show visits are kept for report
 Audit (module 1 audit log): create, reschedule (update) and status changes.
 """
 from django.db import transaction
+from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
@@ -161,6 +162,15 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
         with transaction.atomic():
             appointment.status = new_status
             appointment.save(update_fields=["status"])
+            if new_status in (Appointment.Status.CANCELLED, Appointment.Status.NO_SHOW):
+                # Keep the linked clinical follow-up visit in sync with its real appointment.
+                from apps.transplant.models import FollowUpVisit
+
+                FollowUpVisit.objects.filter(appointment=appointment).update(
+                    status=(FollowUpVisit.Status.CANCELLED
+                            if new_status == Appointment.Status.CANCELLED
+                            else FollowUpVisit.Status.MISSED),
+                )
             self.log(A.STATUS_CHANGE, appointment)
             if new_status == Appointment.Status.COMPLETED:
                 invoice_for_appointment(appointment)  # module 13: automatic invoice
@@ -189,7 +199,20 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
         serializer = self.get_serializer(appointment, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
-            self.log(A.UPDATE, serializer.save())
+            appointment = serializer.save()
+            # A post-transplant follow-up visit uses the appointment date as its due date.
+            # Keep the coordinator plan, portal, and reminder date in step after a reschedule.
+            from apps.transplant.models import FollowUpVisit
+
+            linked_visit = FollowUpVisit.objects.filter(appointment=appointment).first()
+            if linked_visit is not None:
+                linked_visit.due_date = timezone.localdate(appointment.start_time)
+                linked_visit.save(update_fields=['due_date'])
+                audit(
+                    request, A.UPDATE, 'transplant.followupvisit',
+                    entity_id=linked_visit.pk, patient=linked_visit.plan.patient,
+                )
+            self.log(A.UPDATE, appointment)
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])

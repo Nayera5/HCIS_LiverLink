@@ -7,6 +7,8 @@ from rest_framework import serializers
 
 from apps.accounts.models import Staff
 from apps.registry.models import Patient  # type: ignore
+from apps.scheduling.models import Appointment
+from apps.scheduling.serializers import AppointmentSerializer
 
 from .models import (
     CaseDonor, ChecklistItem, CommitteeDecision, CommitteeMember,
@@ -419,6 +421,7 @@ class SurgeryCompleteSerializer(serializers.Serializer):
 class FollowUpPlanSerializer(serializers.ModelSerializer):
     patient_detail = _PatientBriefSerializer(source='patient', read_only=True)
     visit_count = serializers.SerializerMethodField()
+    unresolved_visit_count = serializers.SerializerMethodField()
     end_date = serializers.SerializerMethodField()
     next_due_date = serializers.SerializerMethodField()
 
@@ -426,15 +429,23 @@ class FollowUpPlanSerializer(serializers.ModelSerializer):
         model = FollowUpPlan
         fields = [
             'id', 'case', 'patient', 'patient_detail', 'patient_role',
-            'start_date', 'end_date', 'next_due_date', 'status', 'visit_count', 'created_at',
+            'start_date', 'end_date', 'next_due_date', 'status', 'visit_count',
+            'unresolved_visit_count', 'created_at',
         ]
         read_only_fields = [
             'id', 'case', 'patient', 'patient_detail', 'patient_role',
-            'start_date', 'visit_count', 'created_at',
+            'start_date', 'visit_count', 'unresolved_visit_count', 'created_at',
         ]
 
     def get_visit_count(self, obj):
         return obj.visits.count()
+
+    def get_unresolved_visit_count(self, obj):
+        terminal_statuses = {
+            FollowUpVisit.Status.COMPLETED,
+            FollowUpVisit.Status.CANCELLED,
+        }
+        return sum(visit.status not in terminal_statuses for visit in obj.visits.all())
 
     def get_next_due_date(self, obj):
         today = timezone.localdate()
@@ -475,14 +486,76 @@ class FollowUpVisitSerializer(serializers.ModelSerializer):
 
 
 class FollowUpVisitCreateSerializer(serializers.ModelSerializer):
+    staff = serializers.PrimaryKeyRelatedField(
+        queryset=Staff.objects.filter(
+            user__is_active=True,
+            job_title=Staff.JobTitle.HEPATOLOGIST,
+        ).select_related('user'),
+        write_only=True,
+        error_messages={'does_not_exist': 'Choose an active hepatologist.'},
+    )
+    start_time = serializers.DateTimeField(write_only=True)
+
     class Meta:
         model = FollowUpVisit
-        fields = ['plan', 'appointment', 'due_date', 'notes']
+        fields = ['plan', 'staff', 'start_time']
 
     def validate_plan(self, plan):
         if plan.status != FollowUpPlan.Status.ACTIVE:
             raise serializers.ValidationError('Follow-up plan is not active.')
         return plan
+
+    def create(self, validated_data):
+        """Create the scheduled appointment and its linked follow-up visit together."""
+        request = self.context['request']
+        plan = validated_data.pop('plan')
+        staff = validated_data.pop('staff')
+        start_time = validated_data.pop('start_time')
+        appointment_serializer = AppointmentSerializer(
+            data={
+                'patient': plan.patient_id,
+                'staff': staff.pk,
+                'appointment_type': Appointment.Type.FOLLOW_UP,
+                'start_time': start_time,
+                'reason': f'Post-transplant follow-up for case #{plan.case_id}.',
+            },
+            context={'request': request},
+        )
+        appointment_serializer.is_valid(raise_exception=True)
+        appointment = appointment_serializer.save(
+            booked_by=request.user,
+            case=plan.case,
+        )
+        return FollowUpVisit.objects.create(
+            plan=plan,
+            appointment=appointment,
+            due_date=timezone.localdate(appointment.start_time),
+        )
+
+
+class MyFollowUpVisitSerializer(serializers.ModelSerializer):
+    """Portal-safe details for a patient's or donor's upcoming follow-up visits."""
+
+    case = serializers.IntegerField(source='plan.case_id', read_only=True)
+    patient_role = serializers.CharField(source='plan.patient_role', read_only=True)
+    start_time = serializers.DateTimeField(source='appointment.start_time', read_only=True, allow_null=True)
+    doctor_name = serializers.SerializerMethodField()
+    get_ready = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FollowUpVisit
+        fields = ['id', 'case', 'patient_role', 'appointment', 'start_time',
+                  'due_date', 'status', 'doctor_name', 'get_ready']
+
+    def get_doctor_name(self, visit):
+        appointment = visit.appointment
+        if not appointment or not appointment.staff_id:
+            return None
+        return appointment.staff.user.get_full_name() or appointment.staff.user.username
+
+    def get_get_ready(self, visit):
+        days_until = (visit.due_date - timezone.localdate()).days
+        return 0 <= days_until <= 4
 
 
 class RecoveryStatsSerializer(serializers.Serializer):

@@ -17,6 +17,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.models import Staff, User, AuditLog
 from apps.billing.models import InvoiceItem
 from apps.registry.models import Patient
+from apps.scheduling.models import Appointment, DoctorSchedule
 
 from .models import (
     CaseDonor, ChecklistItem, CommitteeDecision, CommitteeMember,
@@ -893,12 +894,127 @@ class TransplantAPITests(TestCase):
             patient_role='recipient',
             start_date=datetime.date.today(),
         )
+        day = timezone.localdate() + datetime.timedelta(days=7)
+        DoctorSchedule.objects.create(
+            staff=self.hepatologist,
+            day_of_week=DoctorSchedule.day_code(day),
+            start_time=datetime.time(9), end_time=datetime.time(10), slot_minutes=30,
+        )
+        start_time = timezone.make_aware(
+            datetime.datetime.combine(day, datetime.time(9)),
+            timezone.get_current_timezone(),
+        )
         resp = self.coord_client.post(
             f'/api/transplant/followup/plans/{plan.pk}/visits/',
-            {'due_date': '2026-12-15'},
+            {'staff': self.hepatologist.pk, 'start_time': start_time.isoformat()},
             format='json',
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        visit = FollowUpVisit.objects.get(pk=resp.data['id'])
+        self.assertEqual(visit.due_date, day)
+        self.assertEqual(visit.appointment.patient, self.recipient)
+        self.assertEqual(visit.appointment.staff, self.hepatologist)
+        self.assertEqual(visit.appointment.case, plan.case)
+        self.assertEqual(visit.appointment.appointment_type, Appointment.Type.FOLLOW_UP)
+
+    def test_portal_followup_shows_only_own_scheduled_visits_and_ready_label(self):
+        patient_user = User.objects.create_user(
+            'followup_portal', 'followup_portal@liverlink.test', PW,
+            role=User.Role.PATIENT,
+        )
+        portal_patient = _make_patient(
+            category='recipient', first_name='PortalFollowup', user=patient_user,
+        )
+        case = _create_case(portal_patient, self.hepatologist)
+        plan = FollowUpPlan.objects.create(
+            case=case, patient=portal_patient,
+            patient_role='recipient', start_date=datetime.date.today(),
+        )
+        day = timezone.localdate() + datetime.timedelta(days=3)
+        start_time = timezone.make_aware(
+            datetime.datetime.combine(day, datetime.time(10)),
+            timezone.get_current_timezone(),
+        )
+        appointment = Appointment.objects.create(
+            patient=portal_patient, case=case, staff=self.hepatologist,
+            booked_by=self.coordinator.user, appointment_type=Appointment.Type.FOLLOW_UP,
+            start_time=start_time, end_time=start_time + datetime.timedelta(minutes=30),
+        )
+        FollowUpVisit.objects.create(plan=plan, appointment=appointment, due_date=day)
+        response = _authed_client(patient_user).get('/api/transplant/followup/mine/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertTrue(response.data[0]['get_ready'])
+        self.assertEqual(response.data[0]['appointment'], appointment.pk)
+
+    def test_cancelling_followup_appointment_cancels_linked_visit(self):
+        case = _create_case(self.recipient, self.hepatologist)
+        plan = FollowUpPlan.objects.create(
+            case=case, patient=self.recipient,
+            patient_role='recipient', start_date=datetime.date.today(),
+        )
+        start_time = timezone.now() + datetime.timedelta(days=7)
+        appointment = Appointment.objects.create(
+            patient=self.recipient, case=case, staff=self.hepatologist,
+            booked_by=self.coordinator.user, appointment_type=Appointment.Type.FOLLOW_UP,
+            start_time=start_time, end_time=start_time + datetime.timedelta(minutes=30),
+        )
+        visit = FollowUpVisit.objects.create(
+            plan=plan, appointment=appointment, due_date=start_time.date(),
+        )
+        response = self.coord_client.post(
+            f'/api/scheduling/appointments/{appointment.pk}/cancel/', format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        visit.refresh_from_db()
+        self.assertEqual(visit.status, FollowUpVisit.Status.CANCELLED)
+        # The coordinator's follow-up-plan endpoint must expose the cancellation.
+        visits_response = self.coord_client.get(
+            f'/api/transplant/followup/plans/{plan.pk}/visits/'
+        )
+        self.assertEqual(visits_response.status_code, status.HTTP_200_OK)
+        visits = visits_response.data.get('results', visits_response.data)
+        self.assertEqual(visits[0]['status'], FollowUpVisit.Status.CANCELLED)
+
+    def test_rescheduling_followup_appointment_updates_linked_visit_due_date(self):
+        case = _create_case(self.recipient, self.hepatologist)
+        plan = FollowUpPlan.objects.create(
+            case=case, patient=self.recipient,
+            patient_role='recipient', start_date=datetime.date.today(),
+        )
+        original_start = timezone.now() + datetime.timedelta(days=7)
+        appointment = Appointment.objects.create(
+            patient=self.recipient, case=case, staff=self.hepatologist,
+            booked_by=self.coordinator.user, appointment_type=Appointment.Type.FOLLOW_UP,
+            start_time=original_start, end_time=original_start + datetime.timedelta(minutes=30),
+        )
+        visit = FollowUpVisit.objects.create(
+            plan=plan, appointment=appointment, due_date=original_start.date(),
+        )
+        new_day = timezone.localdate() + datetime.timedelta(days=8)
+        DoctorSchedule.objects.create(
+            staff=self.hepatologist,
+            day_of_week=DoctorSchedule.day_code(new_day),
+            start_time=datetime.time(10), end_time=datetime.time(11), slot_minutes=30,
+        )
+        new_start = timezone.make_aware(
+            datetime.datetime.combine(new_day, datetime.time(10)),
+            timezone.get_current_timezone(),
+        )
+        response = self.coord_client.post(
+            f'/api/scheduling/appointments/{appointment.pk}/reschedule/',
+            {'start_time': new_start.isoformat()}, format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        appointment.refresh_from_db()
+        visit.refresh_from_db()
+        self.assertEqual(appointment.start_time, new_start)
+        self.assertEqual(visit.due_date, new_day)
+        visits_response = self.coord_client.get(
+            f'/api/transplant/followup/plans/{plan.pk}/visits/'
+        )
+        visits = visits_response.data.get('results', visits_response.data)
+        self.assertEqual(visits[0]['due_date'], new_day.isoformat())
 
     def test_update_followup_visit(self):
         case = _create_case(self.recipient, self.hepatologist)
@@ -916,6 +1032,67 @@ class TransplantAPITests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         visit.refresh_from_db()
         self.assertEqual(visit.immuno_level, Decimal('15.5'))
+
+    def test_completing_followup_visit_completes_linked_appointment(self):
+        case = _create_case(self.recipient, self.hepatologist)
+        plan = FollowUpPlan.objects.create(
+            case=case, patient=self.recipient,
+            patient_role='recipient', start_date=datetime.date.today(),
+        )
+        start_time = timezone.now() + datetime.timedelta(days=7)
+        appointment = Appointment.objects.create(
+            patient=self.recipient, case=case, staff=self.hepatologist,
+            booked_by=self.coordinator.user, appointment_type=Appointment.Type.FOLLOW_UP,
+            start_time=start_time, end_time=start_time + datetime.timedelta(minutes=30),
+        )
+        visit = FollowUpVisit.objects.create(
+            plan=plan, appointment=appointment, due_date=start_time.date(),
+        )
+        response = self.coord_client.patch(
+            f'/api/transplant/followup/visits/{visit.pk}/',
+            {'status': FollowUpVisit.Status.COMPLETED, 'immuno_level': '15.5'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        visit.refresh_from_db()
+        appointment.refresh_from_db()
+        self.assertEqual(visit.status, FollowUpVisit.Status.COMPLETED)
+        self.assertEqual(appointment.status, Appointment.Status.COMPLETED)
+
+    def test_saving_details_for_api_created_followup_visit_completes_appointment(self):
+        """The coordinator UI creates the visit first, then saves its clinical details."""
+        plan = FollowUpPlan.objects.create(
+            case=_create_case(self.recipient, self.hepatologist),
+            patient=self.recipient,
+            patient_role='recipient', start_date=datetime.date.today(),
+        )
+        day = timezone.localdate() + datetime.timedelta(days=7)
+        DoctorSchedule.objects.create(
+            staff=self.hepatologist,
+            day_of_week=DoctorSchedule.day_code(day),
+            start_time=datetime.time(9), end_time=datetime.time(10), slot_minutes=30,
+        )
+        start_time = timezone.make_aware(
+            datetime.datetime.combine(day, datetime.time(9)),
+            timezone.get_current_timezone(),
+        )
+        create_response = self.coord_client.post(
+            f'/api/transplant/followup/plans/{plan.pk}/visits/',
+            {'staff': self.hepatologist.pk, 'start_time': start_time.isoformat()},
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        visit_id = create_response.data['id']
+
+        save_response = self.coord_client.patch(
+            f'/api/transplant/followup/visits/{visit_id}/',
+            {'status': FollowUpVisit.Status.COMPLETED, 'immuno_level': '13.25', 'notes': 'Stable.'},
+            format='json',
+        )
+        self.assertEqual(save_response.status_code, status.HTTP_200_OK, save_response.data)
+        visit = FollowUpVisit.objects.select_related('appointment').get(pk=visit_id)
+        self.assertEqual(visit.status, FollowUpVisit.Status.COMPLETED)
+        self.assertEqual(visit.appointment.status, Appointment.Status.COMPLETED)
 
     def test_recovery_stats(self):
         case = _create_case(self.recipient, self.hepatologist)
@@ -949,6 +1126,31 @@ class TransplantAPITests(TestCase):
         self.assertEqual(plan.status, 'completed')
         self.assertIsNotNone(plan.end_date)
         self.assertEqual(resp.data['end_date'], plan.end_date.isoformat())
+
+    def test_cannot_complete_plan_until_every_visit_is_completed_or_cancelled(self):
+        case = _create_case(self.recipient, self.hepatologist)
+        plan = FollowUpPlan.objects.create(
+            case=case, patient=self.recipient,
+            patient_role='recipient', start_date=datetime.date.today(),
+        )
+        visit = FollowUpVisit.objects.create(plan=plan, due_date=datetime.date.today())
+        blocked = self.coord_client.patch(
+            f'/api/transplant/followup/plans/{plan.pk}/',
+            {'status': FollowUpPlan.Status.COMPLETED}, format='json',
+        )
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('completed or cancelled', str(blocked.data['status']))
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, FollowUpPlan.Status.ACTIVE)
+
+        visit.status = FollowUpVisit.Status.CANCELLED
+        visit.save(update_fields=['status'])
+        completed = self.coord_client.patch(
+            f'/api/transplant/followup/plans/{plan.pk}/',
+            {'status': FollowUpPlan.Status.COMPLETED}, format='json',
+        )
+        self.assertEqual(completed.status_code, status.HTTP_200_OK)
+        self.assertEqual(completed.data['unresolved_visit_count'], 0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
