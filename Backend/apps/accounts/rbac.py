@@ -35,7 +35,7 @@ STAFF_CAPABILITIES = {
     # Laboratory (Module 5)
     'labs.view': CLINICAL_READERS,
     'labs.order': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
-    'labs.enter_result': frozenset({T.SUPER_ADMIN, T.TRANSPLANT_COORDINATOR, T.HEPATOLOGIST}),
+    'labs.enter_result': frozenset({T.SUPER_ADMIN}),
     'labs.release': frozenset({T.HEPATOLOGIST, T.TRANSPLANT_SURGEON}),
     # Prescriptions & treatment plans (Module 6). Only doctors prescribe / manage plans.
     'prescriptions.view': CLINICAL_READERS,

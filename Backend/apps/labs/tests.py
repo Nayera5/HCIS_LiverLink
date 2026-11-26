@@ -43,7 +43,9 @@ class LabApiTests(APITestCase):
     def setUp(self):
         cache.clear()
         self.doctor = make_staff('doc', T.HEPATOLOGIST)
+        self.surgeon = make_staff('surgeon', T.TRANSPLANT_SURGEON)
         self.coord = make_staff('coord', T.TRANSPLANT_COORDINATOR)
+        self.admin = make_staff('admin', T.SUPER_ADMIN)
         self.billing = make_staff('bill', T.BILLING_ADMIN)
         self.patient = make_patient()
         self.encounter = Encounter.objects.create(patient=self.patient, staff=self.doctor.staff_profile)
@@ -130,7 +132,7 @@ class LabApiTests(APITestCase):
     def test_result_entry_flags_and_status_flow(self):
         data = self.order()
         ids = {x['test_code']: x['id'] for x in data['results']}
-        self.client.force_authenticate(self.coord)
+        self.client.force_authenticate(self.admin)
         r = self.client.post(f"/api/lab/results/{ids['1975-2']}/enter/", {'value': '3.4'}, format='json')
         self.assertEqual(r.status_code, 200, r.data)
         self.assertEqual(r.data['flag'], 'high')
@@ -138,11 +140,15 @@ class LabApiTests(APITestCase):
         self.client.post(f"/api/lab/results/{ids['1742-6']}/enter/", {'value': '30'}, format='json')
         self.assertEqual(LabOrder.objects.get(pk=data['id']).status, 'resulted')
 
-    def test_billing_cannot_enter_results(self):
+    def test_doctors_and_coordinators_cannot_enter_results(self):
         data = self.order()
-        self.client.force_authenticate(self.billing)
-        r = self.client.post(f"/api/lab/results/{data['results'][0]['id']}/enter/", {'value': '1'}, format='json')
-        self.assertEqual(r.status_code, 403)
+        for user in (self.doctor, self.surgeon, self.coord, self.billing):
+            with self.subTest(user=user.username):
+                self.client.force_authenticate(user)
+                response = self.client.post(
+                    f"/api/lab/results/{data['results'][0]['id']}/enter/", {'value': '1'}, format='json',
+                )
+                self.assertEqual(response.status_code, 403)
 
     def test_pending_list_urgent_first_and_shrinks(self):
         self.order(priority='routine')
@@ -152,7 +158,7 @@ class LabApiTests(APITestCase):
         self.assertEqual(r.data['count'], 3)
         self.assertEqual(r.data['results'][0]['priority'], 'urgent')
         res = LabResult.objects.filter(lab_order__priority='urgent').first()
-        self.client.force_authenticate(self.coord)
+        self.client.force_authenticate(self.admin)
         self.client.post(f'/api/lab/results/{res.pk}/enter/', {'value': '20'}, format='json')
         self.client.force_authenticate(self.doctor)
         self.assertEqual(self.client.get('/api/lab/pending/').data['count'], 2)
@@ -163,14 +169,14 @@ class LabApiTests(APITestCase):
         self.assertEqual(self.client.post(f"/api/lab/orders/{data['id']}/cancel/").status_code, 200)
         self.assertEqual(self.client.post(f"/api/lab/orders/{data['id']}/cancel/").status_code, 400)
         self.assertEqual(self.client.get('/api/lab/pending/').data['count'], 0)
-        self.client.force_authenticate(self.coord)
+        self.client.force_authenticate(self.admin)
         r = self.client.post(f"/api/lab/results/{data['results'][0]['id']}/enter/", {'value': '1'}, format='json')
         self.assertEqual(r.status_code, 400)
 
     def test_patient_sees_only_released_results(self):
         data = self.order(tests=[self.bili])
         rid = data['results'][0]['id']
-        self.client.force_authenticate(self.coord)
+        self.client.force_authenticate(self.admin)
         self.client.post(f'/api/lab/results/{rid}/enter/', {'value': '2.0'}, format='json')
         self.client.force_authenticate(self.pat_user)
         self.assertEqual(self.client.get('/api/lab/my/results/').data['count'], 0)
@@ -184,7 +190,7 @@ class LabApiTests(APITestCase):
 
     def test_cancelled_partial_order_hidden_and_not_releasable(self):
         data = self.order()
-        self.client.force_authenticate(self.coord)
+        self.client.force_authenticate(self.admin)
         self.client.post(f"/api/lab/results/{data['results'][0]['id']}/enter/", {'value': '2'}, format='json')
         self.client.force_authenticate(self.doctor)
         LabResult.objects.filter(lab_order_id=data['id'], value__isnull=False).update(is_released=True)
@@ -195,7 +201,7 @@ class LabApiTests(APITestCase):
 
     def test_negative_value_rejected(self):
         data = self.order()
-        self.client.force_authenticate(self.coord)
+        self.client.force_authenticate(self.admin)
         r = self.client.post(f"/api/lab/results/{data['results'][0]['id']}/enter/", {'value': '-1'}, format='json')
         self.assertEqual(r.status_code, 400)
 
@@ -212,7 +218,7 @@ class LabApiTests(APITestCase):
         self.assertEqual(r.data['count'], 1)  # not the other patient's order
         self.assertEqual({t['state'] for t in r.data['results'][0]['tests']}, {'pending'})
 
-        self.client.force_authenticate(self.coord)
+        self.client.force_authenticate(self.admin)
         self.client.post(f"/api/lab/results/{ids['1975-2']}/enter/", {'value': '3.0'}, format='json')
         self.client.force_authenticate(self.pat_user)
         tests = self.client.get('/api/lab/my/orders/').data['results'][0]['tests']
@@ -253,7 +259,7 @@ class LabApiTests(APITestCase):
     def test_trends_for_staff(self):
         for value in ('1.0', '2.5'):
             data = self.order(tests=[self.bili])
-            self.client.force_authenticate(self.coord)
+            self.client.force_authenticate(self.admin)
             self.client.post(f"/api/lab/results/{data['results'][0]['id']}/enter/", {'value': value}, format='json')
         self.client.force_authenticate(self.doctor)
         r = self.client.get(f'/api/lab/patients/{self.patient.pk}/trends/?test=1975-2')

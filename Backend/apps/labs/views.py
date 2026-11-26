@@ -3,7 +3,7 @@ Laboratory API (Module 5). Capabilities (apps/accounts/rbac.py):
 
     labs.view          orders, pending tests, patient results/trends   clinical readers
     labs.order         create / cancel orders                          hepatologist, transplant_surgeon
-    labs.enter_result  enter a result received from the external lab   super_admin, coordinator, hepatologist
+    labs.enter_result  enter a result received from the external lab   super_admin
     labs.release       release results to the patient portal           hepatologist, transplant_surgeon
     self.lab_results   own RELEASED results + trends (portal)          patients
 
