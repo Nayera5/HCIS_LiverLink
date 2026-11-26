@@ -50,6 +50,7 @@ export const NAV_SECTIONS = [
       { to: '/my-medications', label: 'Medications', icon: PillIcon, capability: 'self.medications' },
       { to: '/my-treatment-plans', label: 'Treatment Plans', icon: TargetIcon, capability: 'self.medications' },
       { to: '/my-appointments', label: 'Appointments', icon: CalendarIcon, capability: 'self.appointments' },
+      { to: '/my-followup', label: 'Follow-up', icon: CheckCircleIcon, capability: 'self.followup' },
       { to: '/my-imaging', label: 'Scans', icon: ScanIcon, capability: 'self.imaging_orders' },
     ],
   },

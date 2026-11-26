@@ -104,6 +104,7 @@ PATIENT_CAPABILITIES = frozenset({
     'self.medications',         # view own prescriptions (active + past) and treatment plans
     'self.medical_records',     # view own released EMR records (read-only)
     'self.appointments',        # book / view / reschedule / cancel own appointments
+    'self.followup',            # view own upcoming post-transplant follow-up visits
     'self.imaging_orders',      # view own imaging orders, choose / move / cancel own scan appointment
     'self.invoices',            # view own invoices, balance & payment history
     'self.imaging_reports',     # own imaging & AI reports (UI placeholder until module 9 exists)

@@ -75,6 +75,9 @@ urlpatterns = [
          name='team-member-delete'),
 
     # ── Follow-up ─────────────────────────────────────────────────────────
+    path('followup/mine/',
+         views.MyFollowUpVisitListView.as_view(),
+         name='followup-mine'),
     path('followup/plans/',
          views.FollowUpPlanListView.as_view(),
          name='followup-plan-list'),

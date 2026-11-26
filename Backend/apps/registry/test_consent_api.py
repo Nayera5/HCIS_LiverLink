@@ -6,6 +6,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.models import AuditLog, User
+from apps.transplant.models import TransplantCase
 
 from .models import Consent, DonorApplication
 from .test_api import PW, PatientAPITestBase, make_patient, make_staff, T
@@ -295,6 +296,14 @@ class CategoryChangeTests(ConsentTestBase):
 
 class ExistingWorkflowTests(ConsentTestBase):
     def test_donor_application_needs_no_consent(self):
+        # A donor may apply only for a recipient with an active donor-matching case;
+        # consent remains unrelated to this early screening step.
+        TransplantCase.objects.create(
+            recipient=self.recipient,
+            referred_by=self.hep.staff_profile,
+            referral_date=datetime.date.today(),
+            status=TransplantCase.Status.UNDER_EVALUATION,
+        )
         self.as_(self.donor_user)
         r = self.client.post('/api/donor-applications/mine/', {'recipient_mrn': self.recipient.mrn,
                                                                'relationship': 'daughter'}, format='json')

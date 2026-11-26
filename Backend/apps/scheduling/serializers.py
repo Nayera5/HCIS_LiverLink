@@ -16,7 +16,7 @@ APPOINTMENT_DOCTOR_TITLES = {
     Appointment.Type.TRANSPLANT_CONSULTATION: "transplant_surgeon",
     Appointment.Type.DONOR_EVALUATION: "transplant_surgeon",
     Appointment.Type.RECIPIENT_EVALUATION: "transplant_surgeon",
-    Appointment.Type.FOLLOW_UP: "transplant_surgeon",
+    Appointment.Type.FOLLOW_UP: "hepatologist",
 }
 
 

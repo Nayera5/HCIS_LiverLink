@@ -40,6 +40,7 @@ import LabOrdersPage from './pages/Labs/LabOrdersPage'
 import MyLabResultsPage from './pages/Labs/MyLabResultsPage'
 import PendingTestsPage from './pages/Labs/PendingTestsPage'
 import MyAppointmentsPage from './pages/Portal/MyAppointmentsPage'
+import MyFollowUpPage from './pages/Portal/MyFollowUpPage'
 import MyConsentsPage from './pages/Portal/MyConsentsPage'
 import MyDonorApplicationsPage from './pages/Portal/MyDonorApplicationsPage'
 import MyMedicalRecordPage from './pages/Portal/MyMedicalRecordPage'
@@ -108,6 +109,9 @@ function App() {
               <Route element={<RequireCapability capability="self.appointments" />}>
                 <Route path="my-appointments" element={<MyAppointmentsPage />} />
                 <Route path="my-appointments/new" element={<BookAppointmentPage />} />
+              </Route>
+              <Route element={<RequireCapability capability="self.followup" />}>
+                <Route path="my-followup" element={<MyFollowUpPage />} />
               </Route>
 
               <Route element={<RequireCapability capability="appointments.view" />}>
