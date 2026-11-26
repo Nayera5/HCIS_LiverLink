@@ -23,7 +23,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from apps.accounts.audit import audit
-from apps.accounts.models import AuditLog
+from apps.accounts.models import AuditLog, Staff
 from apps.accounts.rbac import get_staff_profile, has_capability
 from apps.billing.services import invoice_for_appointment
 from .models import Appointment, DoctorSchedule, free_slots
@@ -31,6 +31,13 @@ from .permissions import AppointmentAccess, ScheduleAccess, can_book_any, can_vi
 from .serializers import AppointmentSerializer, DoctorScheduleSerializer, schedulable_doctors
 
 A = AuditLog.Action
+
+
+def lock_doctor_staff(*staff_ids):
+    """Serialize doctor appointment validation and writes for the same staff row."""
+    staff_ids = sorted({staff_id for staff_id in staff_ids if staff_id is not None})
+    if staff_ids:
+        list(Staff.objects.select_for_update(no_key=True).filter(pk__in=staff_ids).order_by("pk"))
 
 
 def _filter(qs, params, names):
@@ -180,7 +187,12 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
     def create(self, request, *args, **kwargs):
         if not (can_book_any(request.user) or is_portal_user(request.user)):
             raise PermissionDenied("Only the coordinator can book on behalf of a patient.")
-        return super().create(request, *args, **kwargs)
+        preflight = self.get_serializer(data=request.data)
+        preflight.is_valid(raise_exception=True)
+        staff = preflight.validated_data.get("staff")
+        with transaction.atomic():
+            lock_doctor_staff(staff.pk if staff is not None else None)
+            return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         with transaction.atomic():
@@ -189,15 +201,6 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
     @action(detail=True, methods=["post"])
     def reschedule(self, request, pk=None):
         appointment = self.get_object()
-        self.check_can_manage(appointment)
-        self.check_not_imaging(appointment)
-        if appointment.status != Appointment.Status.BOOKED:
-            raise ValidationError("Only booked appointments can be rescheduled.")
-        data = {key: request.data[key] for key in ("start_time", "staff") if key in request.data}
-        if "start_time" not in data:
-            raise ValidationError({"start_time": "New start time is required."})
-        serializer = self.get_serializer(appointment, data=data, partial=True)
-        serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             appointment = serializer.save()
             # A post-transplant follow-up visit uses the appointment date as its due date.
@@ -213,7 +216,22 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
                     entity_id=linked_visit.pk, patient=linked_visit.plan.patient,
                 )
             self.log(A.UPDATE, appointment)
-        return Response(serializer.data)
+            appointment = Appointment.objects.select_for_update().get(pk=appointment.pk)
+            self.check_can_manage(appointment)
+            self.check_not_imaging(appointment)
+            if appointment.status != Appointment.Status.BOOKED:
+                raise ValidationError("Only booked appointments can be rescheduled.")
+            data = {key: request.data[key] for key in ("start_time", "staff") if key in request.data}
+            if "start_time" not in data:
+                raise ValidationError({"start_time": "New start time is required."})
+            preflight = self.get_serializer(appointment, data=data, partial=True)
+            preflight.is_valid(raise_exception=True)
+            staff = preflight.validated_data.get("staff") or appointment.staff
+            lock_doctor_staff(appointment.staff_id, staff.pk if staff is not None else None)
+            serializer = self.get_serializer(appointment, data=data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            self.log(A.UPDATE, serializer.save())
+            return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):

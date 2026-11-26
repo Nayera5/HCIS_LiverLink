@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
 import { fieldErrors } from '../../api/http'
 import { listPatients } from '../../api/patients'
+import { announceSlotAvailabilityChanged } from '../../api/slotAvailability'
 import { bookAppointment, listDoctors } from '../../api/scheduling'
 import { useAuth } from '../../auth/authContext'
 import Alert from '../../components/ui/Alert'
@@ -122,6 +123,7 @@ export default function BookAppointmentPage() {
     setSaving(true)
     try {
       const booked = await bookAppointment(bookingPayload(full, { needsPatient }))
+      announceSlotAvailabilityChanged()
       const flash = `Appointment booked for ${formatWhen(booked.start_time)} with ${booked.staff_name}.`
       if (portal) navigate('/my-appointments', { state: { flash } })
       else navigate(`/appointments?date=${dateKey(booked.start_time)}&staff=${booked.staff}`, { state: { flash } })
@@ -129,8 +131,10 @@ export default function BookAppointmentPage() {
       const { form, ...rest } = fieldErrors(error)
       setErrors(rest)
       setFormError(form || (Object.keys(rest).length ? '' : getErrorMessage(error, 'Could not book the appointment.')))
-      // The slot may have just been taken: clear it so the list reloads.
-      if (rest.start_time) setValues((prev) => ({ ...prev, date: '', start_time: '' }))
+      if (rest.start_time) {
+        setValues((prev) => ({ ...prev, start_time: '' }))
+        announceSlotAvailabilityChanged()
+      }
     } finally {
       setSaving(false)
     }

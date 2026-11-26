@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { getErrorMessage } from '../../api/auth'
 import { fieldErrors } from '../../api/http'
+import { announceSlotAvailabilityChanged } from '../../api/slotAvailability'
 import { bookMyScan, cancelMyScan, listMyImagingOrders, listMyOrderSlots } from '../../api/imaging'
 import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
@@ -27,9 +28,15 @@ function ChooseSlotDialog({ order, onDone, onCancel }) {
     }
     setBusy(true)
     try {
-      onDone(await bookMyScan(order.imaging_order_id, slot))
+      const updated = await bookMyScan(order.imaging_order_id, slot)
+      announceSlotAvailabilityChanged()
+      onDone(updated)
     } catch (err) {
       const found = fieldErrors(err)
+      if (found.slot) {
+        setSlot('')
+        announceSlotAvailabilityChanged()
+      }
       setError(found.slot || found.form || getErrorMessage(err, 'Could not book the scan.'))
       setBusy(false)
     }
@@ -70,6 +77,7 @@ export default function MyImagingPage() {
   }
   const update = (order, message) => {
     setData(data.map((row) => (row.imaging_order_id === order.imaging_order_id ? order : row)))
+    announceSlotAvailabilityChanged()
     setFlash(message)
     setDialog(null)
   }

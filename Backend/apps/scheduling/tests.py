@@ -1,11 +1,17 @@
 """Scheduling tests: links to module 1 (RBAC, Staff, audit), module 2 (Patient) and module 4 (Encounter)."""
 import datetime
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import patch
 
+from django.db import close_old_connections
+from django.test import TransactionTestCase, skipUnlessDBFeature
 from django.utils import timezone
+from rest_framework.test import APIClient
 
-from apps.accounts.models import AuditLog
+from apps.accounts.models import AuditLog, Staff
 from apps.emr.models import Encounter
-from apps.registry.test_api import PatientAPITestBase
+from apps.registry.test_api import PatientAPITestBase, make_patient, make_staff
 
 from .models import Appointment, DoctorSchedule
 
@@ -200,6 +206,96 @@ class BookingTests(SchedulingTestBase):
         log = AuditLog.objects.get(entity_type='scheduling.appointment', entity_id=str(r.data['appointment_id']))
         self.assertEqual(log.action, AuditLog.Action.CREATE)
         self.assertEqual(log.patient, self.own)
+
+
+@skipUnlessDBFeature("has_select_for_update")
+class ConcurrentDoctorBookingTests(TransactionTestCase):
+    reset_sequences = True
+
+    def setUp(self):
+        self.coord = make_staff("slot_race_coord", Staff.JobTitle.TRANSPLANT_COORDINATOR)
+        self.hep = make_staff("slot_race_hep", Staff.JobTitle.HEPATOLOGIST)
+        self.patients = [
+            make_patient(first_name=f"Slot Race {index}", phone=f"0100{index}")
+            for index in (1, 2)
+        ]
+        self.day = timezone.localdate() + datetime.timedelta(days=7)
+        DoctorSchedule.objects.create(
+            staff=self.hep.staff_profile, day_of_week=DoctorSchedule.day_code(self.day),
+            start_time=datetime.time(9), end_time=datetime.time(11), slot_minutes=30,
+        )
+
+    def at(self, hour, minute=0):
+        tz = timezone.get_current_timezone()
+        return timezone.make_aware(datetime.datetime.combine(self.day, datetime.time(hour, minute)), tz)
+
+    def appointment(self, patient, hour):
+        start = self.at(hour)
+        return Appointment.objects.create(
+            patient=patient, staff=self.hep.staff_profile, booked_by=self.coord,
+            appointment_type="consultation", start_time=start,
+            end_time=start + datetime.timedelta(minutes=30),
+        )
+
+    def race_requests(self, payloads):
+        preflight_queries = threading.Barrier(2)
+        completed_queries = threading.Barrier(2)
+        counter_lock = threading.Lock()
+        query_count = 0
+        from apps.scheduling.serializers import free_slots as original_free_slots
+
+        def synchronize_preflight(*args, **kwargs):
+            nonlocal query_count
+            with counter_lock:
+                query_count += 1
+                is_preflight = query_count <= 2
+            if is_preflight:
+                preflight_queries.wait(timeout=20)
+            slots = original_free_slots(*args, **kwargs)
+            if is_preflight:
+                completed_queries.wait(timeout=20)
+            return slots
+
+        def post(path, payload):
+            close_old_connections()
+            try:
+                client = APIClient()
+                client.force_authenticate(user=self.coord)
+                return client.post(path, payload, format="json")
+            finally:
+                close_old_connections()
+
+        with patch("apps.scheduling.serializers.free_slots", side_effect=synchronize_preflight):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(post, path, payload) for path, payload in payloads]
+                return [future.result(timeout=30) for future in futures]
+
+    def test_concurrent_creates_for_same_doctor_slot_only_allow_one(self):
+        start = self.at(9).isoformat()
+        responses = self.race_requests([
+            (APPT, {"patient": patient.pk, "staff": self.hep.staff_profile.pk,
+                    "appointment_type": "consultation", "start_time": start})
+            for patient in self.patients
+        ])
+
+        self.assertEqual(sorted(response.status_code for response in responses), [201, 400])
+        self.assertEqual(Appointment.objects.filter(
+            staff=self.hep.staff_profile, status__in=Appointment.ACTIVE_STATUSES,
+        ).count(), 1)
+
+    def test_concurrent_reschedules_for_same_doctor_slot_only_allow_one(self):
+        appointments = [self.appointment(patient, hour) for patient, hour in zip(self.patients, (9, 10))]
+        target = self.at(9, 30).isoformat()
+        responses = self.race_requests([
+            (f"{APPT}{appointment.pk}/reschedule/", {"start_time": target})
+            for appointment in appointments
+        ])
+
+        self.assertEqual(sorted(response.status_code for response in responses), [200, 400])
+        self.assertEqual(Appointment.objects.filter(
+            staff=self.hep.staff_profile, start_time=target,
+            status__in=Appointment.ACTIVE_STATUSES,
+        ).count(), 1)
 
 
 class CalendarTests(SchedulingTestBase):
