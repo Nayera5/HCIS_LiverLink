@@ -81,7 +81,7 @@ export default function AppShell() {
   const [signingOut, setSigningOut] = useState(false)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
 
-  const sections = navigationFor(can)
+  const sections = navigationFor(can, user?.job_title)
   const primary = primaryActionFor(can)
   const current = sections
     .flatMap((section) => section.items)

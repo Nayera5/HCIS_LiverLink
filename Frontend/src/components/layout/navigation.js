@@ -21,6 +21,8 @@ import {
   BarChartIcon,
   CalendarIcon,
 } from '../ui/icons'
+import { filterNavigationSections } from './navigationRules'
+
 export const NAV_SECTIONS = [
   {
     label: 'Overview',
@@ -35,10 +37,19 @@ export const NAV_SECTIONS = [
       { to: '/imaging/orders', label: 'Imaging orders', icon: ScanIcon, capability: 'imaging.view' },
       { to: '/imaging/slots', label: 'Scan slots', icon: ClockIcon, capability: 'imaging.manage' },
       { to: '/rx/reviews', label: 'Plan reviews due', icon: TargetIcon, capability: 'treatment_plans.view' },
-      { to: '/appointments', label: 'Appointments', icon: CalendarIcon, capability: 'appointments.view' },
+      {
+        to: '/appointments', label: 'Appointments', icon: CalendarIcon, capability: 'appointments.view',
+        excludeJobTitles: ['radiologist'],
+      },
       { to: '/schedule', label: 'My schedule', icon: ClockIcon, capability: 'schedules.manage_own' },
-      { to: '/donor-applications', label: 'Donor applications', icon: UserPlusIcon, capability: 'donor_applications.view' },
-      { to: '/transplant', label: 'Transplant cases', icon: HeartPulseIcon, capability: 'transplant.view' },
+      {
+        to: '/donor-applications', label: 'Donor applications', icon: UserPlusIcon, capability: 'donor_applications.view',
+        excludeJobTitles: ['radiologist'],
+      },
+      {
+        to: '/transplant', label: 'Transplant cases', icon: HeartPulseIcon, capability: 'transplant.view',
+        excludeJobTitles: ['radiologist'],
+      },
       { to: '/followup', label: 'Follow-up', icon: CheckCircleIcon, capability: 'transplant.view_followup' },
     ],
   },
@@ -92,12 +103,8 @@ export const NAV_SECTIONS = [
 ]
 
 /** Sections filtered for the user; empty sections are dropped. */
-export function navigationFor(can) {
-  return NAV_SECTIONS.map((section) => ({
-    ...section,
-    items: section.items.filter((item) => !item.capability
-      || (Array.isArray(item.capability) ? item.capability.some(can) : can(item.capability))),
-  })).filter((section) => section.items.length > 0)
+export function navigationFor(can, jobTitle) {
+  return filterNavigationSections(NAV_SECTIONS, can, jobTitle)
 }
 
 /** Primary top-bar action per role (design reference: "+ New encounter"). */
