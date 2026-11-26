@@ -5,13 +5,14 @@ import { Link, useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
 import { createEncounter } from '../../api/emr'
 import { fieldErrors } from '../../api/http'
+import { announceSlotAvailabilityChanged } from '../../api/slotAvailability'
 import { changeAppointmentStatus, getFreeSlots, listSchedules, rescheduleAppointment } from '../../api/scheduling'
 import Alert from '../../components/ui/Alert'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import { ConfirmDialog, LoadingBlock } from '../../components/ui/Feedback'
 import TextField from '../../components/ui/TextField'
-import { useApi } from '../../hooks/useApi'
+import { useSlotAvailability } from '../../hooks/useSlotAvailability'
 import {
   APPOINTMENT_STATUS, APPOINTMENT_TYPE_LABELS, allowedActions, dateKey, formatDayTitle, formatTime, formatTimeRange,
   formatWhen, groupSchedules, nextDateOf,
@@ -29,16 +30,19 @@ export function SlotPicker({ staff, date, value, onChange, error }) {
     () => (staff && date ? getFreeSlots(staff, date) : Promise.resolve(null)),
     [staff, date],
   )
-  const { data, error: loadError, loading } = useApi(loader)
+  const { data, error: loadError, loading, hasDataForLoader } = useSlotAvailability(loader)
 
   if (!staff || !date) return <p className="muted-text">Choose a doctor and a date to see free times.</p>
-  if (loading) return <LoadingBlock label="Loading free times" />
-  if (loadError) return <Alert variant="error">{getErrorMessage(loadError, 'Could not load free times.')}</Alert>
+  if (loading && !hasDataForLoader) return <LoadingBlock label="Loading free times" />
+  if (loadError && !hasDataForLoader) {
+    return <Alert variant="error">{getErrorMessage(loadError, 'Could not load free times.')}</Alert>
+  }
 
   const slots = data?.slots || []
   return (
     <div className="field">
       <p className="field__label">Free times</p>
+      {loadError && <Alert variant="error">{getErrorMessage(loadError, 'Could not update free times.')}</Alert>}
       {slots.length ? (
         <div className="slot-grid" role="radiogroup" aria-label="Free times">
           {slots.map((slot) => (
@@ -68,7 +72,7 @@ export function DoctorAvailability({ staff, value, onSelect }) {
       return { ...group, date, slots: availability.slots || [] }
     }))
   }, [staff])
-  const { data, error, loading } = useApi(loader)
+  const { data, error, loading, hasDataForLoader } = useSlotAvailability(loader)
 
   if (!staff) return null
 
@@ -78,10 +82,10 @@ export function DoctorAvailability({ staff, value, onSelect }) {
         <p className="field__label">Doctor availability</p>
         <p className="muted-text">Choose an available slot. The appointment date updates to match your selection.</p>
       </div>
-      {loading && <LoadingBlock label="Loading doctor availability" />}
+      {loading && !hasDataForLoader && <LoadingBlock label="Loading doctor availability" />}
       {error && <Alert variant="error">{getErrorMessage(error, 'Could not load doctor availability.')}</Alert>}
-      {!loading && !error && data?.length === 0 && <p className="muted-text">No active working days for this doctor.</p>}
-      {!loading && !error && data?.length > 0 && (
+      {hasDataForLoader && data?.length === 0 && <p className="muted-text">No active working days for this doctor.</p>}
+      {hasDataForLoader && data?.length > 0 && (
         <div className="appt-availability__days">
           {data.map((group) => (
             <section key={group.day} className="appt-availability__day">
@@ -120,9 +124,15 @@ function RescheduleDialog({ appointment, onDone, onCancel }) {
     }
     setBusy(true)
     try {
-      onDone(await rescheduleAppointment(appointment.appointment_id, { start_time: start }))
+      const updated = await rescheduleAppointment(appointment.appointment_id, { start_time: start })
+      announceSlotAvailabilityChanged()
+      onDone(updated)
     } catch (err) {
       const found = fieldErrors(err)
+      if (found.start_time) {
+        setStart('')
+        announceSlotAvailabilityChanged()
+      }
       setError(found.start_time || found.form || getErrorMessage(err, 'Could not reschedule.'))
       setBusy(false)
     }
@@ -176,7 +186,9 @@ export function AppointmentActions({ appointment, who, onChanged }) {
         navigate(`/encounters/${encounter.encounter_id}`)
         return
       }
-      onChanged(await changeAppointmentStatus(appointment.appointment_id, action))
+      const updated = await changeAppointmentStatus(appointment.appointment_id, action)
+      if (action === 'cancel' || action === 'no_show') announceSlotAvailabilityChanged()
+      onChanged(updated)
       setDialog(null)
     } catch (err) {
       setError(getErrorMessage(err, 'Could not update the appointment.'))

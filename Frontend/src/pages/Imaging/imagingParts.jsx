@@ -12,6 +12,7 @@ import { PlusIcon, ScanIcon } from '../../components/ui/icons'
 import Panel from '../../components/ui/Panel'
 import TextField from '../../components/ui/TextField'
 import { useApi } from '../../hooks/useApi'
+import { useSlotAvailability } from '../../hooks/useSlotAvailability'
 import { formatDateTime } from '../../utils/format'
 import { dateKey, formatDayTitle, formatTimeRange, formatWhen, groupByDay } from '../Appointments/appointmentRules'
 import { BOOKING_STATE, IMAGING_STATUS, newOrderLink } from './imagingRules'
@@ -40,7 +41,7 @@ export function BookingText({ order }) {
 export function ScanSlotPicker({ load, value, onChange, error }) {
   const [date, setDate] = useState('')
   const loader = useCallback(() => load({ date }), [load, date])
-  const { data, error: loadError, loading } = useApi(loader)
+  const { data, error: loadError, loading, hasDataForLoader } = useSlotAvailability(loader)
   const slots = data || []
   const days = [...new Set(slots.map((slot) => dateKey(slot.start_time)))]
 
@@ -48,9 +49,9 @@ export function ScanSlotPicker({ load, value, onChange, error }) {
     <div className="form-stack">
       <TextField label="Date" type="date" value={date} min={dateKey()} hint="Leave empty to see all free slots."
         onChange={(event) => { setDate(event.target.value); onChange('') }} />
-      {loading && <LoadingBlock label="Loading scan slots" />}
+      {loading && !hasDataForLoader && <LoadingBlock label="Loading scan slots" />}
       {loadError && <Alert variant="error">{getErrorMessage(loadError, 'Could not load scan slots.')}</Alert>}
-      {!loading && !loadError && (slots.length ? (
+      {hasDataForLoader && (slots.length ? (
         <div className="imaging-slots">
           {groupByDay(slots, days).map((group) => (
             <section key={group.date}>

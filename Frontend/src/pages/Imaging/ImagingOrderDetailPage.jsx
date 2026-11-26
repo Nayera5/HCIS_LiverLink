@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
 import { fieldErrors } from '../../api/http'
+import { announceSlotAvailabilityChanged } from '../../api/slotAvailability'
 import {
   bookScan, cancelScanBooking, changeImagingOrderStatus, getImagingOrder, listOrderSlots, markScanNoShow, remindPatient,
 } from '../../api/imaging'
@@ -107,10 +108,17 @@ export default function ImagingOrderDetailPage() {
     try {
       const result = await run()
       if (target !== 'remind') setData(result)
+      if (['book', 'cancelBooking', 'noShow', 'cancel'].includes(target)) {
+        announceSlotAvailabilityChanged()
+      }
       setFlash(dialog.done)
       setTarget(null)
     } catch (err) {
       const { form, status, ...rest } = fieldErrors(err)
+      if (target === 'book' && rest.slot) {
+        setSlot('')
+        announceSlotAvailabilityChanged()
+      }
       setErrors({
         ...rest,
         form: form || status || (Object.keys(rest).length ? '' : getErrorMessage(err, 'Could not change the order.')),

@@ -9,12 +9,14 @@ import { useCallback, useEffect, useState } from 'react'
  */
 export function useApi(loader) {
   const [version, setVersion] = useState(0)
-  const [state, setState] = useState({ data: null, error: null, source: null, version: -1 })
+  const [state, setState] = useState({
+    data: null, dataSource: null, error: null, source: null, version: -1,
+  })
 
   useEffect(() => {
     let active = true
     loader().then(
-      (data) => active && setState({ data, error: null, source: loader, version }),
+      (data) => active && setState({ data, dataSource: loader, error: null, source: loader, version }),
       (error) => active && setState((prev) => ({ ...prev, error, source: loader, version })),
     )
     return () => {
@@ -24,7 +26,8 @@ export function useApi(loader) {
 
   const reload = useCallback(() => setVersion((v) => v + 1), [])
   const setData = useCallback((data) => setState((prev) => ({ ...prev, data })), [])
+  const hasDataForLoader = state.dataSource === loader && state.data !== null
 
   const loading = state.source !== loader || state.version !== version
-  return { data: state.data, error: loading ? null : state.error, loading, reload, setData }
+  return { data: state.data, error: loading ? null : state.error, loading, hasDataForLoader, reload, setData }
 }
