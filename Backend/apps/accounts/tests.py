@@ -86,8 +86,8 @@ class RBACUnitTests(TestCase):
         self.assertEqual(capabilities_for(user), EVERYONE | {'self.patient_record', 'self.invoices',
                                                   'self.donor_applications', 'self.consents',
                                                   'self.lab_results', 'self.medications',
-                                                  'self.medical_records', 'self.appointments', 'self.imaging_orders',
-                                                   'services.view'})
+                                                  'self.medical_records', 'self.appointments', 'self.followup',
+                                                  'self.imaging_orders', 'self.imaging_reports', 'services.view'})
         self.assertIsNone(effective_job_title(user))
 
     def test_clinical_staff_without_job_title_has_no_clinical_permissions(self):

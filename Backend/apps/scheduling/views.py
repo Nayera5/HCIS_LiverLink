@@ -202,20 +202,6 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
     def reschedule(self, request, pk=None):
         appointment = self.get_object()
         with transaction.atomic():
-            appointment = serializer.save()
-            # A post-transplant follow-up visit uses the appointment date as its due date.
-            # Keep the coordinator plan, portal, and reminder date in step after a reschedule.
-            from apps.transplant.models import FollowUpVisit
-
-            linked_visit = FollowUpVisit.objects.filter(appointment=appointment).first()
-            if linked_visit is not None:
-                linked_visit.due_date = timezone.localdate(appointment.start_time)
-                linked_visit.save(update_fields=['due_date'])
-                audit(
-                    request, A.UPDATE, 'transplant.followupvisit',
-                    entity_id=linked_visit.pk, patient=linked_visit.plan.patient,
-                )
-            self.log(A.UPDATE, appointment)
             appointment = Appointment.objects.select_for_update().get(pk=appointment.pk)
             self.check_can_manage(appointment)
             self.check_not_imaging(appointment)
@@ -230,8 +216,22 @@ class AppointmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixin
             lock_doctor_staff(appointment.staff_id, staff.pk if staff is not None else None)
             serializer = self.get_serializer(appointment, data=data, partial=True)
             serializer.is_valid(raise_exception=True)
-            self.log(A.UPDATE, serializer.save())
-            return Response(serializer.data)
+            appointment = serializer.save()
+
+            # A post-transplant follow-up visit uses the appointment date as its due date.
+            # Keep the coordinator plan, portal, and reminder date in step after a reschedule.
+            from apps.transplant.models import FollowUpVisit
+
+            linked_visit = FollowUpVisit.objects.filter(appointment=appointment).first()
+            if linked_visit is not None:
+                linked_visit.due_date = timezone.localdate(appointment.start_time)
+                linked_visit.save(update_fields=['due_date'])
+                audit(
+                    request, A.UPDATE, 'transplant.followupvisit',
+                    entity_id=linked_visit.pk, patient=linked_visit.plan.patient,
+                )
+            self.log(A.UPDATE, appointment)
+        return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):

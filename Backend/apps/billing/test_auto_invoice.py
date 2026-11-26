@@ -130,7 +130,9 @@ class AppointmentInvoiceTests(PatientAPITestBase):
         )
         self.as_(self.billing)
         payload = {'patient': self.own.pk, 'due_date': timezone.localdate().isoformat(),
-                   'items': [{'service': Service.objects.get(code='IMG-004').pk,
+                   # Use an active but incompatible service. IMG-004 was deliberately retired
+                   # when the imaging catalogue was narrowed to supported protocols.
+                   'items': [{'service': Service.objects.get(code='CONS-001').pk,
                               'imaging_order': order.pk}]}
         self.assertEqual(self.client.post('/api/invoices/', payload, format='json').status_code, 400)
         payload['items'][0]['service'] = service.pk
