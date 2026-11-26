@@ -197,6 +197,10 @@ class AuditLog(models.Model):
         STATUS_CHANGE = 'status_change', 'Status change'     # e.g. donor application screened
         WITHDRAW = 'withdraw', 'Withdraw'                    # e.g. donor application withdrawn
 
+    class Outcome(models.TextChoices):
+        SUCCESS = 'success', 'Success'
+        FAILURE = 'failure', 'Failure'
+
     # Actions that only read data; every other action is a write or session event.
     READ_ACTIONS = frozenset({Action.VIEW, Action.PROFILE_VIEW, Action.EXPORT})
 
@@ -216,6 +220,7 @@ class AuditLog(models.Model):
         db_index=False, help_text='Patient whose record was touched (if any).',
     )
     action = models.CharField(max_length=20, choices=Action.choices)
+    outcome = models.CharField(max_length=10, choices=Outcome.choices, null=True, blank=True)
     entity_type = models.CharField(max_length=100, help_text='Table the action was on, e.g. registry.patient.')
     entity_id = models.BigIntegerField(null=True, blank=True, help_text='ID of the row the action was on.')
     ip_address = models.GenericIPAddressField(null=True, blank=True)
@@ -241,6 +246,9 @@ class AuditLog(models.Model):
                                         'profile_view', 'category_change', 'activate', 'deactivate',
                                         'status_change', 'withdraw']),
                 name='accounts_auditlog_action_valid'),
+            models.CheckConstraint(
+                condition=Q(outcome__isnull=True) | Q(outcome__in=['success', 'failure']),
+                name='accounts_auditlog_outcome_valid'),
             # Every entry must say who acted: a linked user, or an actor identifier.
             models.CheckConstraint(
                 condition=Q(user__isnull=False) | ~Q(actor=''),
@@ -261,7 +269,7 @@ class AuditLog(models.Model):
 
     @classmethod
     def record(cls, action, entity_type, *, user=None, actor='', entity_id=None, patient=None,
-               ip_address=None, changes=None, reason=''):
+               ip_address=None, changes=None, reason='', outcome=None):
         """
         Append one entry. `entity_type` is a model label such as 'registry.patient'.
         With a user, `actor` defaults to their current username. Anonymous events must pass
@@ -272,5 +280,6 @@ class AuditLog(models.Model):
         actor = (actor or (user.get_username() if user is not None else '')).strip()[:150]
         return cls.objects.create(
             user=user, actor=actor, action=action, entity_type=entity_type, entity_id=entity_id,
-            patient=patient, ip_address=ip_address, changes=changes or None, reason=(reason or '').strip(),
+            outcome=outcome, patient=patient, ip_address=ip_address, changes=changes or None,
+            reason=(reason or '').strip(),
         )

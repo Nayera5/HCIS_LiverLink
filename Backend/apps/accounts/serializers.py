@@ -346,7 +346,7 @@ class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditLog
         fields = ('id', 'timestamp', 'actor', 'user_id', 'action', 'action_label', 'is_read',
-                  'entity_type', 'entity_id', 'patient', 'ip_address', 'changes', 'reason')
+                  'outcome', 'entity_type', 'entity_id', 'patient', 'ip_address', 'changes', 'reason')
         read_only_fields = fields
 
     def get_is_read(self, entry):
@@ -365,7 +365,10 @@ class AuditLogFilterSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=AuditLog.Action.choices, required=False)
     kind = serializers.ChoiceField(choices=('read', 'write'), required=False)
     user = serializers.IntegerField(min_value=1, required=False)
+    actor = serializers.CharField(max_length=150, required=False, allow_blank=False)
+    outcome = serializers.ChoiceField(choices=AuditLog.Outcome.choices, required=False)
     patient = serializers.IntegerField(min_value=1, required=False)
+    patient_mrn = serializers.CharField(max_length=20, required=False, allow_blank=False)
     entity_type = serializers.CharField(max_length=100, required=False)
     entity_id = serializers.IntegerField(required=False)
     date_from = serializers.DateField(required=False)

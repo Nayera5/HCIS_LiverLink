@@ -17,6 +17,22 @@ export const ACTION_LABELS = {
   logout: 'Logout',
 }
 
+const ACTION_TONES = {
+  create: 'success',
+  update: 'info',
+  delete: 'danger',
+  login: 'teal',
+  logout: 'neutral',
+  activate: 'success',
+  deactivate: 'warning',
+  view: 'neutral',
+  profile_view: 'neutral',
+  export: 'neutral',
+}
+
+export const OUTCOME_LABELS = { success: 'Successful', failure: 'Failed' }
+export const OUTCOME_OPTIONS = Object.entries(OUTCOME_LABELS).map(([value, label]) => ({ value, label }))
+
 // Read actions (backend AuditLog.READ_ACTIONS); everything else is a write or session event.
 export const READ_ACTIONS = new Set(['view', 'profile_view', 'export'])
 
@@ -51,7 +67,7 @@ const ENTITY_LABELS = {
 }
 
 /** Filters kept in the page URL. `page` is handled separately by the page. */
-export const FILTER_KEYS = ['action', 'kind', 'user', 'patient', 'date_from', 'date_to']
+export const FILTER_KEYS = ['action', 'kind', 'outcome', 'actor', 'user', 'patient', 'patient_mrn', 'date_from', 'date_to']
 
 const ID_PATTERN = /^[1-9]\d*$/
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -78,6 +94,11 @@ export function validateFilters(filters) {
     errors.date_to = 'Must be on or after the start date.'
   }
   return errors
+}
+
+/** Search usernames through the existing actor API filter, including anonymous login attempts. */
+export function usernameFilterParams(value) {
+  return { actor: (value || '').trim() }
 }
 
 /**
@@ -122,6 +143,7 @@ export function toApiParams(filters) {
     const value = (filters[key] || '').trim()
     if (!value || errors[key]) continue
     if (key === 'action' && !(value in ACTION_LABELS)) continue
+    if (key === 'outcome' && !(value in OUTCOME_LABELS)) continue
     if (key === 'kind' && value !== 'read' && value !== 'write') continue  // 'all' = no type filter
     params[key] = value
   }
@@ -132,7 +154,17 @@ export function actionLabel(action) {
   return ACTION_LABELS[action] || action
 }
 
-/** Read/write indicator for an entry: { label, tone } for <Badge>. */
+/** Subtle semantic badge tone for an audit action; uncommon actions use neutral gray. */
+export function actionTone(action) {
+  return ACTION_TONES[action] || 'neutral'
+}
+
+/** The linked account's recorded name, or the attempted identifier for anonymous events. */
+export function entryIdentity(entry) {
+  return entry.actor || (entry.user_id != null ? `User #${entry.user_id}` : '—')
+}
+
+/** Read/write/session category for an entry: { label, tone }. */
 export function entryKind(entry) {
   const isRead = entry.is_read ?? READ_ACTIONS.has(entry.action)
   if (isRead) return { label: 'Read', tone: 'info' }

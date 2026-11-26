@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .audit import audit
@@ -24,10 +25,14 @@ from .serializers import (
     PasswordResetConfirmSerializer, PasswordResetRequestSerializer, StaffAccountCreateSerializer,
     StaffAccountUpdateSerializer, UserDetailSerializer, UserListSerializer,
 )
-from .tokens import revoke_all_refresh_tokens
+from .tokens import AuditedTokenObtainPairSerializer, revoke_all_refresh_tokens
 
 
 # --------------------------------------------------------------------------- session
+
+class AuditedTokenObtainPairView(TokenObtainPairView):
+    serializer_class = AuditedTokenObtainPairSerializer
+
 
 class LogoutView(APIView):
     """POST {refresh}: blacklist the caller's refresh token (server-side logout)."""
@@ -45,6 +50,14 @@ class LogoutView(APIView):
         if str(token.get('user_id')) != str(request.user.pk):
             return Response({'detail': 'This token does not belong to you.'}, status=status.HTTP_403_FORBIDDEN)
         token.blacklist()
+        audit(
+            request,
+            AuditLog.Action.LOGOUT,
+            USER_ENTITY,
+            user=request.user,
+            entity_id=request.user.pk,
+            outcome=AuditLog.Outcome.SUCCESS,
+        )
         return Response(status=status.HTTP_205_RESET_CONTENT)
 
 
@@ -274,8 +287,9 @@ class AuditLogListView(generics.ListAPIView):
     """
     GET /api/audit-logs/ (audit.view: Super Admin only). Read-only, newest first, paginated.
 
-    Filters (all optional): action, kind=read|write, user (id), patient (id), entity_type,
-    entity_id, date_from / date_to (YYYY-MM-DD, inclusive, UTC). Invalid filters return 400.
+    Filters (all optional): action, kind=read|write, user (id), patient (id or patient_mrn),
+    entity_type, entity_id, actor (username), outcome, date_from / date_to (YYYY-MM-DD, inclusive,
+    UTC). Invalid filters return 400.
     Only GET is allowed: entries can never be created, changed or deleted through the API.
     Viewing the log is itself not logged (list views are outside the audit policy).
     """
@@ -297,8 +311,14 @@ class AuditLogListView(generics.ListAPIView):
             qs = qs.filter(reads if f['kind'] == 'read' else ~reads)
         if 'user' in f:
             qs = qs.filter(user_id=f['user'])
+        if 'actor' in f:
+            qs = qs.filter(actor__icontains=f['actor'])
+        if 'outcome' in f:
+            qs = qs.filter(outcome=f['outcome'])
         if 'patient' in f:
             qs = qs.filter(patient_id=f['patient'])
+        if 'patient_mrn' in f:
+            qs = qs.filter(patient__mrn__iexact=f['patient_mrn'])
         if 'entity_type' in f:
             qs = qs.filter(entity_type=f['entity_type'].strip())
         if 'entity_id' in f:

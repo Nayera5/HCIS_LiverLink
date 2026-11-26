@@ -2,11 +2,14 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
-  ACTION_LABELS, ACTION_OPTIONS, DEFAULT_KIND, KIND_OPTIONS, actionChange, describeRecord, entryKind,
-  hasActiveFilters, kindParam, readFilters, toApiParams, validateFilters,
+  ACTION_LABELS, ACTION_OPTIONS, DEFAULT_KIND, KIND_OPTIONS, OUTCOME_LABELS, OUTCOME_OPTIONS, actionChange,
+  actionTone, describeRecord, entryIdentity, entryKind, hasActiveFilters, kindParam, readFilters, usernameFilterParams,
+  toApiParams, validateFilters,
 } from './auditLogFilters.js'
 
-const EMPTY = { action: '', kind: '', user: '', patient: '', date_from: '', date_to: '' }
+const EMPTY = {
+  action: '', kind: '', outcome: '', actor: '', user: '', patient: '', patient_mrn: '', date_from: '', date_to: '',
+}
 const DEFAULT_VIEW = { ...EMPTY, kind: 'write' }
 
 describe('validateFilters', () => {
@@ -35,32 +38,73 @@ describe('validateFilters', () => {
 
 describe('readFilters / toApiParams', () => {
   test('reads every filter from the URL, missing ones as empty and type as the default', () => {
-    const filters = readFilters(new URLSearchParams('action=create&user=4&page=2'))
-    assert.deepEqual(filters, { ...DEFAULT_VIEW, action: 'create', user: '4' })
+    const filters = readFilters(new URLSearchParams('action=create&user=4&actor=coord&outcome=failure&page=2'))
+    assert.deepEqual(filters, { ...DEFAULT_VIEW, action: 'create', user: '4', actor: 'coord', outcome: 'failure' })
   })
 
   test('sends only valid, non-empty filters', () => {
     assert.deepEqual(toApiParams({
-      action: 'category_change', kind: 'write', user: '4', patient: '9',
+      action: 'category_change', kind: 'write', outcome: 'success', actor: 'coord', user: '4', patient: '9',
+      patient_mrn: 'LL-000009',
       date_from: '2026-03-01', date_to: '2026-03-31',
     }), {
-      action: 'category_change', kind: 'write', user: '4', patient: '9',
+      action: 'category_change', kind: 'write', outcome: 'success', actor: 'coord', user: '4', patient: '9',
+      patient_mrn: 'LL-000009',
       date_from: '2026-03-01', date_to: '2026-03-31',
     })
     assert.deepEqual(toApiParams(EMPTY), {})
   })
 
+  test('keeps MRNs as text while retaining legacy numeric patient-ID filtering', () => {
+    const filters = readFilters(new URLSearchParams('patient_mrn=ll-000004'))
+    assert.equal(filters.patient_mrn, 'll-000004')
+    assert.deepEqual(toApiParams(filters), { kind: 'write', patient_mrn: 'll-000004' })
+    assert.deepEqual(toApiParams({ ...EMPTY, patient: '4' }), { patient: '4' })
+  })
+
   test('drops hand-edited invalid values instead of sending them', () => {
     assert.deepEqual(toApiParams({
-      ...EMPTY, action: 'hack', kind: 'other', user: 'abc', patient: '5', date_from: '2026-13-01',
-    }), { patient: '5' })
+      ...EMPTY, action: 'hack', kind: 'other', outcome: 'unknown', actor: '  typo  ', user: 'abc',
+      patient: '5', date_from: '2026-13-01',
+    }), { actor: 'typo', patient: '5' })
     // reversed range: the start date is kept, the invalid end date is dropped
     assert.deepEqual(toApiParams({ ...EMPTY, date_from: '2026-03-05', date_to: '2026-03-01' }),
       { date_from: '2026-03-05' })
   })
 })
 
+describe('username filter', () => {
+  test('maps authenticated usernames and failed-login attempted usernames to the actor parameter', () => {
+    for (const username of ['coordinator', 'unknown.account']) {
+      const params = usernameFilterParams(username)
+      assert.deepEqual(params, { actor: username })
+      assert.deepEqual(toApiParams({ ...EMPTY, ...params }), { actor: username })
+    }
+  })
+
+  test('trims whitespace and clears the actor filter when empty', () => {
+    assert.deepEqual(usernameFilterParams('  coordinator  '), { actor: 'coordinator' })
+    assert.deepEqual(usernameFilterParams('  '), { actor: '' })
+  })
+})
+
 describe('entry display', () => {
+  test('uses consistent semantic tones for common audit actions', () => {
+    const tones = {
+      create: 'success', update: 'info', delete: 'danger', login: 'teal', logout: 'neutral',
+      activate: 'success', deactivate: 'warning', view: 'neutral', profile_view: 'neutral',
+    }
+    for (const [action, tone] of Object.entries(tones)) assert.equal(actionTone(action), tone, action)
+    assert.equal(actionTone('unknown_action'), 'neutral')
+  })
+
+  test('shows the recorded account identity or the attempted username when no account is linked', () => {
+    assert.equal(entryIdentity({ actor: 'coordinator', user_id: 12 }), 'coordinator')
+    assert.equal(entryIdentity({ actor: 'unknown.account', user_id: null }), 'unknown.account')
+    assert.equal(entryIdentity({ actor: '', user_id: 12 }), 'User #12')
+    assert.equal(entryIdentity({ actor: '', user_id: null }), '—')
+  })
+
   test('profile access is shown as a read, changes as writes', () => {
     assert.deepEqual(entryKind({ action: 'profile_view', is_read: true }), { label: 'Read', tone: 'info' })
     for (const action of ['create', 'update', 'category_change', 'activate', 'deactivate']) {
@@ -84,6 +128,14 @@ describe('entry display', () => {
   test('the action filter offers every backend action exactly once', () => {
     const offered = ACTION_OPTIONS.flatMap((group) => group.options.map((o) => o.value)).sort()
     assert.deepEqual(offered, Object.keys(ACTION_LABELS).sort())
+  })
+
+  test('the outcome filter offers success and failure', () => {
+    assert.deepEqual(OUTCOME_LABELS, { success: 'Successful', failure: 'Failed' })
+    assert.deepEqual(OUTCOME_OPTIONS, [
+      { value: 'success', label: 'Successful' },
+      { value: 'failure', label: 'Failed' },
+    ])
   })
 })
 

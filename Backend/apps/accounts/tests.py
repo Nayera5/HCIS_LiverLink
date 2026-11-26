@@ -144,6 +144,34 @@ class AuthFlowTests(APITestCase):
         self.user.refresh_from_db()
         self.assertIsNotNone(self.user.last_login)
 
+    def test_successful_login_is_audited(self):
+        response = self.login()
+        self.assertEqual(response.status_code, 200)
+        entry = AuditLog.objects.get(action=AuditLog.Action.LOGIN)
+        self.assertEqual((entry.user, entry.actor, entry.entity_id, entry.outcome),
+                         (self.user, self.user.username, self.user.pk, AuditLog.Outcome.SUCCESS))
+        self.assertEqual(entry.entity_type, 'accounts.user')
+        self.assertEqual(entry.ip_address, '127.0.0.1')
+
+    def test_failed_login_records_known_and_unknown_usernames_without_password(self):
+        attempted_password = 'Do-Not-Store-This!1'
+        for username in ('coord', 'unknown.account'):
+            with self.subTest(username=username):
+                response = self.login(username=username, password=attempted_password)
+                self.assertEqual(response.status_code, 401)
+
+        entries = list(AuditLog.objects.filter(action=AuditLog.Action.LOGIN).order_by('id'))
+        self.assertEqual(
+            [(entry.actor, entry.user_id, entry.entity_id, entry.outcome) for entry in entries],
+            [
+                ('coord', self.user.pk, self.user.pk, AuditLog.Outcome.FAILURE),
+                ('unknown.account', None, None, AuditLog.Outcome.FAILURE),
+            ],
+        )
+        self.assertTrue(all(entry.ip_address == '127.0.0.1' for entry in entries))
+        stored = ' '.join(str(value) for row in AuditLog.objects.values() for value in row.values())
+        self.assertNotIn(attempted_password, stored)
+
     def test_login_and_refresh_rotation(self):
         r = self.login()
         self.assertEqual(r.status_code, 200)
@@ -159,6 +187,10 @@ class AuthFlowTests(APITestCase):
         self.auth(tokens['access'])
         r = self.client.post('/api/auth/logout/', {'refresh': tokens['refresh']}, format='json')
         self.assertEqual(r.status_code, 205)
+        logout = AuditLog.objects.get(action=AuditLog.Action.LOGOUT)
+        self.assertEqual((logout.user, logout.actor, logout.entity_id, logout.outcome),
+                         (self.user, self.user.username, self.user.pk, AuditLog.Outcome.SUCCESS))
+        self.assertEqual(logout.ip_address, '127.0.0.1')
         r = self.client.post('/api/auth/token/refresh/', {'refresh': tokens['refresh']}, format='json')
         self.assertEqual(r.status_code, 401)
 
@@ -175,6 +207,7 @@ class AuthFlowTests(APITestCase):
         self.auth(self.login().data['access'])
         r = self.client.post('/api/auth/logout/', {'refresh': 'not-a-token'}, format='json')
         self.assertEqual(r.status_code, 205)
+        self.assertFalse(AuditLog.objects.filter(action=AuditLog.Action.LOGOUT).exists())
 
     def test_me_returns_role_job_title_and_capabilities(self):
         self.auth(self.login().data['access'])
@@ -723,6 +756,22 @@ class AuditLogViewerAPITests(APITestCase):
         staff = rows[self.e_staff.pk]
         self.assertEqual((staff['patient'], staff['is_read'], staff['actor']), (None, False, 'boss'))
 
+    def test_authentication_outcome_and_actor_filters(self):
+        AuditLog.objects.create(
+            user=None, actor='unknown.account', action=AuditLog.Action.LOGIN, outcome=AuditLog.Outcome.FAILURE,
+            entity_type='accounts.user', ip_address='192.0.2.10',
+        )
+        AuditLog.objects.create(
+            user=self.coord, actor=self.coord.username, action=AuditLog.Action.LOGIN, outcome=AuditLog.Outcome.SUCCESS,
+            entity_type='accounts.user', entity_id=self.coord.pk, ip_address='192.0.2.11',
+        )
+        response = self.get(action='login', actor='unknown', outcome='failure')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 1)
+        entry = response.data['results'][0]
+        self.assertEqual((entry['actor'], entry['user_id'], entry['outcome']),
+                         ('unknown.account', None, 'failure'))
+
     # ---- pagination
     def test_pagination(self):
         r = self.get(page_size=3)
@@ -742,6 +791,8 @@ class AuditLogViewerAPITests(APITestCase):
             'kind write': ({'kind': 'write'}, [self.e_create, self.e_staff, self.e_category]),
             'user': ({'user': self.admin.pk}, [self.e_staff]),
             'patient': ({'patient': self.patient.pk}, [self.e_create, self.e_category, self.e_profile]),
+            'patient MRN': ({'patient_mrn': self.patient.mrn.lower()},
+                            [self.e_create, self.e_category, self.e_profile]),
             'entity_type': ({'entity_type': 'accounts.user'}, [self.e_staff]),
             'entity_id': ({'entity_type': 'accounts.user', 'entity_id': self.coord.pk}, [self.e_staff]),
             'date_from': ({'date_from': '2026-03-03'}, [self.e_create, self.e_staff]),
@@ -759,6 +810,7 @@ class AuditLogViewerAPITests(APITestCase):
 
     def test_invalid_filters_rejected(self):
         for params in ({'action': 'hack'}, {'kind': 'other'}, {'user': 'abc'}, {'patient': '-1'},
+                       {'patient_mrn': 'X' * 21},
                        {'date_from': '2026-13-01'}, {'date_from': '2026-03-05', 'date_to': '2026-03-01'}):
             with self.subTest(params=params):
                 self.assertEqual(self.get(**params).status_code, 400)

@@ -14,13 +14,14 @@ import TextField from '../../components/ui/TextField'
 import { useApi } from '../../hooks/useApi'
 import { formatDateTime } from '../../utils/format'
 import {
-  ACTION_OPTIONS, KIND_OPTIONS, actionChange, actionLabel, describeChanges, describeRecord, entryKind, hasActiveFilters,
-  kindParam, readFilters, toApiParams, validateFilters,
+  ACTION_OPTIONS, KIND_OPTIONS, OUTCOME_LABELS, OUTCOME_OPTIONS, actionChange, actionLabel, actionTone, describeChanges,
+  describeRecord, entryIdentity, entryKind, hasActiveFilters, kindParam, readFilters, usernameFilterParams,
+  toApiParams, validateFilters,
 } from './auditLogFilters'
 import './AuditLogs.css'
 
 const PAGE_SIZE = 50
-const TYPED_KEYS = ['user', 'patient', 'date_from', 'date_to'] // applied with the "Apply" button
+const TYPED_KEYS = ['patient_mrn', 'date_from', 'date_to'] // applied with the "Apply" button
 
 /**
  * Super Admin audit log viewer (route guarded by `audit.view`; the backend enforces the same).
@@ -48,7 +49,7 @@ export default function AuditLogsPage() {
   }
 
   const hasFilters = hasActiveFilters(filters)
-  const typedKey = TYPED_KEYS.map((key) => filters[key]).join('|')
+  const typedKey = [filters.actor, filters.user, filters.patient, ...TYPED_KEYS.map((key) => filters[key])].join('|')
 
   return (
     <>
@@ -56,30 +57,38 @@ export default function AuditLogsPage() {
 
       <Panel flush>
         <div className="audit-filters">
-          <SelectField
-            label="Action"
-            placeholder="All actions"
-            options={ACTION_OPTIONS}
-            value={filters.action}
-            onChange={(event) => {
-              const changes = actionChange(event.target.value, filters.kind)
-              update('kind' in changes ? { ...changes, kind: kindParam(changes.kind) } : changes)
-            }}
-          />
-          <SelectField
-            label="Type"
-            options={KIND_OPTIONS}
-            value={filters.kind}
-            hint={filters.kind === 'write' ? 'Choose All or Reads to see profile access.' : undefined}
-            onChange={(event) => update({ kind: kindParam(event.target.value) })}
-          />
+          <div className="audit-filters__quick">
+            <SelectField
+              label="Action"
+              placeholder="All actions"
+              options={ACTION_OPTIONS}
+              value={filters.action}
+              onChange={(event) => {
+                const changes = actionChange(event.target.value, filters.kind)
+                update('kind' in changes ? { ...changes, kind: kindParam(changes.kind) } : changes)
+              }}
+            />
+            <SelectField
+              label="Type"
+              options={KIND_OPTIONS}
+              value={filters.kind}
+              onChange={(event) => update({ kind: kindParam(event.target.value) })}
+            />
+            <SelectField
+              label="Outcome"
+              placeholder="All outcomes"
+              options={OUTCOME_OPTIONS}
+              value={filters.outcome}
+              onChange={(event) => update({ outcome: event.target.value })}
+            />
+            {hasFilters && (
+              <Button variant="link" className="audit-filters__clear" onClick={() => setSearchParams(new URLSearchParams())}>
+                Clear filters
+              </Button>
+            )}
+          </div>
           {/* Remounted when the URL changes (e.g. a row's "filter" link), so the inputs stay in sync. */}
           <TypedFilters key={typedKey} filters={filters} onApply={update} />
-          {hasFilters && (
-            <Button variant="link" className="audit-filters__clear" onClick={() => setSearchParams(new URLSearchParams())}>
-              Clear filters
-            </Button>
-          )}
         </div>
 
         {error && (
@@ -97,8 +106,8 @@ export default function AuditLogsPage() {
                 <thead>
                   <tr>
                     <th scope="col">When</th>
-                    <th scope="col">Who</th>
-                    <th scope="col">Action</th>
+                    <th scope="col">Identity</th>
+                    <th scope="col">Event</th>
                     <th scope="col">Record</th>
                     <th scope="col">Patient</th>
                     <th scope="col" className="hide-sm">IP address</th>
@@ -106,44 +115,65 @@ export default function AuditLogsPage() {
                 </thead>
                 <tbody>
                   {data.results.map((entry) => {
+                    const changes = describeChanges(entry)
+                    const outcome = OUTCOME_LABELS[entry.outcome] || entry.outcome
                     const kind = entryKind(entry)
                     return (
                       <tr key={entry.id}>
-                        <td className="audit-table__when">{formatDateTime(entry.timestamp)}</td>
-                        <td>
-                          <div className="cell-primary">{entry.actor || '—'}</div>
-                          {entry.user_id != null && (
-                            <button type="button" className="audit-filter-link"
-                              onClick={() => update({ user: String(entry.user_id) })}
-                              aria-label={`Show only entries by user #${entry.user_id}`}>
-                              User #{entry.user_id}
-                            </button>
-                          )}
+                        <td className="audit-table__when">
+                          <time dateTime={entry.timestamp}>{formatDateTime(entry.timestamp)}</time>
                         </td>
                         <td>
-                          <div className="audit-action">
-                            <Badge tone={kind.tone}>{kind.label}</Badge>
-                            <span>{entry.action_label || actionLabel(entry.action)}</span>
+                          <div className="audit-table__identity">
+                            <span className="audit-table__identity-name">{entryIdentity(entry)}</span>
+                            {entry.actor && (
+                              <button type="button" className="audit-filter-link"
+                                title="Filter by this username"
+                                onClick={() => update({ user: '', actor: entry.actor })}
+                                aria-label={`Show only entries by username ${entry.actor}`}>
+                                Filter
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="audit-table__event">
+                            <Badge tone={actionTone(entry.action)} className="audit-action-badge">
+                              {entry.action_label || actionLabel(entry.action)}
+                            </Badge>
+                            <span className="audit-table__event-meta">
+                              <span>{kind.label}</span>
+                              {outcome && (
+                                <span className={`audit-table__outcome audit-table__outcome--${entry.outcome}`}>
+                                  {outcome}
+                                </span>
+                              )}
+                            </span>
                           </div>
                         </td>
                         <td>
                           <div>{describeRecord(entry)}</div>
-                          {describeChanges(entry).length > 0 && (
-                            <ul className="audit-changes">
-                              {describeChanges(entry).map((c) => (
-                                <li key={c.field}><strong>{c.field}:</strong> {c.from} → {c.to}</li>
-                              ))}
-                            </ul>
+                          {(changes.length > 0 || entry.reason) && (
+                            <details className="audit-details">
+                              <summary>View details</summary>
+                              {changes.length > 0 && (
+                                <ul className="audit-changes">
+                                  {changes.map((change) => (
+                                    <li key={change.field}><strong>{change.field}:</strong> {change.from} → {change.to}</li>
+                                  ))}
+                                </ul>
+                              )}
+                              {entry.reason && <div className="audit-reason"><strong>Reason:</strong> {entry.reason}</div>}
+                            </details>
                           )}
-                          {entry.reason && <div className="audit-reason"><strong>Reason:</strong> {entry.reason}</div>}
                         </td>
                         <td>
                           {entry.patient ? (
                             <>
                               <div className="cell-primary">{entry.patient.name}</div>
                               <button type="button" className="audit-filter-link"
-                                onClick={() => update({ patient: String(entry.patient.id) })}
-                                aria-label={`Show only entries for patient ${entry.patient.mrn}`}>
+                                onClick={() => update({ patient: '', patient_mrn: entry.patient.mrn })}
+                                aria-label={`Show only entries for patient MRN ${entry.patient.mrn}`}>
                                 {entry.patient.mrn}
                               </button>
                             </>
@@ -169,27 +199,36 @@ export default function AuditLogsPage() {
   )
 }
 
-/** User ID, patient ID and date range: edited locally, validated, then applied together. */
+/** Username, patient MRN and date range: edited locally, validated, then applied together. */
 function TypedFilters({ filters, onApply }) {
-  const [draft, setDraft] = useState(() => Object.fromEntries(TYPED_KEYS.map((key) => [key, filters[key]])))
+  const [draft, setDraft] = useState(() => ({
+    username: filters.actor,
+    ...Object.fromEntries(TYPED_KEYS.map((key) => [key, filters[key]])),
+  }))
   const [errors, setErrors] = useState({})
   const set = (key) => (event) => setDraft((prev) => ({ ...prev, [key]: event.target.value }))
 
   const apply = (event) => {
     event.preventDefault()
-    const found = validateFilters(draft)
+    const usernameParams = usernameFilterParams(draft.username)
+    const found = validateFilters({ ...draft, ...usernameParams })
     setErrors(found)
     if (Object.keys(found).length === 0) {
-      onApply(Object.fromEntries(TYPED_KEYS.map((key) => [key, draft[key].trim()])))
+      onApply({
+        user: '',
+        patient: '',
+        ...usernameParams,
+        ...Object.fromEntries(TYPED_KEYS.map((key) => [key, draft[key].trim()])),
+      })
     }
   }
 
   return (
     <form className="audit-filters__typed" onSubmit={apply} noValidate>
-      <TextField label="User ID" name="user" inputMode="numeric" placeholder="Any user"
-        value={draft.user} onChange={set('user')} error={errors.user} />
-      <TextField label="Patient ID" name="patient" inputMode="numeric" placeholder="Any patient"
-        value={draft.patient} onChange={set('patient')} error={errors.patient} />
+      <TextField label="Username" name="username" placeholder="Any username"
+        value={draft.username} onChange={set('username')} maxLength={150} />
+      <TextField label="Patient MRN" name="patient_mrn" placeholder="Any MRN" maxLength={20}
+        value={draft.patient_mrn} onChange={set('patient_mrn')} />
       <TextField label="From" name="date_from" type="date"
         value={draft.date_from} onChange={set('date_from')} error={errors.date_from} />
       <TextField label="To" name="date_to" type="date"

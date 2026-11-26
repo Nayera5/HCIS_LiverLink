@@ -16,7 +16,7 @@ def client_ip(request):
 
 
 def audit(request, action, entity_type, *, entity_id=None, patient=None, user=None, actor='',
-          changes=None, reason=''):
+          changes=None, reason='', outcome=None):
     """
     Append one audit entry for `request`. `user` defaults to the authenticated request user;
     pass `user` explicitly when the account was just created (self-registration).
@@ -31,4 +31,5 @@ def audit(request, action, entity_type, *, entity_id=None, patient=None, user=No
         ip_address=client_ip(request),
         changes=changes,
         reason=reason,
+        outcome=outcome,
     )
