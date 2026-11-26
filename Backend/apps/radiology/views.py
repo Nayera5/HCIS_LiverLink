@@ -39,7 +39,7 @@ from apps.notifications import events
 from apps.scheduling.models import Appointment
 
 from . import services
-from .models import ImagingOrder, ImagingSlot
+from .models import IMAGING_ROOM_NAMES, ImagingOrder, ImagingSlot
 from .serializers import (
     AvailableSlotSerializer, ImagingOrderCreateSerializer, ImagingOrderSerializer, ImagingOrderStatusSerializer,
     ImagingSlotSerializer, MyImagingOrderSerializer, ReasonSerializer, SlotBatchSerializer, SlotChoiceSerializer,
@@ -292,6 +292,15 @@ class MyOrderBookingView(APIView):
 
 
 # ---------------------------------------------------------------- scan slots (radiologist)
+class ImagingRoomChoicesView(APIView):
+    """GET /api/radiology/rooms/  room choices for scan slot creation."""
+
+    permission_classes = [IsAuthenticated, HasCapability("imaging.manage")]
+
+    def get(self, request):
+        return Response([{"value": room, "label": room} for room in IMAGING_ROOM_NAMES])
+
+
 def slots():
     return ImagingSlot.objects.select_related("billing_service").prefetch_related(live_bookings("live_bookings"))
 

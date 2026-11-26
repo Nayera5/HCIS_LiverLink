@@ -19,6 +19,7 @@ urlpatterns = [
     path("my-orders/<int:pk>/booking/", views.MyOrderBookingView.as_view(), name="my_imaging_booking"),
     path("my-orders/<int:pk>/booking/cancel/", views.MyOrderBookingView.as_view(action="cancel"),
          name="my_imaging_booking_cancel"),
+    path("rooms/", views.ImagingRoomChoicesView.as_view(), name="imaging_room_choices"),
     path("slots/", views.ImagingSlotListCreateView.as_view(), name="imaging_slot_list"),
     path("slots/<int:pk>/", views.ImagingSlotDetailView.as_view(), name="imaging_slot_detail"),
 ]

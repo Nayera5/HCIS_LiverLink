@@ -16,6 +16,9 @@ from django.db.models import F, Q
 from django.utils import timezone
 
 
+IMAGING_ROOM_NAMES = ("CT Room 1", "CT Room 2")
+
+
 class ImagingOrder(models.Model):
     """A doctor's request for an imaging examination."""
 

@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
 import { fieldErrors } from '../../api/http'
-import { createScanSlots, deleteScanSlot, listScanSlots, publishScanSlot } from '../../api/imaging'
+import { createScanSlots, deleteScanSlot, listImagingRooms, listScanSlots, publishScanSlot } from '../../api/imaging'
 import Alert from '../../components/ui/Alert'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
@@ -32,6 +32,7 @@ function AddSlotsForm({ onSaved }) {
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const { services, error: servicesError } = useImagingServices(ACTIVE_IMAGING_SERVICES)
+  const { data: rooms, error: roomsError, loading: roomsLoading } = useApi(listImagingRooms)
   const change = (event) => setValues((prev) => ({ ...prev, [event.target.name]: event.target.value }))
 
   const save = async (isPublished) => {
@@ -60,13 +61,14 @@ function AddSlotsForm({ onSaved }) {
     <Panel title="Add scan slots" subtitle="The hours are split into equal slots.">
       <form className="form-stack" noValidate onSubmit={(event) => { event.preventDefault(); save(true) }}>
         {errors.form && <Alert variant="error">{errors.form}</Alert>}
+        {roomsError && <Alert variant="error">{getErrorMessage(roomsError, 'Could not load rooms.')}</Alert>}
         <div className="imaging-slot-form">
           <SelectField label="Imaging Type" name="billing_service" placeholder="Choose"
             options={imagingServiceOptions(services)} value={values.billing_service} onChange={change}
             error={errors.billing_service || (servicesError ? 'Could not load the imaging types.' : '')} />
-          <TextField label="Scanner / room (optional)" name="resource_name" maxLength="80"
-            value={values.resource_name} onChange={change}
-            hint="Use distinct labels for resources that can run at the same time; leave blank for the default." />
+          <SelectField label="Room" name="resource_name" placeholder={roomsLoading ? 'Loading rooms…' : 'Choose'}
+            options={rooms || []} value={values.resource_name} onChange={change}
+            error={errors.resource_name} required disabled={roomsLoading || Boolean(roomsError)} />
           <TextField label="Date" name="date" type="date" min={dateKey()} value={values.date} onChange={change}
             error={errors.date} />
           <TextField label="From" name="start_time" type="time" value={values.start_time} onChange={change}
