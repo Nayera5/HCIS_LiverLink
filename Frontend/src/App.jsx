@@ -35,7 +35,6 @@ import NotificationsPage from './pages/Notifications/NotificationsPage'
 import PatientDetailPage from './pages/Patients/PatientDetailPage'
 import PatientRegisterPage from './pages/Patients/PatientRegisterPage'
 import PatientsPage from './pages/Patients/PatientsPage'
-import LabOrderCreatePage from './pages/Labs/LabOrderCreatePage'
 import LabOrderDetailPage from './pages/Labs/LabOrderDetailPage'
 import LabOrdersPage from './pages/Labs/LabOrdersPage'
 import MyLabResultsPage from './pages/Labs/MyLabResultsPage'
@@ -50,7 +49,6 @@ import MyInvoicesPage from './pages/Portal/MyInvoicesPage'
 import MyMedicationsPage from './pages/Prescriptions/MyMedicationsPage'
 import MyTreatmentPlansPage from './pages/Prescriptions/MyTreatmentPlansPage'
 import PlanReviewsPage from './pages/Prescriptions/PlanReviewsPage'
-import PrescribePage from './pages/Prescriptions/PrescribePage'
 import ProfilePage, { AccessInfoPage } from './pages/Profile/ProfilePage'
 import ServicesPage from './pages/Services/ServicesPage'
 import ReportsPage from './pages/Reports/ReportsPage'
@@ -163,17 +161,11 @@ function App() {
                 <Route path="lab/orders/:id" element={<LabOrderDetailPage />} />
                 <Route path="lab/pending" element={<PendingTestsPage />} />
               </Route>
-              <Route element={<RequireCapability capability="labs.order" />}>
-                <Route path="lab/orders/new" element={<LabOrderCreatePage />} />
-              </Route>
               <Route element={<RequireCapability capability="self.lab_results" />}>
                 <Route path="my-results" element={<MyLabResultsPage />} />
                 <Route path="my-lab-orders" element={<Navigate to="/my-results?tab=orders" replace />} />
               </Route>
 
-              <Route element={<RequireCapability capability="prescriptions.prescribe" />}>
-                <Route path="rx/new" element={<PrescribePage />} />
-              </Route>
               <Route element={<RequireCapability capability="treatment_plans.view" />}>
                 <Route path="rx/reviews" element={<PlanReviewsPage />} />
               </Route>

@@ -14,8 +14,8 @@ class LabError(Exception):
 
 
 @transaction.atomic
-def create_order(patient, staff, tests, priority=LabOrder.Priority.ROUTINE):
-    order = LabOrder.objects.create(patient=patient, ordered_by=staff, priority=priority)
+def create_order(patient, staff, tests, priority=LabOrder.Priority.ROUTINE, encounter=None):
+    order = LabOrder.objects.create(patient=patient, ordered_by=staff, priority=priority, encounter=encounter)
     LabResult.objects.bulk_create([LabResult(lab_order=order, lab_test=t) for t in tests])
     _tell_external_lab(order, 'NW')
     return order

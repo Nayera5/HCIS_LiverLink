@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import AuditLog, Staff, User
+from apps.emr.models import Encounter
 from apps.registry.models import Patient
 from apps.transplant.models import TransplantCase
 
@@ -42,6 +43,7 @@ class Base(APITestCase):
         self.admin = make_staff('root', T.SUPER_ADMIN)
         self.billing = make_staff('bill', T.BILLING_ADMIN)
         self.patient = make_patient()
+        self.encounter = Encounter.objects.create(patient=self.patient, staff=self.doctor.staff_profile)
         self.pat_user = User.objects.create_user('pat', 'pat@lh.test', PW, role='patient')
         self.patient.user = self.pat_user
         self.patient.save()
@@ -53,16 +55,24 @@ class Base(APITestCase):
 
     def prescribe(self, user=None, **over):
         self.as_(user or self.doctor)
-        data = dict(patient=self.patient.pk, drug=self.tdf.pk, dose='300 mg', route='oral',
+        data = dict(patient=self.patient.pk, encounter=self.encounter.pk, drug=self.tdf.pk, dose='300 mg', route='oral',
                     frequency='once daily', start_date=str(TODAY))
         data.update(over)
+        if data['patient'] != self.patient.pk and 'encounter' not in over:
+            data['encounter'] = Encounter.objects.create(
+                patient=Patient.objects.get(pk=data['patient']), staff=self.doctor.staff_profile,
+            ).pk
         return self.client.post('/api/rx/prescriptions/', data, format='json')
 
     def plan(self, user=None, **over):
         self.as_(user or self.doctor)
-        data = dict(patient=self.patient.pk, plan_type='surveillance', goals='Detect HCC early',
+        data = dict(patient=self.patient.pk, encounter=self.encounter.pk, plan_type='surveillance', goals='Detect HCC early',
                     steps='US + AFP every 6 months', start_date=str(TODAY), review_date=str(TODAY + D(180)))
         data.update(over)
+        if data['patient'] != self.patient.pk and 'encounter' not in over:
+            data['encounter'] = Encounter.objects.create(
+                patient=Patient.objects.get(pk=data['patient']), staff=self.doctor.staff_profile,
+            ).pk
         return self.client.post('/api/rx/plans/', data, format='json')
 
 
@@ -155,9 +165,25 @@ class PrescriptionTests(Base):
         self.assertEqual(r.data['prescribed_by'], self.doctor.staff_profile.pk)
         self.assertTrue(AuditLog.objects.filter(entity_type='prescriptions.prescription', action='create',
                                                 patient=self.patient).exists())
+        self.assertEqual(r.data['encounter'], self.encounter.pk)
+
+    def test_prescriptions_require_the_treating_doctors_open_matching_encounter(self):
+        payload = dict(patient=self.patient.pk, drug=self.tdf.pk, dose='300 mg', route='oral',
+                       frequency='once daily', start_date=str(TODAY))
+        self.as_(self.doctor)
+        self.assertEqual(self.client.post('/api/rx/prescriptions/', payload, format='json').status_code, 400)
+        other_encounter = Encounter.objects.create(patient=self.patient, staff=self.surgeon.staff_profile)
+        self.assertEqual(self.prescribe(encounter=other_encounter.pk).status_code, 400)
+        other_patient = make_patient(first_name='Other', phone='01009999999')
+        self.assertEqual(self.prescribe(patient=other_patient.pk, encounter=self.encounter.pk).status_code, 400)
+        self.encounter.status = Encounter.Status.SIGNED
+        self.encounter.save(update_fields=['status'])
+        self.assertEqual(self.prescribe().status_code, 400)
 
     def test_only_doctors_prescribe(self):
-        self.assertEqual(self.prescribe(self.surgeon).status_code, 201)
+        surgeon_encounter = Encounter.objects.create(patient=self.patient, staff=self.surgeon.staff_profile)
+        response = self.prescribe(self.surgeon, encounter=surgeon_encounter.pk)
+        self.assertEqual(response.status_code, 201, response.data)
         for user in (self.coord, self.admin, self.billing, self.pat_user):
             self.assertEqual(self.prescribe(user).status_code, 403, user.username)
 
@@ -205,7 +231,7 @@ class PrescriptionTests(Base):
         expired = Prescription.objects.create(patient=self.patient, prescribed_by=self.doctor.staff_profile,
                                               drug=self.tdf, dose='1', route='oral', frequency='daily',
                                               start_date=TODAY - D(20), end_date=TODAY - D(1))
-        self.prescribe(patient=self.other.pk)
+        other_patient_rx = self.prescribe(patient=self.other.pk).data
         self.as_(self.coord)
         r = self.client.get(f'/api/rx/patients/{self.patient.pk}/medications/')
         self.assertEqual(r.status_code, 200)
@@ -217,20 +243,36 @@ class PrescriptionTests(Base):
 
     def test_list_filters(self):
         self.prescribe()
+        other_encounter = Encounter.objects.create(patient=self.patient, staff=self.doctor.staff_profile)
+        self.prescribe(encounter=other_encounter.pk)
         self.prescribe(patient=self.other.pk)
         self.as_(self.coord)
-        self.assertEqual(self.client.get('/api/rx/prescriptions/').data['count'], 2)
+        self.assertEqual(self.client.get('/api/rx/prescriptions/').data['count'], 3)
         self.assertEqual(self.client.get(f'/api/rx/prescriptions/?patient={self.other.pk}').data['count'], 1)
         self.assertEqual(self.client.get('/api/rx/prescriptions/?status=stopped').data['count'], 0)
+        self.assertEqual(
+            self.client.get(f'/api/rx/prescriptions/?encounter={self.encounter.pk}').data['count'], 1,
+        )
 
     def test_patient_sees_only_own_medications(self):
-        self.prescribe()
+        first = self.prescribe().data
+        other_encounter = Encounter.objects.create(patient=self.patient, staff=self.doctor.staff_profile)
+        second = self.prescribe(encounter=other_encounter.pk).data
         self.prescribe(patient=self.other.pk)
         self.as_(self.pat_user)
         r = self.client.get('/api/rx/my/medications/')
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(len(r.data['current']), 1)
+        self.assertEqual(len(r.data['current']), 2)
         self.assertNotIn('patient', r.data['current'][0])
+        filtered = self.client.get(f'/api/rx/my/medications/?encounter={self.encounter.pk}')
+        self.assertEqual(filtered.status_code, 200)
+        self.assertEqual([rx['id'] for rx in filtered.data['current']], [first['id']])
+        other_filtered = self.client.get(f'/api/rx/my/medications/?encounter={other_encounter.pk}')
+        self.assertEqual(other_filtered.status_code, 200)
+        self.assertEqual([rx['id'] for rx in other_filtered.data['current']], [second['id']])
+        foreign_filtered = self.client.get(f"/api/rx/my/medications/?encounter={other_patient_rx['encounter']}")
+        self.assertEqual(foreign_filtered.status_code, 200)
+        self.assertEqual(foreign_filtered.data, {'current': [], 'past': []})
         self.assertEqual(self.client.get('/api/rx/prescriptions/').status_code, 403)
         self.assertEqual(self.client.get(f'/api/rx/patients/{self.patient.pk}/medications/').status_code, 403)
 
@@ -240,8 +282,22 @@ class TreatmentPlanTests(Base):
         r = self.plan()
         self.assertEqual(r.status_code, 201, r.data)
         self.assertEqual(r.data['status'], 'active')
+        self.assertEqual(r.data['encounter'], self.encounter.pk)
         self.assertFalse(r.data['review_due'])
         self.assertTrue(AuditLog.objects.filter(entity_type='prescriptions.treatmentplan', action='create').exists())
+
+    def test_treatment_plans_require_the_treating_doctors_open_matching_encounter(self):
+        payload = dict(patient=self.patient.pk, plan_type='surveillance', goals='Detect HCC early',
+                       start_date=str(TODAY))
+        self.as_(self.doctor)
+        self.assertEqual(self.client.post('/api/rx/plans/', payload, format='json').status_code, 400)
+        other_encounter = Encounter.objects.create(patient=self.patient, staff=self.surgeon.staff_profile)
+        self.assertEqual(self.plan(encounter=other_encounter.pk).status_code, 400)
+        other_patient = make_patient(first_name='Other', phone='01009999999')
+        self.assertEqual(self.plan(patient=other_patient.pk, encounter=self.encounter.pk).status_code, 400)
+        self.encounter.status = Encounter.Status.SIGNED
+        self.encounter.save(update_fields=['status'])
+        self.assertEqual(self.plan().status_code, 400)
 
     def test_transplant_referral_plan_creates_case_and_audit_entry(self):
         response = self.plan(plan_type=TreatmentPlan.PlanType.TRANSPLANT_REFERRAL)
@@ -276,8 +332,11 @@ class TreatmentPlanTests(Base):
         self.assertFalse(TransplantCase.objects.exists())
 
     def test_only_doctors_manage_plans(self):
-        self.assertEqual(self.plan(self.surgeon).status_code, 201)
-        self.assertEqual(self.plan(self.surgeon, plan_type='transplant_referral').status_code, 403)
+        surgeon_encounter = Encounter.objects.create(patient=self.patient, staff=self.surgeon.staff_profile)
+        response = self.plan(self.surgeon, encounter=surgeon_encounter.pk)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(self.plan(self.surgeon, encounter=surgeon_encounter.pk,
+                                   plan_type='transplant_referral').status_code, 403)
         for user in (self.coord, self.admin, self.billing, self.pat_user):
             self.assertEqual(self.plan(user).status_code, 403)
 

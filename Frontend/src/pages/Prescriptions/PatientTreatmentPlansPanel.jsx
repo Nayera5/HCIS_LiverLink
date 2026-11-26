@@ -1,13 +1,15 @@
 import { useCallback, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
 import {
-  cancelTreatmentPlan, completeTreatmentPlan, createTreatmentPlan, listTreatmentPlans, updateTreatmentPlan,
+  cancelTreatmentPlan, completeTreatmentPlan, listTreatmentPlans, updateTreatmentPlan,
 } from '../../api/prescriptions'
+import { loadAllPages } from '../../api/pagination'
 import { useAuth } from '../../auth/authContext'
 import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
 import { EmptyState, LoadingBlock } from '../../components/ui/Feedback'
-import { PlusIcon, TargetIcon } from '../../components/ui/icons'
+import { TargetIcon } from '../../components/ui/icons'
 import Panel from '../../components/ui/Panel'
 import { useApi } from '../../hooks/useApi'
 import { formatDate, formatDateTime } from '../../utils/format'
@@ -32,6 +34,9 @@ export function PlanCard({ plan, actions }) {
         {planStatusBadge(plan.status)}
       </header>
       <dl className="rx-plan__body">
+        {plan.encounter && (
+          <div><dt>Encounter</dt><dd><Link to={`/encounters/${plan.encounter}`}>Visit #{plan.encounter}</Link></dd></div>
+        )}
         <div><dt>Goals</dt><dd className="rx-pre">{plan.goals}</dd></div>
         {plan.steps && <div><dt>Steps</dt><dd className="rx-pre">{plan.steps}</dd></div>}
         <div><dt>Review date</dt><dd>{plan.review_date ? <ReviewDate plan={plan} /> : '—'}</dd></div>
@@ -41,13 +46,13 @@ export function PlanCard({ plan, actions }) {
   )
 }
 
-/** Treatment plans section of the patient profile (staff with treatment_plans.view). */
+/** Treatment plans section of the medical record (staff with treatment_plans.view). */
 export default function PatientTreatmentPlansPanel({ patientId }) {
   const { can } = useAuth()
   const canManage = can('treatment_plans.manage')
-  const loader = useCallback(() => listTreatmentPlans({ patient: patientId, page_size: 100 }), [patientId])
+  const loader = useCallback(() => loadAllPages(listTreatmentPlans, { patient: patientId }), [patientId])
   const { data, error, loading, reload } = useApi(loader)
-  const [mode, setMode] = useState(null) // 'new' | plan id being edited
+  const [mode, setMode] = useState(null) // plan id being edited
   const [closing, setClosing] = useState(null) // { plan, kind: 'complete' | 'cancel' }
   const [flash, setFlash] = useState('')
 
@@ -56,13 +61,6 @@ export default function PatientTreatmentPlansPanel({ patientId }) {
     setClosing(null)
     setFlash(message)
     reload()
-  }
-
-  const create = async (payload) => {
-    const created = await createTreatmentPlan({ ...payload, patient: patientId })
-    done(created.transplant_case_id
-      ? `Treatment plan created. Transplant case #${created.transplant_case_id} ${created.transplant_case_created ? 'was created' : 'is already open'}. Donor matching is available only while the case is under evaluation.`
-      : 'Treatment plan created.')
   }
 
   const update = (plan) => async (payload) => {
@@ -78,21 +76,11 @@ export default function PatientTreatmentPlansPanel({ patientId }) {
     done(`Treatment plan ${kind === 'complete' ? 'completed' : 'cancelled'}.`)
   }
 
-  const plans = data?.results || []
-  const action = canManage && mode !== 'new' && (
-    <Button size="sm" icon={PlusIcon} onClick={() => { setMode('new'); setFlash('') }}>New plan</Button>
-  )
-
+  const plans = data || []
   return (
-    <Panel title="Treatment plans" subtitle="Goals, steps and review dates" action={action} collapsible>
+    <Panel title="Treatment plans" subtitle="Goals, steps and review dates" collapsible>
       {flash && <Alert variant="success">{flash}</Alert>}
       {error && <Alert variant="error">{getErrorMessage(error, 'Could not load treatment plans.')}</Alert>}
-      {mode === 'new' && (
-        <div className="rx-plan rx-plan--editing">
-          <h3 className="rx-plan__title">New treatment plan</h3>
-          <PlanForm onSubmit={create} onCancel={() => setMode(null)} canReferTransplant={can('transplant.refer')} />
-        </div>
-      )}
       {loading && !data ? (
         <LoadingBlock label="Loading treatment plans" />
       ) : data ? (
@@ -114,9 +102,9 @@ export default function PatientTreatmentPlansPanel({ patientId }) {
               )} />
             )))}
           </div>
-        ) : mode !== 'new' && (
+        ) : (
           <EmptyState icon={TargetIcon} title="No treatment plans yet">
-            {canManage ? 'Use “New plan” to set goals, steps and a review date.' : null}
+            {canManage ? 'Treatment plans created during encounters appear here.' : null}
           </EmptyState>
         )
       ) : null}

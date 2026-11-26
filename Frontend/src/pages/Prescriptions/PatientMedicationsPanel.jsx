@@ -6,7 +6,7 @@ import { useAuth } from '../../auth/authContext'
 import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
 import { EmptyState, LoadingBlock } from '../../components/ui/Feedback'
-import { PillIcon, PlusIcon } from '../../components/ui/icons'
+import { PillIcon } from '../../components/ui/icons'
 import Panel from '../../components/ui/Panel'
 import { useApi } from '../../hooks/useApi'
 import { formatDateTime } from '../../utils/format'
@@ -49,6 +49,11 @@ export function MedicationTable({ items, showPrescriber = true, actions }) {
               <td>
                 <div className="cell-primary">{rx.drug_name}</div>
                 {rx.instructions && <div className="cell-secondary">{rx.instructions}</div>}
+                {rx.encounter && (
+                  <div className="cell-secondary">
+                    <Link to={`/encounters/${rx.encounter}`}>Visit #{rx.encounter}</Link>
+                  </div>
+                )}
                 {rx.status === 'stopped' && rx.stop_reason && (
                   <div className="cell-secondary">Stopped {formatDateTime(rx.stopped_at)}: {rx.stop_reason}</div>
                 )}
@@ -66,7 +71,7 @@ export function MedicationTable({ items, showPrescriber = true, actions }) {
   )
 }
 
-/** Medications section of the patient profile (staff with prescriptions.view). */
+/** Medications section of the medical record (staff with prescriptions.view). */
 export default function PatientMedicationsPanel({ patientId }) {
   const { can } = useAuth()
   const canPrescribe = can('prescriptions.prescribe')
@@ -94,13 +99,10 @@ export default function PatientMedicationsPanel({ patientId }) {
     )
     : null
 
-  const action = canPrescribe && (
-    <Button as={Link} size="sm" icon={PlusIcon} to={`/rx/new?patient=${patientId}`}>Prescribe</Button>
-  )
   const items = data ? data[tab] : []
 
   return (
-    <Panel title="Medications" subtitle="Current and past prescriptions" action={action} collapsible>
+    <Panel title="Medications" subtitle="Current and past prescriptions" collapsible>
       {flash && <Alert variant="success">{flash}</Alert>}
       {error && <Alert variant="error">{getErrorMessage(error, 'Could not load medications.')}</Alert>}
       {loading && !data ? (
@@ -112,7 +114,7 @@ export default function PatientMedicationsPanel({ patientId }) {
             <MedicationTable items={items} actions={rowActions} />
           ) : (
             <EmptyState icon={PillIcon} title={tab === 'current' ? 'No current medications' : 'No past medications'}>
-              {tab === 'current' && canPrescribe ? 'Use “Prescribe” to add one.' : null}
+              {tab === 'current' && canPrescribe ? 'Prescriptions created during encounters appear here.' : null}
             </EmptyState>
           )}
         </div>

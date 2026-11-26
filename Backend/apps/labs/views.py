@@ -61,7 +61,7 @@ class LabTestListView(generics.ListAPIView):
 class LabOrderListCreateView(generics.ListCreateAPIView):
     """
     GET  /api/lab/orders/?patient=&status=&priority=   (labs.view)
-    POST /api/lab/orders/  {patient, priority, tests:[ids]}   (labs.order)
+    POST /api/lab/orders/  {patient, encounter, priority, tests:[ids]}   (labs.order)
     """
     serializer_class = LabOrderSerializer
     pagination_class = Pagination
@@ -79,16 +79,18 @@ class LabOrderListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(status=p['status'])
         if p.get('priority') in LabOrder.Priority.values:
             qs = qs.filter(priority=p['priority'])
+        if p.get('encounter', '').isdigit():
+            qs = qs.filter(encounter_id=int(p['encounter']))
         return qs
 
     def create(self, request, *args, **kwargs):
-        ser = LabOrderCreateSerializer(data=request.data)
+        ser = LabOrderCreateSerializer(data=request.data, context={'request': request})
         ser.is_valid(raise_exception=True)
         staff = get_staff_profile(request.user)
         if staff is None:
             return _bad('Only staff members can place lab orders.')
         d = ser.validated_data
-        order = services.create_order(d['patient'], staff, d['tests'], d['priority'])
+        order = services.create_order(d['patient'], staff, d['tests'], d['priority'], encounter=d['encounter'])
         audit(request, A.CREATE, 'labs.laborder', entity_id=order.pk, patient=order.patient)
         return Response(LabOrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
@@ -221,8 +223,11 @@ class MyLabOrdersView(generics.ListAPIView):
         patient = Patient.objects.filter(user=self.request.user).first()
         if patient is None:
             return LabOrder.objects.none()
-        return (LabOrder.objects.filter(patient=patient)
-                .select_related('ordered_by__user').prefetch_related('results__lab_test'))
+        qs = LabOrder.objects.filter(patient=patient)
+        encounter = self.request.query_params.get('encounter', '')
+        if encounter.isdigit():
+            qs = qs.filter(encounter_id=int(encounter))
+        return qs.select_related('ordered_by__user').prefetch_related('results__lab_test')
 
 
 class MyTrendView(APIView):

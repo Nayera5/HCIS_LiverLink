@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.accounts.rbac import get_staff_profile
+from apps.emr.models import Encounter
 from apps.registry.models import Patient
 
 from .models import LabOrder, LabResult, LabTest
@@ -52,7 +54,7 @@ class LabOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = LabOrder
         fields = ['id', 'patient', 'patient_mrn', 'patient_name', 'ordered_by', 'ordered_by_name', 'order_date',
-                  'priority', 'status', 'results']
+                  'encounter', 'priority', 'status', 'results']
         read_only_fields = fields
 
     def get_patient_name(self, obj):
@@ -98,8 +100,23 @@ class MyLabOrderSerializer(serializers.ModelSerializer):
 
 class LabOrderCreateSerializer(serializers.Serializer):
     patient = serializers.PrimaryKeyRelatedField(queryset=Patient.objects.all())
+    encounter = serializers.PrimaryKeyRelatedField(queryset=Encounter.objects.all())
     priority = serializers.ChoiceField(choices=LabOrder.Priority.choices, default=LabOrder.Priority.ROUTINE)
     tests = serializers.PrimaryKeyRelatedField(queryset=LabTest.objects.all(), many=True, allow_empty=False)
+
+    def validate(self, attrs):
+        encounter = attrs['encounter']
+        if encounter.patient_id != attrs['patient'].pk:
+            raise serializers.ValidationError({'encounter': 'This encounter belongs to another patient.'})
+        if encounter.status != Encounter.Status.OPEN:
+            raise serializers.ValidationError({'encounter': 'Orders can only be placed during an open encounter.'})
+        request = self.context.get('request')
+        staff = get_staff_profile(request.user) if request else None
+        if staff is None or staff.pk != encounter.staff_id:
+            raise serializers.ValidationError(
+                {'encounter': 'Only the treating doctor can place orders for this encounter.'}
+            )
+        return attrs
 
     def validate_tests(self, tests):
         if len({t.pk for t in tests}) != len(tests):

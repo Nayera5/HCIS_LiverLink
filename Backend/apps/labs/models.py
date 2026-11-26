@@ -54,7 +54,10 @@ class LabOrder(models.Model):
         CANCELLED = 'cancelled', 'Cancelled'
 
     patient = models.ForeignKey('registry.Patient', on_delete=models.PROTECT, related_name='lab_orders')
-    # encounter FK is added when the EMR Encounter model exists (apps/emr is still a stub).
+    encounter = models.ForeignKey(
+        'emr.Encounter', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='lab_orders',
+    )
     ordered_by = models.ForeignKey('accounts.Staff', on_delete=models.PROTECT, related_name='lab_orders')
     order_date = models.DateTimeField(default=timezone.now)
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.ROUTINE)

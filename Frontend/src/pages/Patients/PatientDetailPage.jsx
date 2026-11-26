@@ -13,10 +13,6 @@ import Panel from '../../components/ui/Panel'
 import SelectField from '../../components/ui/SelectField'
 import { useApi } from '../../hooks/useApi'
 import { formatDate, formatDateTime } from '../../utils/format'
-import { ImagingOrdersPanel } from '../Imaging/imagingParts'
-import PatientLabResultsPanel from '../Labs/PatientLabResultsPanel'
-import PatientMedicationsPanel from '../Prescriptions/PatientMedicationsPanel'
-import PatientTreatmentPlansPanel from '../Prescriptions/PatientTreatmentPlansPanel'
 import ConsentsPanel from '../Consents/ConsentsPanel'
 import PatientForm from './PatientForm'
 import { ageSex, CATEGORY_LABELS, CATEGORY_OPTIONS, categoryBadge, patientName } from './patientDisplay'
@@ -197,10 +193,6 @@ export default function PatientDetailPage() {
             </div>
           </div>
         )}
-        {!editing && can('prescriptions.view') && <PatientMedicationsPanel patientId={patient.id} />}
-        {!editing && can('treatment_plans.view') && <PatientTreatmentPlansPanel patientId={patient.id} />}
-        {!editing && can('labs.view') && <PatientLabResultsPanel patientId={patient.id} />}
-        {!editing && can('imaging.view') && <ImagingOrdersPanel patientId={patient.id} from="patient" />}
       </div>
     </>
   )

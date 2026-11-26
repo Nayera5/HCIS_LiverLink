@@ -62,7 +62,10 @@ class Prescription(models.Model):
         COMPLETED = 'completed', 'Completed'
 
     patient = models.ForeignKey('registry.Patient', on_delete=models.PROTECT, related_name='prescriptions')
-    # encounter FK is added when the EMR Encounter model exists (apps/emr is still a stub).
+    encounter = models.ForeignKey(
+        'emr.Encounter', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='prescriptions',
+    )
     prescribed_by = models.ForeignKey('accounts.Staff', on_delete=models.PROTECT, related_name='prescriptions')
     drug = models.ForeignKey(Drug, on_delete=models.PROTECT, related_name='prescriptions')
     dose = models.CharField(max_length=100, help_text='Dose per intake, e.g. 300 mg.')
@@ -118,6 +121,10 @@ class TreatmentPlan(models.Model):
     EDITABLE_FIELDS = ('plan_type', 'goals', 'steps', 'start_date', 'review_date')
 
     patient = models.ForeignKey('registry.Patient', on_delete=models.PROTECT, related_name='treatment_plans')
+    encounter = models.ForeignKey(
+        'emr.Encounter', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='treatment_plans',
+    )
     created_by = models.ForeignKey('accounts.Staff', on_delete=models.PROTECT, related_name='treatment_plans')
     plan_type = models.CharField(max_length=25, choices=PlanType.choices)
     goals = models.TextField()

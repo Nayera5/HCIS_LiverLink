@@ -2,11 +2,10 @@ import { useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
 import { listLabOrders } from '../../api/labs'
-import { useAuth } from '../../auth/authContext'
 import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
 import { EmptyState, LoadingBlock, Pagination } from '../../components/ui/Feedback'
-import { FlaskIcon, PlusIcon } from '../../components/ui/icons'
+import { FlaskIcon } from '../../components/ui/icons'
 import PageHeader from '../../components/ui/PageHeader'
 import Panel from '../../components/ui/Panel'
 import SelectField from '../../components/ui/SelectField'
@@ -20,7 +19,6 @@ const PAGE_SIZE = 20
 const FILTER_KEYS = ['status', 'priority', 'patient', 'page']
 
 export default function LabOrdersPage() {
-  const { can } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = Object.fromEntries(FILTER_KEYS.map((key) => [key, searchParams.get(key) || '']))
   const page = Number(filters.page) || 1
@@ -42,16 +40,7 @@ export default function LabOrdersPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Laboratory"
-        title="Lab orders"
-        actions={can('labs.order') && (
-          <Button as={Link} to={filters.patient ? `/lab/orders/new?patient=${filters.patient}` : '/lab/orders/new'}
-            icon={PlusIcon}>
-            New lab order
-          </Button>
-        )}
-      />
+      <PageHeader eyebrow="Laboratory" title="Lab orders" />
 
       <Panel flush>
         <div className="filter-bar filter-bar--labs">
@@ -122,8 +111,7 @@ export default function LabOrdersPage() {
         ) : (
           <EmptyState icon={FlaskIcon} title={hasFilters ? 'No lab orders match' : 'No lab orders yet'}>
             {hasFilters ? 'Try other filters.'
-              : can('labs.order') ? 'Order tests for a patient to see them here.'
-                : 'Lab orders appear here once a doctor places them.'}
+              : 'Lab orders appear here once a doctor creates them during an encounter.'}
           </EmptyState>
         )}
       </Panel>

@@ -2,6 +2,8 @@ import re
 
 from rest_framework import serializers
 
+from apps.accounts.rbac import get_staff_profile
+from apps.emr.models import Encounter
 from apps.registry.models import Patient
 
 from .models import Drug, Prescription, Route, TreatmentPlan
@@ -70,7 +72,7 @@ class PrescriptionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Prescription
-        fields = ['id', 'patient', 'patient_mrn', 'patient_name', 'prescribed_by', 'prescribed_by_name',
+        fields = ['id', 'patient', 'encounter', 'patient_mrn', 'patient_name', 'prescribed_by', 'prescribed_by_name',
                   'drug', 'drug_name', 'drug_code', 'dose', 'route', 'route_label', 'frequency',
                   'start_date', 'end_date', 'duration_days', 'instructions', 'status', 'is_current',
                   'stopped_at', 'stop_reason', 'created_at']
@@ -97,6 +99,7 @@ class MyPrescriptionSerializer(PrescriptionSerializer):
 
 class PrescriptionCreateSerializer(serializers.Serializer):
     patient = serializers.PrimaryKeyRelatedField(queryset=Patient.objects.all())
+    encounter = serializers.PrimaryKeyRelatedField(queryset=Encounter.objects.all())
     drug = serializers.PrimaryKeyRelatedField(queryset=Drug.objects.all())
     dose = serializers.CharField(max_length=100)
     route = serializers.ChoiceField(choices=Route.choices)
@@ -106,6 +109,7 @@ class PrescriptionCreateSerializer(serializers.Serializer):
     instructions = serializers.CharField(required=False, allow_blank=True, default='')
 
     def validate(self, attrs):
+        _validate_encounter(attrs, self.context)
         end = attrs.get('end_date')
         if end is not None and end <= attrs['start_date']:
             raise serializers.ValidationError({'end_date': 'The end date must be after the start date.'})
@@ -129,7 +133,7 @@ class TreatmentPlanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TreatmentPlan
-        fields = ['id', 'patient', 'patient_mrn', 'patient_name', 'created_by', 'created_by_name', 'plan_type',
+        fields = ['id', 'patient', 'encounter', 'patient_mrn', 'patient_name', 'created_by', 'created_by_name', 'plan_type',
                   'plan_type_label', 'goals', 'steps', 'start_date', 'review_date', 'review_due', 'status',
                   'created_at', 'updated_at']
         read_only_fields = fields
@@ -150,6 +154,7 @@ class MyTreatmentPlanSerializer(TreatmentPlanSerializer):
 
 class TreatmentPlanCreateSerializer(serializers.Serializer):
     patient = serializers.PrimaryKeyRelatedField(queryset=Patient.objects.all())
+    encounter = serializers.PrimaryKeyRelatedField(queryset=Encounter.objects.all())
     plan_type = serializers.ChoiceField(choices=TreatmentPlan.PlanType.choices)
     goals = serializers.CharField()
     steps = serializers.CharField(required=False, allow_blank=True, default='')
@@ -157,10 +162,25 @@ class TreatmentPlanCreateSerializer(serializers.Serializer):
     review_date = serializers.DateField(required=False, allow_null=True)
 
     def validate(self, attrs):
+        _validate_encounter(attrs, self.context)
         review = attrs.get('review_date')
         if review is not None and review < attrs['start_date']:
             raise serializers.ValidationError({'review_date': 'The review date cannot be before the start date.'})
         return attrs
+
+
+def _validate_encounter(attrs, context):
+    encounter = attrs['encounter']
+    if encounter.patient_id != attrs['patient'].pk:
+        raise serializers.ValidationError({'encounter': 'This encounter belongs to another patient.'})
+    if encounter.status != Encounter.Status.OPEN:
+        raise serializers.ValidationError({'encounter': 'Orders can only be created during an open encounter.'})
+    request = context.get('request')
+    staff = get_staff_profile(request.user) if request else None
+    if staff is None or staff.pk != encounter.staff_id:
+        raise serializers.ValidationError(
+            {'encounter': 'Only the treating doctor can create records for this encounter.'}
+        )
 
 
 class TreatmentPlanUpdateSerializer(serializers.Serializer):

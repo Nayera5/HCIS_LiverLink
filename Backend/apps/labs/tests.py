@@ -6,6 +6,7 @@ from django.core.cache import cache
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import AuditLog, Staff, User
+from apps.emr.models import Encounter
 from apps.registry.models import Patient
 
 from .models import LabOrder, LabResult, LabTest
@@ -45,6 +46,7 @@ class LabApiTests(APITestCase):
         self.coord = make_staff('coord', T.TRANSPLANT_COORDINATOR)
         self.billing = make_staff('bill', T.BILLING_ADMIN)
         self.patient = make_patient()
+        self.encounter = Encounter.objects.create(patient=self.patient, staff=self.doctor.staff_profile)
         self.pat_user = User.objects.create_user('pat', 'pat@lh.test', PW, role='patient')
         self.patient.user = self.pat_user
         self.patient.save()
@@ -52,9 +54,11 @@ class LabApiTests(APITestCase):
                                            normal_min=Decimal('0.1'), normal_max=Decimal('1.2'))
         self.alt = LabTest.objects.create(code='1742-6', name='ALT', normal_min=7, normal_max=56)
 
-    def order(self, tests=None, priority='routine'):
+    def order(self, tests=None, priority='routine', encounter=None):
         self.client.force_authenticate(self.doctor)
-        r = self.client.post('/api/lab/orders/', {'patient': self.patient.pk, 'priority': priority,
+        r = self.client.post('/api/lab/orders/', {'patient': self.patient.pk,
+                                                  'encounter': (encounter or self.encounter).pk,
+                                                  'priority': priority,
                                                   'tests': [t.pk for t in (tests or [self.bili, self.alt])]},
                              format='json')
         self.assertEqual(r.status_code, 201, r.data)
@@ -63,6 +67,7 @@ class LabApiTests(APITestCase):
     def test_order_creates_pending_results_and_audit(self):
         data = self.order()
         self.assertEqual(data['status'], 'ordered')
+        self.assertEqual(data['encounter'], self.encounter.pk)
         self.assertEqual(len(data['results']), 2)
         self.assertTrue(all(x['is_pending'] for x in data['results']))
         self.assertTrue(AuditLog.objects.filter(entity_type='labs.laborder', action='create').exists())
@@ -105,6 +110,22 @@ class LabApiTests(APITestCase):
         r = self.client.post('/api/lab/orders/', {'patient': self.patient.pk, 'tests': [self.bili.pk, self.bili.pk]},
                              format='json')
         self.assertEqual(r.status_code, 400)
+
+    def test_orders_require_the_treating_doctors_open_matching_encounter(self):
+        payload = {'patient': self.patient.pk, 'encounter': self.encounter.pk, 'tests': [self.bili.pk]}
+        self.client.force_authenticate(self.doctor)
+        self.assertEqual(self.client.post('/api/lab/orders/', {'patient': self.patient.pk,
+                             'tests': [self.bili.pk]}, format='json').status_code, 400)
+        other_encounter = Encounter.objects.create(patient=self.patient, staff=self.coord.staff_profile)
+        self.assertEqual(self.client.post('/api/lab/orders/', {**payload, 'encounter': other_encounter.pk},
+                             format='json').status_code, 400)
+        other_patient = make_patient(first_name='Other', phone='01009999999')
+        self.assertEqual(self.client.post('/api/lab/orders/', {'patient': other_patient.pk,
+                             'encounter': self.encounter.pk, 'tests': [self.bili.pk]},
+                             format='json').status_code, 400)
+        self.encounter.status = Encounter.Status.SIGNED
+        self.encounter.save(update_fields=['status'])
+        self.assertEqual(self.client.post('/api/lab/orders/', payload, format='json').status_code, 400)
 
     def test_result_entry_flags_and_status_flow(self):
         data = self.order()
@@ -209,6 +230,20 @@ class LabApiTests(APITestCase):
         # Staff cannot use the patient endpoint.
         self.client.force_authenticate(self.doctor)
         self.assertEqual(self.client.get('/api/lab/my/orders/').status_code, 403)
+
+    def test_patient_orders_can_be_filtered_by_encounter(self):
+        first = self.order()
+        other_encounter = Encounter.objects.create(patient=self.patient, staff=self.doctor.staff_profile)
+        second = self.order(encounter=other_encounter)
+        self.client.force_authenticate(self.pat_user)
+
+        first_response = self.client.get(f'/api/lab/my/orders/?encounter={self.encounter.pk}')
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual([order['id'] for order in first_response.data['results']], [first['id']])
+
+        second_response = self.client.get(f'/api/lab/my/orders/?encounter={other_encounter.pk}')
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual([order['id'] for order in second_response.data['results']], [second['id']])
 
     def test_release_requires_results(self):
         data = self.order()

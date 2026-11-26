@@ -6,12 +6,12 @@ export function listLabTests() {
   return authRequest('/lab/tests/')
 }
 
-/** params: { patient, status, priority, page, page_size } */
+/** params: { patient, encounter, status, priority, page, page_size } */
 export function listLabOrders(params = {}) {
   return authRequest(`/lab/orders/${toQuery(params)}`)
 }
 
-/** data: { patient, priority, tests: [labTestId, ...] } */
+/** data: { patient, encounter, priority, tests: [labTestId, ...] } */
 export function createLabOrder(data) {
   return authRequest('/lab/orders/', { method: 'POST', body: data })
 }
@@ -48,7 +48,7 @@ export function getPatientTrend(patientId, testCode) {
   return authRequest(`/lab/patients/${patientId}/trends/${toQuery({ test: testCode })}`)
 }
 
-/** The signed-in patient's own orders, with a status per test (no values). */
+/** The signed-in patient's own orders, with a status per test (no values). params: { encounter, page, page_size } */
 export function listMyLabOrders(params = {}) {
   return authRequest(`/lab/my/orders/${toQuery(params)}`)
 }

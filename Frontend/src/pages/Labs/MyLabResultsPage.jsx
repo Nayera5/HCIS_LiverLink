@@ -88,18 +88,15 @@ function MyLabResults() {
 }
 
 function Summary({ latest }) {
-  const critical = latest.filter((r) => r.flag === 'critical')
+  if (latest.some((r) => r.flag === 'critical')) return null
+
   const abnormal = latest.filter((r) => isAbnormal(r.flag))
   const names = (list) => list.map((r) => r.test_name).join(', ')
 
   let tone = 'normal'
   let title = 'Your latest results are within the normal range'
   let text = ''
-  if (critical.length) {
-    tone = 'critical'
-    title = critical.length === 1 ? '1 result is critical' : `${critical.length} results are critical`
-    text = `${names(critical)}. Please contact your doctor as soon as possible.`
-  } else if (abnormal.length) {
+  if (abnormal.length) {
     tone = 'attention'
     title = abnormal.length === 1 ? '1 result is outside the normal range' : `${abnormal.length} results are outside the normal range`
     text = `${names(abnormal)}. Please discuss this with your doctor.`

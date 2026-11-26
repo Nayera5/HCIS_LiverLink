@@ -126,6 +126,9 @@ class EncounterViewSet(EMRViewSet):
     def perform_destroy(self, instance):
         if instance.status == Encounter.Status.SIGNED:
             raise ValidationError("Signed encounters cannot be deleted.")
+        if (instance.lab_orders.exists() or instance.prescriptions.exists()
+                or instance.treatment_plans.exists()):
+            raise ValidationError("An encounter with linked clinical orders or plans cannot be deleted.")
         super().perform_destroy(instance)
 
     @action(detail=True, methods=["post"])

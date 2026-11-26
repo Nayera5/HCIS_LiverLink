@@ -10,6 +10,9 @@ import { useApi } from '../../hooks/useApi'
 import { ageSex, categoryBadge, patientName } from '../Patients/patientDisplay'
 import { ImagingOrdersPanel } from '../Imaging/imagingParts'
 import { PatientImagingReportsPanel } from '../Reports/reportPanels'
+import PatientLabResultsPanel from '../Labs/PatientLabResultsPanel'
+import PatientMedicationsPanel from '../Prescriptions/PatientMedicationsPanel'
+import PatientTreatmentPlansPanel from '../Prescriptions/PatientTreatmentPlansPanel'
 import { DocumentsPanel, EncountersPanel, HistoryPanel } from './emrPanels'
 import '../Patients/Patients.css'
 
@@ -51,11 +54,14 @@ export default function MedicalRecordPage() {
       <div className="content-grid">
         <div className="content-stack">
           <EncountersPanel patientId={patient.id} canCreate={canEdit} encounterLink={(encId) => `/encounters/${encId}`} />
+          {can('labs.view') && <PatientLabResultsPanel patientId={patient.id} />}
+          {can('prescriptions.view') && <PatientMedicationsPanel patientId={patient.id} />}
           {can('imaging.view') && <ImagingOrdersPanel patientId={patient.id} canOrder={false} />}
           <DocumentsPanel patientId={patient.id} canEdit={canEdit} />
         </div>
         <div className="content-stack">
           <HistoryPanel patientId={patient.id} canEdit={canEdit} />
+          {can('treatment_plans.view') && <PatientTreatmentPlansPanel patientId={patient.id} />}
           {can('reports.imaging_patient') && <PatientImagingReportsPanel />}
         </div>
       </div>

@@ -1,6 +1,9 @@
 import { useCallback, useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { getErrorMessage } from '../../api/auth'
+import { listLabOrders, listMyLabOrders } from '../../api/labs'
+import { createTreatmentPlan, getMyMedications, listPrescriptions } from '../../api/prescriptions'
+import { loadAllPages } from '../../api/pagination'
 import {
   addAddendum, createDiagnosis, createVitals, deleteDiagnosis, deleteVitals, getEncounter, signEncounter,
   updateDiagnosis, updateEncounter,
@@ -11,14 +14,19 @@ import { useAuth } from '../../auth/authContext'
 import Alert from '../../components/ui/Alert'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
-import { ConfirmDialog, LoadingBlock } from '../../components/ui/Feedback'
+import { ConfirmDialog, EmptyState, LoadingBlock } from '../../components/ui/Feedback'
 import PageHeader from '../../components/ui/PageHeader'
 import Panel from '../../components/ui/Panel'
 import TextField from '../../components/ui/TextField'
 import { useApi } from '../../hooks/useApi'
 import { formatDateTime } from '../../utils/format'
 import { ImagingOrdersPanel } from '../Imaging/imagingParts'
+import { LabOrderForm } from '../Labs/LabOrderCreatePage'
+import { priorityBadge, statusBadge } from '../Labs/labDisplay'
 import { patientName } from '../Patients/patientDisplay'
+import PlanForm from '../Prescriptions/PlanForm'
+import { MedicationTable } from '../Prescriptions/PatientMedicationsPanel'
+import { PrescriptionForm } from '../Prescriptions/PrescribePage'
 import { TextAreaField } from './emrPanels'
 import {
   DIAGNOSIS_STATUS, ENCOUNTER_STATUS, diagnosisPayload, encounterPayload, formatBp, validateDiagnosis,
@@ -322,6 +330,205 @@ function AddendaPanel({ encounter, canAdd, onChanged }) {
   )
 }
 
+function EncounterPlanPanel({ encounter, canCreate, canReferTransplant }) {
+  const [adding, setAdding] = useState(false)
+  const [flash, setFlash] = useState('')
+
+  const create = async (payload) => {
+    const plan = await createTreatmentPlan({
+      ...payload, patient: encounter.patient, encounter: encounter.encounter_id,
+    })
+    setAdding(false)
+    setFlash(plan.transplant_case_id
+      ? `Treatment plan created. Transplant case #${plan.transplant_case_id} ${plan.transplant_case_created ? 'was created' : 'is already open'}.`
+      : 'Treatment plan created.')
+  }
+
+  return (
+    <Panel title="Treatment plan" subtitle="Create a plan for this encounter."
+      action={canCreate && !adding && (
+        <Button size="sm" variant="secondary" onClick={() => { setAdding(true); setFlash('') }}>New plan</Button>
+      )}>
+      {flash && <Alert variant="success">{flash}</Alert>}
+      {adding && (
+        <PlanForm onSubmit={create} onCancel={() => setAdding(false)} canReferTransplant={canReferTransplant} />
+      )}
+      {!adding && !flash && canCreate && <p className="muted-text">Plans are added to the patient’s medical record.</p>}
+      {!canCreate && <p className="muted-text">Treatment plans created during encounters appear in the medical record.</p>}
+    </Panel>
+  )
+}
+
+function EncounterLabOrderPanel({ encounter, canView, canCreate }) {
+  const [adding, setAdding] = useState(false)
+  const [flash, setFlash] = useState('')
+  const loader = useCallback(
+    () => canView ? loadAllPages(listLabOrders, { encounter: encounter.encounter_id }) : Promise.resolve([]),
+    [canView, encounter.encounter_id],
+  )
+  const { data: orders, error, loading, reload } = useApi(loader)
+
+  return (
+    <Panel title="Lab orders" subtitle="Order tests directly in this encounter."
+      action={canCreate && !adding && (
+        <Button size="sm" variant="secondary" onClick={() => { setAdding(true); setFlash('') }}>Order labs</Button>
+      )}>
+      {flash && <Alert variant="success">{flash}</Alert>}
+      {canView && error && <Alert variant="error">{getErrorMessage(error, 'Could not load encounter lab orders.')}</Alert>}
+      {canView && loading && !orders && <LoadingBlock label="Loading encounter lab orders" />}
+      {canView && orders?.length > 0 && (
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr><th scope="col">Ordered</th><th scope="col">Tests</th><th scope="col">Priority</th><th scope="col">Status</th></tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order.id}>
+                  <td>{formatDateTime(order.order_date)}</td>
+                  <td>
+                    <Link to={`/lab/orders/${order.id}`}>Order #{order.id}</Link>
+                    <div className="cell-secondary">{order.results.map((result) => result.test_name).join(', ')}</div>
+                  </td>
+                  <td>{priorityBadge(order.priority)}</td>
+                  <td>{statusBadge(order.status)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {canView && !loading && !error && !orders?.length && (
+        <EmptyState title="No lab orders for this encounter">
+          {canCreate ? 'Orders placed during this encounter will appear here.' : null}
+        </EmptyState>
+      )}
+      {adding && (
+        <LabOrderForm
+          patient={{ id: encounter.patient }}
+          encounter={encounter}
+          onCreated={(order) => {
+            setAdding(false)
+            setFlash(`Lab order #${order.id} created for this encounter.`)
+            reload()
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      )}
+    </Panel>
+  )
+}
+
+function EncounterPrescriptionPanel({ encounter, canView, canCreate }) {
+  const [adding, setAdding] = useState(false)
+  const [flash, setFlash] = useState('')
+  const loader = useCallback(
+    () => canView ? loadAllPages(listPrescriptions, { encounter: encounter.encounter_id }) : Promise.resolve([]),
+    [canView, encounter.encounter_id],
+  )
+  const { data: prescriptions, error, loading, reload } = useApi(loader)
+
+  return (
+    <Panel title="Prescription" subtitle="Prescribe medication directly in this encounter."
+      action={canCreate && !adding && (
+        <Button size="sm" variant="secondary" onClick={() => { setAdding(true); setFlash('') }}>Prescribe</Button>
+      )}>
+      {flash && <Alert variant="success">{flash}</Alert>}
+      {canView && error && <Alert variant="error">{getErrorMessage(error, 'Could not load encounter prescriptions.')}</Alert>}
+      {canView && loading && !prescriptions && <LoadingBlock label="Loading encounter prescriptions" />}
+      {canView && prescriptions?.length > 0 && <MedicationTable items={prescriptions} />}
+      {canView && !loading && !error && !prescriptions?.length && (
+        <EmptyState title="No prescriptions for this encounter">
+          {canCreate ? 'Prescriptions created during this encounter will appear here.' : null}
+        </EmptyState>
+      )}
+      {adding && (
+        <PrescriptionForm
+          patient={{ id: encounter.patient }}
+          encounter={encounter}
+          onCreated={(drug) => {
+            setAdding(false)
+            setFlash(`${drug.name} prescribed for this encounter.`)
+            reload()
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      )}
+    </Panel>
+  )
+}
+
+const PATIENT_TEST_STATES = {
+  pending: { tone: 'info', label: 'Waiting for the lab' },
+  awaiting_review: { tone: 'warning', label: 'Being reviewed by your doctor' },
+  available: { tone: 'success', label: 'Result available' },
+}
+
+function PatientEncounterLabPanel({ encounter }) {
+  const loader = useCallback(
+    () => loadAllPages(listMyLabOrders, { encounter: encounter.encounter_id }),
+    [encounter.encounter_id],
+  )
+  const { data: orders, error, loading } = useApi(loader)
+
+  return (
+    <Panel title="Tests requested" subtitle="Tests ordered for this encounter">
+      {error && <Alert variant="error">{getErrorMessage(error, 'Could not load tests for this encounter.')}</Alert>}
+      {loading && !orders && <LoadingBlock label="Loading requested tests" />}
+      {orders?.map((order) => (
+        <Panel key={order.id} flush title={`Ordered ${formatDateTime(order.order_date)}`}
+          action={order.priority === 'urgent' && priorityBadge('urgent')}>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead><tr><th scope="col">Test</th><th scope="col">Status</th></tr></thead>
+              <tbody>
+                {order.tests.map((test) => {
+                  const state = PATIENT_TEST_STATES[test.state] || { tone: 'neutral', label: test.state }
+                  const cancelled = order.status === 'cancelled' && test.state !== 'available'
+                  return (
+                    <tr key={test.id}>
+                      <td className="cell-primary">{test.test_name}</td>
+                      <td>
+                        {cancelled
+                          ? <Badge>Cancelled</Badge>
+                          : <Badge tone={state.tone}>{state.label}</Badge>}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      ))}
+      {!loading && !error && !orders?.length && (
+        <EmptyState title="No tests requested for this encounter" />
+      )}
+      <p className="muted-text">Test results are shown in My Lab Results after your doctor releases them.</p>
+    </Panel>
+  )
+}
+
+function PatientEncounterPrescriptionPanel({ encounter }) {
+  const loader = useCallback(
+    () => getMyMedications({ encounter: encounter.encounter_id }),
+    [encounter.encounter_id],
+  )
+  const { data, error, loading } = useApi(loader)
+  const prescriptions = data ? [...data.current, ...data.past] : []
+
+  return (
+    <Panel title="Prescriptions" subtitle="Medication prescribed for this encounter">
+      {error && <Alert variant="error">{getErrorMessage(error, 'Could not load prescriptions for this encounter.')}</Alert>}
+      {loading && !data && <LoadingBlock label="Loading encounter prescriptions" />}
+      {prescriptions.length > 0 && <MedicationTable items={prescriptions} />}
+      {!loading && !error && data && prescriptions.length === 0 && (
+        <EmptyState title="No prescriptions for this encounter" />
+      )}
+    </Panel>
+  )
+}
+
 // ---------------------------------------------------------------------------- Page
 /**
  * One encounter. Staff route /encounters/:id (emr.view); portal route
@@ -399,11 +606,32 @@ export default function EncounterPage({ portal = false }) {
             <NotesPanel key={`${encounter.encounter_id}-${encounter.status}`} encounter={encounter}
               editable={editable} onSaved={reload} />
             <VitalsPanel encounter={encounter} editable={editable} onChanged={reload} />
+            {portal && <PatientEncounterLabPanel encounter={encounter} />}
+            {portal && <PatientEncounterPrescriptionPanel encounter={encounter} />}
+            {!portal && (can('labs.view') || (encounter.can_sign && can('labs.order'))) && (
+              <EncounterLabOrderPanel
+                encounter={encounter}
+                canView={can('labs.view')}
+                canCreate={encounter.can_sign && can('labs.order')}
+              />
+            )}
+            {!portal && (can('prescriptions.view') || (encounter.can_sign && can('prescriptions.prescribe'))) && (
+              <EncounterPrescriptionPanel
+                encounter={encounter}
+                canView={can('prescriptions.view')}
+                canCreate={encounter.can_sign && can('prescriptions.prescribe')}
+              />
+            )}
           </div>
           <div className="content-stack">
             <DiagnosesPanel encounter={encounter} editable={editable} canWrite={canWrite} onChanged={reload} />
             {!portal && can('imaging.view') && (
               <ImagingOrdersPanel patientId={encounter.patient} encounterId={encounter.encounter_id} />
+            )}
+            {!portal && (
+              <EncounterPlanPanel encounter={encounter}
+                canCreate={can('treatment_plans.manage') && encounter.can_sign}
+                canReferTransplant={can('transplant.refer')} />
             )}
             <AddendaPanel encounter={encounter} canAdd={canWrite && !isOpen} onChanged={reload} />
           </div>

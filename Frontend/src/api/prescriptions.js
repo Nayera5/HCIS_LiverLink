@@ -19,12 +19,12 @@ export function updateDrug(id, changes) {
 
 // ------------------------------------------------------------------ prescriptions
 
-/** params: { patient, status, page, page_size } */
+/** params: { patient, encounter, status, page, page_size } */
 export function listPrescriptions(params = {}) {
   return authRequest(`/rx/prescriptions/${toQuery(params)}`)
 }
 
-/** data: { patient, drug, dose, route, frequency, start_date, end_date?, instructions? } */
+/** data: { patient, encounter, drug, dose, route, frequency, start_date, end_date?, instructions? } */
 export function createPrescription(data) {
   return authRequest('/rx/prescriptions/', { method: 'POST', body: data })
 }
@@ -42,8 +42,9 @@ export function getPatientMedications(patientId) {
   return authRequest(`/rx/patients/${patientId}/medications/`)
 }
 
-export function getMyMedications() {
-  return authRequest('/rx/my/medications/')
+/** params: { encounter } */
+export function getMyMedications(params = {}) {
+  return authRequest(`/rx/my/medications/${toQuery(params)}`)
 }
 
 // ------------------------------------------------------------------ treatment plans
@@ -53,7 +54,7 @@ export function listTreatmentPlans(params = {}) {
   return authRequest(`/rx/plans/${toQuery(params)}`)
 }
 
-/** data: { patient, plan_type, goals, steps?, start_date, review_date? } */
+/** data: { patient, encounter, plan_type, goals, steps?, start_date, review_date? } */
 export function createTreatmentPlan(data) {
   return authRequest('/rx/plans/', { method: 'POST', body: data })
 }

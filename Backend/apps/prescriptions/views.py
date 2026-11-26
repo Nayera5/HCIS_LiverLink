@@ -126,7 +126,7 @@ class DrugDetailView(generics.RetrieveUpdateAPIView):
 
 class PrescriptionListCreateView(generics.ListCreateAPIView):
     """
-    GET  /api/rx/prescriptions/?patient=&status=    (prescriptions.view)
+    GET  /api/rx/prescriptions/?patient=&encounter=&status=    (prescriptions.view)
     POST /api/rx/prescriptions/                     (prescriptions.prescribe: doctors only)
     """
     serializer_class = PrescriptionSerializer
@@ -143,10 +143,12 @@ class PrescriptionListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(patient_id=int(p['patient']))
         if p.get('status') in Prescription.Status.values:
             qs = qs.filter(status=p['status'])
+        if p.get('encounter', '').isdigit():
+            qs = qs.filter(encounter_id=int(p['encounter']))
         return qs
 
     def create(self, request, *args, **kwargs):
-        ser = PrescriptionCreateSerializer(data=request.data)
+        ser = PrescriptionCreateSerializer(data=request.data, context={'request': request})
         ser.is_valid(raise_exception=True)
         staff = _doctor(request)
         if staff is None:
@@ -219,14 +221,18 @@ class PatientMedicationsView(APIView):
 
 
 class MyMedicationsView(APIView):
-    """GET /api/rx/my/medications/  the signed-in patient's own medications."""
+    """GET /api/rx/my/medications/?encounter=  the signed-in patient's own medications."""
     permission_classes = [IsAuthenticated, HasCapability('self.medications')]
 
     def get(self, request):
         patient = _own_patient(request)
         if patient is None:
             return Response({'current': [], 'past': []})
-        current, past = _split_medications(_rx_qs().filter(patient=patient))
+        qs = _rx_qs().filter(patient=patient)
+        encounter = request.query_params.get('encounter', '')
+        if encounter.isdigit():
+            qs = qs.filter(encounter_id=int(encounter))
+        current, past = _split_medications(qs)
         return Response({'current': MyPrescriptionSerializer(current, many=True).data,
                          'past': MyPrescriptionSerializer(past, many=True).data})
 
@@ -266,7 +272,7 @@ class TreatmentPlanListCreateView(generics.ListCreateAPIView):
         return resp
 
     def create(self, request, *args, **kwargs):
-        ser = TreatmentPlanCreateSerializer(data=request.data)
+        ser = TreatmentPlanCreateSerializer(data=request.data, context={'request': request})
         ser.is_valid(raise_exception=True)
         staff = _doctor(request)
         if staff is None:

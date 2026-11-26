@@ -9,6 +9,7 @@ from django.core.management import call_command
 from django.test import override_settings
 
 from apps.accounts.models import AuditLog, User
+from apps.labs.models import LabOrder
 from apps.registry.models import Consent
 from apps.registry.test_api import PW, PatientAPITestBase, make_patient
 
@@ -93,6 +94,14 @@ class EncounterTests(EMRTestBase):
         r = self.client.post(f'{ENC}{enc.pk}/addenda/', {'text': 'Correction'}, format='json')
         self.assertEqual(r.status_code, 201)
         self.assertEqual(r.data['author_name'], 'Hep Staff')
+
+    def test_encounter_with_linked_lab_order_cannot_be_deleted(self):
+        enc = self.encounter()
+        LabOrder.objects.create(patient=self.own, encounter=enc, ordered_by=self.hep.staff_profile)
+        self.as_(self.hep)
+        response = self.client.delete(f'{ENC}{enc.pk}/')
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(Encounter.objects.filter(pk=enc.pk).exists())
 
     def test_writes_are_audited_with_patient(self):
         r = self.create(self.hep)

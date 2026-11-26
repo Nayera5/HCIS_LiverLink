@@ -1,25 +1,18 @@
-import { useCallback, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useState } from 'react'
 import { getErrorMessage } from '../../api/auth'
 import { fieldErrors } from '../../api/http'
-import { getPatient } from '../../api/patients'
 import { createPrescription } from '../../api/prescriptions'
 import Alert from '../../components/ui/Alert'
 import Button from '../../components/ui/Button'
-import { LoadingBlock } from '../../components/ui/Feedback'
-import PageHeader from '../../components/ui/PageHeader'
 import Panel from '../../components/ui/Panel'
 import SelectField from '../../components/ui/SelectField'
 import TextAreaField from '../../components/ui/TextAreaField'
 import TextField from '../../components/ui/TextField'
-import { useApi } from '../../hooks/useApi'
-import { ageSex, patientName } from '../Patients/patientDisplay'
 import DrugAutocomplete from './DrugAutocomplete'
 import { addDays, daysBetween, FREQUENCY_SUGGESTIONS, ROUTE_OPTIONS, todayIso, validatePrescription } from './rxFormat'
 import './Prescriptions.css'
 
-function PrescriptionForm({ patient }) {
-  const navigate = useNavigate()
+export function PrescriptionForm({ patient, encounter, onCreated, onCancel }) {
   const [drug, setDrug] = useState(null)
   const [form, setForm] = useState({
     dose: '', route: '', frequency: '', start_date: todayIso(), duration_days: '', end_date: '', instructions: '',
@@ -66,14 +59,18 @@ function PrescriptionForm({ patient }) {
     setSaving(true)
     try {
       await createPrescription({
-        patient: patient.id, drug: drug.id, dose: form.dose.trim(), route: form.route,
+        patient: patient.id, encounter: encounter.encounter_id, drug: drug.id,
+        dose: form.dose.trim(), route: form.route,
         frequency: form.frequency.trim(), start_date: form.start_date, end_date: form.end_date || null,
         instructions: form.instructions.trim(),
       })
-      navigate(`/patients/${patient.id}`, { state: { flash: `${drug.name} prescribed.` } })
+      onCreated(drug)
     } catch (err) {
       const fields = fieldErrors(err)
-      setErrors(Object.keys(fields).length ? fields : { form: getErrorMessage(err, 'Could not save the prescription.') })
+      setErrors(Object.keys(fields).length
+        ? { ...fields, form: fields.form || fields.encounter || '' }
+        : { form: getErrorMessage(err, 'Could not save the prescription.') })
+    } finally {
       setSaving(false)
     }
   }
@@ -111,41 +108,9 @@ function PrescriptionForm({ patient }) {
           onChange={set('instructions')} placeholder="e.g. take with food; check trough level in 1 week" />
       </Panel>
       <div className="form-actions">
-        <Button as={Link} to={`/patients/${patient.id}`} variant="secondary">Cancel</Button>
+        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
         <Button type="submit" loading={saving}>Prescribe</Button>
       </div>
     </form>
-  )
-}
-
-/** /rx/new?patient=<id>  E-prescription (doctors only: prescriptions.prescribe). */
-export default function PrescribePage() {
-  const [searchParams] = useSearchParams()
-  const patientId = searchParams.get('patient')
-  const loader = useCallback(() => (patientId ? getPatient(patientId) : Promise.resolve(null)), [patientId])
-  const { data: patient, error, loading } = useApi(loader)
-
-  return (
-    <>
-      <PageHeader back={patientId ? { to: `/patients/${patientId}`, label: 'Patient profile' } : { to: '/patients', label: 'Patients' }}
-        eyebrow="Prescriptions" title="New prescription" />
-      {!patientId ? (
-        <Alert variant="info">
-          Open a patient’s profile from <Link to="/patients">Patients</Link> and choose “Prescribe”.
-        </Alert>
-      ) : loading && !patient ? (
-        <LoadingBlock label="Loading patient" />
-      ) : error ? (
-        <Alert variant="error">{getErrorMessage(error, 'Could not load this patient.')}</Alert>
-      ) : patient ? (
-        <div className="content-stack">
-          <div className="patient-summary">
-            <span className="patient-summary__mrn">{patientName(patient)}</span>
-            <span className="muted-text">· {patient.mrn} · {ageSex(patient)}</span>
-          </div>
-          <PrescriptionForm patient={patient} />
-        </div>
-      ) : null}
-    </>
   )
 }
